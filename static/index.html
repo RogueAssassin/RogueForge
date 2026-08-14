@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>RogueForge</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="background"></div><div class="ambient one"></div><div class="ambient two"></div>
+<main class="shell">
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">RF</div><div><h1>RogueForge</h1><p>Container & stack command centre</p></div></div>
+    <div class="engine-pill" id="engine">Connecting…</div>
+  </header>
+  <section class="stats">
+    <div><strong id="stackCount">—</strong><span>Stacks</span></div>
+    <div><strong id="containerCount">—</strong><span>Containers</span></div>
+    <div><strong id="runningCount">—</strong><span>Running</span></div>
+    <div><strong id="engineVersion">—</strong><span>Engine version</span></div>
+  </section>
+  <nav class="tabs">
+    <button class="active" data-tab="stacks">Stacks</button>
+    <button data-tab="containers">Containers</button>
+  </nav>
+  <section id="stacks" class="panel active"><div class="grid" id="stackGrid"></div></section>
+  <section id="containers" class="panel"><div class="grid" id="containerGrid"></div></section>
+</main>
+<dialog id="editor"><form method="dialog" class="modal">
+  <header><div><h2 id="editorTitle">Compose</h2><p>Validation runs before saving.</p></div><button value="cancel">×</button></header>
+  <textarea id="composeText" spellcheck="false"></textarea>
+  <footer><button value="cancel" class="button">Cancel</button><button type="button" id="saveCompose" class="button primary">Validate & save</button></footer>
+</form></dialog>
+<dialog id="logs"><form method="dialog" class="modal logs-modal">
+  <header><div><h2 id="logsTitle">Logs</h2><p>Last 250 lines</p></div><button value="cancel">×</button></header>
+  <pre id="logText"></pre>
+  <footer><button value="cancel" class="button">Close</button></footer>
+</form></dialog>
+<script src="/app.js"></script>
+</body></html>
