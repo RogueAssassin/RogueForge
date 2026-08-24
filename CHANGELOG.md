@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.0 — Dockge-style container operations
+
+- Expanded the Containers page with state-aware Start, Stop, Restart, Update, Recreate, Inspect, Logs, and Remove controls.
+- Added Compose project/service metadata to container inventory so actions can target one service instead of recreating an entire stack.
+- Added Compose-aware per-container Update: pull the selected service image, then run `up -d --no-deps --remove-orphans <service>` when the container belongs to a Compose project.
+- Added per-service Recreate using `up -d --no-deps --force-recreate <service>`.
+- Added safe single-service removal using Compose `rm -s -f <service>` while keeping the Compose definition intact.
+- Added standalone-container image pulling without unsafe automatic recreation when the original run configuration cannot be guaranteed.
+- Added authenticated container inspection with state, timestamps, image ID, command, mounts, networks, project and service metadata.
+- Added RogueForge self-container protection so the application cannot stop, restart, update, recreate, or remove itself from inside its own request lifecycle.
+- Added responsive container action layout and richer filtering by container name, image, project and service.
+- Kept all mutations behind the existing signed-session and CSRF protections.
+- Kept rootless Podman operations on the mounted FEILSBEASTSERVER host socket and retained Docker socket compatibility.
+- Moved the new container feature surface into an extension layer so the validated 0.5.0 runtime/auth/Compose core remains unchanged underneath.
+- Updated GHCR release-tag validation, Compose defaults, environment example and installer for 0.6.0.
+
 ## 0.5.0 — Rootless Podman command and deployment reliability
 
 - Unified rootless Podman control around the mounted host Podman socket.
