@@ -17,6 +17,11 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Verify release tag matches the application version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: python3 -c "import rogueforge, os, sys; tag=os.environ['GITHUB_REF_NAME'].removeprefix('v'); sys.exit(0 if rogueforge.VERSION == tag else f'tag {tag} does not match app {rogueforge.VERSION}')"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 

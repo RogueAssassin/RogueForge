@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.2 — Login and lifecycle reliability
+
+- Fixed LAN login by setting `Secure` session cookies only for requests forwarded as HTTPS.
+- Kept secure cookies enabled behind Nginx Proxy Manager through `X-Forwarded-Proto`.
+- Pre-filled the documented default username, `administrator`, in the login form.
+- Added an in-place `upgrade.sh` with tagged-image selection, preflight pulling, environment backup, health verification, and rollback.
+- Made startup health checks tolerate transient connection resets.
+- Added a GHCR workflow guard that rejects release tags which differ from the application version.
+- Reorganized the README around first installation, updating, restarting, stopping, and password recovery.
+- Added refreshed v0.4.2 GitHub artwork.
+
 ## 0.4.1 — First-install GHCR deployment
 
 - Replaced the legacy host-service installer with a rootless Podman first-install workflow.

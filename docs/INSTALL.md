@@ -1,4 +1,4 @@
-# RogueForge 0.4.1 installation and proxy guide
+# RogueForge 0.4.2 installation and proxy guide
 
 ## Resulting server layout
 
@@ -39,7 +39,7 @@ Do not run RogueForge’s installer with `sudo`. It invokes `sudo` only when `/o
 cd /tmp
 git clone https://github.com/RogueAssassin/RogueForge.git rogueforge-install
 cd rogueforge-install
-git checkout v0.4.1
+git checkout v0.4.2
 chmod +x install.sh
 ./install.sh
 ```
@@ -53,7 +53,7 @@ To override the defaults:
   --install-dir /opt/media-server/rogueforge \
   --stacks-dir /opt/media-server \
   --icons-dir /opt/media-server/rogue-dashboard/app/static/icons \
-  --image ghcr.io/rogueassassin/rogueforge:0.4.1 \
+  --image ghcr.io/rogueassassin/rogueforge:0.4.2 \
   --host-port 17810 \
   --network media-net \
   --public-url https://manage.roguegaming.com.au \

@@ -4,7 +4,7 @@ set -Eeuo pipefail
 INSTALL_DIR=${ROGUEFORGE_INSTALL_DIR:-/opt/media-server/rogueforge}
 STACKS_DIR=${ROGUEFORGE_STACKS_DIR:-/opt/media-server}
 ICONS_DIR=${ROGUEFORGE_ICONS_DIR:-/opt/media-server/rogue-dashboard/app/static/icons}
-IMAGE=${ROGUEFORGE_IMAGE:-ghcr.io/rogueassassin/rogueforge:0.4.1}
+IMAGE=${ROGUEFORGE_IMAGE:-ghcr.io/rogueassassin/rogueforge:0.4.2}
 HOST_PORT=${ROGUEFORGE_HOST_PORT:-17810}
 PUBLIC_URL=${ROGUEFORGE_PUBLIC_URL:-https://manage.roguegaming.com.au}
 NETWORK=${ROGUEFORGE_NETWORK:-media-net}
@@ -13,14 +13,14 @@ ASSUME_YES=false
 
 usage() {
   cat <<'EOF'
-RogueForge 0.4.1 first-install helper for rootless Podman
+RogueForge 0.4.2 first-install helper for rootless Podman
 
 Usage: ./install.sh [options]
 
   --install-dir PATH   Deployment folder (default: /opt/media-server/rogueforge)
   --stacks-dir PATH    Compose stacks root (default: /opt/media-server)
   --icons-dir PATH     Existing local icon folder
-  --image IMAGE        GHCR image (default: ghcr.io/rogueassassin/rogueforge:0.4.1)
+  --image IMAGE        GHCR image (default: ghcr.io/rogueassassin/rogueforge:0.4.2)
   --host-port PORT     LAN port (default: 17810; container port remains 7810)
   --public-url URL     Public reverse-proxy URL
   --network NAME       Shared Podman network (default: media-net)
@@ -82,7 +82,7 @@ if [[ -e $INSTALL_DIR/compose.yaml || -e $INSTALL_DIR/data/auth.json ]]; then
 fi
 
 cat <<EOF
-RogueForge 0.4.1 will be installed with:
+RogueForge 0.4.2 will be installed with:
   Folder:       $INSTALL_DIR
   Stacks:       $STACKS_DIR
   Icons:        $ICONS_DIR
@@ -101,6 +101,7 @@ sudo install -d -m 0700 "$INSTALL_DIR/data"
 for file in compose.yaml setup-auth.py .env.example; do
   sudo install -m 0644 "$SOURCE/$file" "$INSTALL_DIR/$file"
 done
+sudo install -m 0755 "$SOURCE/upgrade.sh" "$INSTALL_DIR/upgrade.sh"
 sudo chown -R "$(id -u):$(id -g)" "$INSTALL_DIR"
 
 cat > "$INSTALL_DIR/.env" <<EOF
@@ -122,10 +123,10 @@ chmod 600 data/auth.json
 podman network exists "$NETWORK" || podman network create "$NETWORK"
 podman-compose pull
 podman-compose up -d
-curl --fail --silent --show-error --retry 15 --retry-delay 2 "http://127.0.0.1:$HOST_PORT/health" >/dev/null
+curl --fail --silent --show-error --retry 15 --retry-delay 2 --retry-all-errors "http://127.0.0.1:$HOST_PORT/health" >/dev/null
 
 echo
-echo "RogueForge 0.4.1 is installed and healthy."
+echo "RogueForge 0.4.2 is installed and healthy."
 echo "  Deployment: $INSTALL_DIR"
 echo "  LAN:        http://$(hostname -I | awk '{print $1}'):$HOST_PORT"
 echo "  NPM:        http://rogueforge:7810"

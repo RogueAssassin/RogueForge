@@ -139,7 +139,7 @@ class RogueForgeTests(unittest.TestCase):
         self.assertIn("ROGUEFORGE_NETWORK:-media-net", compose)
         self.assertIn("container_name: rogueforge", compose)
         self.assertIn("ghcr.io/rogueassassin/rogueforge", compose)
-        self.assertIn("ghcr.io/rogueassassin/rogueforge:0.4.1", compose)
+        self.assertIn("ghcr.io/rogueassassin/rogueforge:0.4.2", compose)
 
     def test_password_hash_and_signed_session(self):
         salt = b"s" * 24
@@ -181,14 +181,22 @@ class RogueForgeTests(unittest.TestCase):
         self.assertIn("packages: write", workflow)
         self.assertIn("ghcr.io/rogueassassin/rogueforge", workflow)
         self.assertIn("linux/amd64,linux/arm64", workflow)
+        self.assertIn("tag {tag} does not match app", workflow)
 
-    def test_release_041_assets_and_image_are_consistent(self):
+    def test_upgrader_pulls_first_and_can_rollback(self):
+        upgrader = (ROOT / "upgrade.sh").read_text(encoding="utf-8")
+        self.assertIn("VERSION=${1:-latest}", upgrader)
+        self.assertLess(upgrader.index('podman pull "$IMAGE"'), upgrader.index("sed -i"))
+        self.assertIn("Upgrade failed; restoring", upgrader)
+        self.assertIn("--retry-all-errors", upgrader)
+
+    def test_release_042_assets_and_image_are_consistent(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
-        self.assertEqual(self.app.VERSION, "0.4.1")
-        self.assertIn("rogueforge-v0.4.1-banner.png", readme)
-        self.assertTrue((ROOT / "docs" / "assets" / "rogueforge-v0.4.1-banner.png").is_file())
-        self.assertIn("ghcr.io/rogueassassin/rogueforge:0.4.1", env_example)
+        self.assertEqual(self.app.VERSION, "0.4.2")
+        self.assertIn("rogueforge-v0.4.2-banner.png", readme)
+        self.assertTrue((ROOT / "docs" / "assets" / "rogueforge-v0.4.2-banner.png").is_file())
+        self.assertIn("ghcr.io/rogueassassin/rogueforge:0.4.2", env_example)
 
     def test_migration_pulls_before_stopping_old_install(self):
         migration = (ROOT / "scripts" / "migrate-to-0.4.0.sh").read_text(encoding="utf-8")
@@ -225,8 +233,17 @@ class RogueForgeTests(unittest.TestCase):
             connection.request("POST", "/api/auth/login", body=body, headers={"content-type": "application/json"})
             response = connection.getresponse()
             login = __import__("json").loads(response.read())
-            cookie = response.getheader("set-cookie").split(";", 1)[0]
+            direct_cookie = response.getheader("set-cookie")
+            cookie = direct_cookie.split(";", 1)[0]
             self.assertEqual(response.status, 200)
+            self.assertNotIn("Secure", direct_cookie)
+
+            connection.request("POST", "/api/auth/login", body=body, headers={"content-type": "application/json", "x-forwarded-proto": "https"})
+            response = connection.getresponse()
+            proxy_cookie = response.getheader("set-cookie")
+            response.read()
+            self.assertEqual(response.status, 200)
+            self.assertIn("Secure", proxy_cookie)
 
             connection.request("POST", "/api/stacks/immich/restart", body=b"{}", headers={"content-type": "application/json", "cookie": cookie})
             response = connection.getresponse()

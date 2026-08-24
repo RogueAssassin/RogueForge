@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-IMAGE=${ROGUEFORGE_IMAGE:-ghcr.io/rogueassassin/rogueforge:0.4.1}
+IMAGE=${ROGUEFORGE_IMAGE:-ghcr.io/rogueassassin/rogueforge:0.4.2}
 TARGET=${ROGUEFORGE_TARGET:-/opt/media-server/rogueforge}
 BACKUP_ROOT=${ROGUEFORGE_BACKUP_ROOT:-/opt/rogueforge-backups}
 SOURCE=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -25,7 +25,7 @@ for command in podman podman-compose sudo python3 curl awk; do
   command -v "$command" >/dev/null || { echo "Missing required command: $command" >&2; exit 2; }
 done
 
-echo "RogueForge 0.4.1 migration"
+echo "RogueForge 0.4.2 migration"
 echo "  Image:  $IMAGE"
 echo "  Target: $TARGET"
 echo
@@ -111,7 +111,7 @@ podman exec nginx-proxy-manager getent hosts rogueforge
 migration_complete=true
 trap - ERR
 echo
-echo "RogueForge 0.4.1 migration completed."
+echo "RogueForge 0.4.2 migration completed."
 echo "  Backup: $backup"
 echo "  LAN:    http://$(hostname -I | awk '{print $1}'):$host_port"
 echo "  NPM:    http://rogueforge:7810"

@@ -25,7 +25,7 @@ import time
 import threading
 from urllib.parse import parse_qs, unquote, urlparse
 
-VERSION = "0.4.1"
+VERSION = "0.4.2"
 PORT = int(os.environ.get("ROGUEFORGE_PORT", "7810"))
 BIND = os.environ.get("ROGUEFORGE_BIND", "127.0.0.1")
 STACKS_DIR = Path(os.environ.get("ROGUEFORGE_STACKS_DIR", "/opt/stacks")).resolve()
@@ -477,7 +477,11 @@ class Handler(BaseHTTPRequestHandler):
     def session_cookie(self, token, clear=False):
         parts = [f"rogueforge_session={token}", "Path=/", "HttpOnly", "SameSite=Strict"]
         parts.append("Max-Age=0" if clear else f"Max-Age={SESSION_TTL}")
-        if PUBLIC_URL.lower().startswith("https://"):
+        # The reverse proxy terminates TLS, while direct trusted-LAN access is HTTP.
+        # Marking every cookie Secure from PUBLIC_URL alone breaks LAN sign-in because
+        # browsers correctly refuse to return Secure cookies over plain HTTP.
+        forwarded_proto = self.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip().lower()
+        if forwarded_proto == "https":
             parts.append("Secure")
         return "; ".join(parts)
 

@@ -1,6 +1,6 @@
 # RogueForge on rootless Podman and media-net
 
-RogueForge 0.4.1 is distributed as a prebuilt GHCR image and installed with a small host-side deployment bundle.
+RogueForge 0.4.2 is distributed as a prebuilt GHCR image and installed with a small host-side deployment bundle.
 
 ## Why an installer is still needed
 
@@ -21,7 +21,7 @@ Nginx Proxy Manager and RogueForge share the external `media-net` network. NPM t
 ```bash
 git clone https://github.com/RogueAssassin/RogueForge.git
 cd RogueForge
-git checkout v0.4.1
+git checkout v0.4.2
 chmod +x install.sh
 ./install.sh
 ```
@@ -29,7 +29,7 @@ chmod +x install.sh
 Run as the rootless Podman owner. The installer:
 
 1. Validates requirements and paths.
-2. Pulls `ghcr.io/rogueassassin/rogueforge:0.4.1` before host changes.
+2. Pulls `ghcr.io/rogueassassin/rogueforge:0.4.2` before host changes.
 3. Refuses to overwrite an existing deployment.
 4. Creates `/opt/media-server/rogueforge` and protected persistent data.
 5. Writes the rootless user ID and requested settings to `.env`.

@@ -1,12 +1,12 @@
-![RogueForge v0.4.1](docs/assets/rogueforge-v0.4.1-banner.png)
+![RogueForge v0.4.2](docs/assets/rogueforge-v0.4.2-banner.png)
 
-# RogueForge 0.4.1
+# RogueForge 0.4.2
 
 **A secure, local-first command centre for Podman Compose stacks.**
 
 RogueForge discovers existing stacks and containers, shows their state, reads logs, and performs authenticated lifecycle and Compose operations. Its layout is inspired by the clarity of Dockge and Uptime Kuma while retaining an original implementation and visual identity.
 
-## What v0.4.1 provides
+## What v0.4.2 provides
 
 - First-install helper that prepares `/opt/media-server/rogueforge` automatically.
 - Prebuilt multi-architecture image from GitHub Container Registry.
@@ -16,6 +16,8 @@ RogueForge discovers existing stacks and containers, shows their state, reads lo
 - Administrator login, signed sessions, CSRF protection, and throttled authentication.
 - Optional icons from `/opt/media-server/rogue-dashboard/app/static/icons`.
 - Configurable installation, stacks, icon, port, network, and public URL values.
+- Correct session cookies for direct LAN HTTP and reverse-proxied HTTPS login.
+- In-place upgrades with image preflight, health verification, and rollback.
 
 ## Install from scratch
 
@@ -34,7 +36,7 @@ Run as the rootless Podman owner—`administrator` on the reference server:
 cd /tmp
 git clone https://github.com/RogueAssassin/RogueForge.git rogueforge-install
 cd rogueforge-install
-git checkout v0.4.1
+git checkout v0.4.2
 ```
 
 ### 2. Run the installer
@@ -44,7 +46,7 @@ chmod +x install.sh
 ./install.sh
 ```
 
-The installer pulls `ghcr.io/rogueassassin/rogueforge:0.4.1` before changing the host. It then:
+The installer pulls `ghcr.io/rogueassassin/rogueforge:0.4.2` before changing the host. It then:
 
 1. Creates `/opt/media-server/rogueforge` and its protected `data/` directory.
 2. Writes `.env` and installs the Compose deployment files.
@@ -93,7 +95,37 @@ Browser :17810 ──> rogueforge :7810
 Nginx Proxy Manager ── media-net ──> rogueforge:7810
 ```
 
-## Day-to-day commands
+## Updating RogueForge
+
+Navigate to the deployment folder and provide the semantic release tag:
+
+```bash
+cd /opt/media-server/rogueforge
+chmod +x upgrade.sh
+./upgrade.sh 0.4.2
+```
+
+For a future release, replace `0.4.2` with its new tag. To deliberately follow the mutable GHCR tag:
+
+```bash
+cd /opt/media-server/rogueforge
+./upgrade.sh latest
+```
+
+The upgrader pulls first, backs up `.env`, recreates the container, tolerates transient startup connection errors, and restores the previous image if health verification fails. It preserves `data/auth.json`.
+
+Existing v0.4.1 installations need the upgrader installed once:
+
+```bash
+cd /tmp/rogueforge-install
+git fetch --tags
+git checkout v0.4.2
+sudo install -m 0755 upgrade.sh /opt/media-server/rogueforge/upgrade.sh
+cd /opt/media-server/rogueforge
+./upgrade.sh 0.4.2
+```
+
+## Restarting, logs, and stopping
 
 ```bash
 cd /opt/media-server/rogueforge
@@ -106,22 +138,32 @@ podman-compose down
 
 Do not delete `data/auth.json` unless intentionally resetting the administrator account.
 
+## Login and password recovery
+
+The default username is `administrator`, not `admin`. To replace a forgotten password and invalidate all existing sessions:
+
+```bash
+cd /opt/media-server/rogueforge
+python3 setup-auth.py --username administrator
+podman restart rogueforge
+```
+
 ## GHCR releases
 
 Normal installations pin the semantic release:
 
 ```text
-ghcr.io/rogueassassin/rogueforge:0.4.1
+ghcr.io/rogueassassin/rogueforge:0.4.2
 ```
 
-The publish workflow also produces `latest`, `0.4`, and `sha-<commit>` tags when the `v0.4.1` Git tag is pushed. Use a semantic or commit tag on servers; reserve `latest` for evaluation.
+The workflow produces `0.4.2`, `0.4`, `latest`, and `sha-<commit>` tags when `v0.4.2` is pushed. A release guard rejects a Git tag that does not match the application version.
 
-To publish v0.4.1 after committing the release source:
+To publish v0.4.2 after committing the release source:
 
 ```bash
 git push origin main
-git tag v0.4.1
-git push origin v0.4.1
+git tag v0.4.2
+git push origin v0.4.2
 ```
 
 The package must be public for anonymous Podman pulls. Private packages require `podman login ghcr.io` with a token that has package-read access.

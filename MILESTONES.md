@@ -1,5 +1,13 @@
 # RogueForge milestones
 
+## 0.4.2 — Reliable ownership
+
+- [x] LAN HTTP and reverse-proxy HTTPS login compatibility.
+- [x] Password recovery documentation.
+- [x] Tagged GHCR upgrade and rollback helper.
+- [x] Release tag/application version validation.
+- [x] Beginner-focused lifecycle documentation.
+
 ## 0.4.1 — First-install release
 
 - [x] GHCR-first rootless Podman installer.
