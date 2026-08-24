@@ -1,0 +1,32 @@
+services:
+  rogueforge:
+    image: ghcr.io/rogueassassin/rogueforge:${ROGUEFORGE_VERSION:-0.4.0}
+    container_name: rogueforge
+    hostname: rogueforge
+    restart: unless-stopped
+    ports:
+      - "${ROGUEFORGE_HOST_PORT:-17810}:7810"
+    environment:
+      ROGUEFORGE_BIND: 0.0.0.0
+      ROGUEFORGE_PORT: 7810
+      ROGUEFORGE_ENGINE: podman
+      ROGUEFORGE_SOCKET: /run/podman/podman.sock
+      ROGUEFORGE_PODMAN_REMOTE: "true"
+      ROGUEFORGE_STACKS_DIR: ${ROGUEFORGE_STACKS_DIR:-/opt/media-server}
+      ROGUEFORGE_ICONS_DIR: ${ROGUEFORGE_ICONS_DIR:-/opt/media-server/rogue-dashboard/app/static/icons}
+      ROGUEFORGE_AUTH_FILE: /opt/rogueforge/data/auth.json
+      ROGUEFORGE_PUBLIC_URL: ${ROGUEFORGE_PUBLIC_URL:-https://manage.roguegaming.com.au}
+      CONTAINER_HOST: unix:///run/podman/podman.sock
+    volumes:
+      - /run/user/${PODMAN_UID:-1000}/podman/podman.sock:/run/podman/podman.sock
+      - ${ROGUEFORGE_STACKS_DIR:-/opt/media-server}:${ROGUEFORGE_STACKS_DIR:-/opt/media-server}
+      - ./data:/opt/rogueforge/data
+    security_opt:
+      - label=disable
+    networks:
+      - media-net
+
+networks:
+  media-net:
+    external: true
+    name: media-net

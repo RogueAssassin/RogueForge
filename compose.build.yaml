@@ -1,0 +1,6 @@
+services:
+  rogueforge:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: localhost/rogueforge:dev

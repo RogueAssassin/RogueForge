@@ -1,21 +1,21 @@
 [Unit]
 Description=RogueForge Docker/Podman Stack Manager
-Wants=network-online.target podman.socket
-After=network-online.target podman.socket
-RequiresMountsFor=/opt/media-server
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=@STACKS_DIR@
 
 [Service]
 Type=simple
-EnvironmentFile=-/etc/default/rogueforge
-ExecStart=/usr/bin/python3 /opt/rogueforge/rogueforge.py
+EnvironmentFile=-@CONFIG_FILE@
+ExecStart=/usr/bin/python3 @INSTALL_DIR@/rogueforge.py
 Restart=always
 RestartSec=5
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/opt/media-server
+ReadWritePaths=@STACKS_DIR@
 ReadOnlyPaths=/run/podman/podman.sock /var/run/docker.sock
-ProtectHome=true
+ProtectHome=@PROTECT_HOME@
 
 [Install]
 WantedBy=multi-user.target

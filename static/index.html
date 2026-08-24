@@ -3,38 +3,129 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#090b10">
   <title>RogueForge</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<div class="background"></div><div class="ambient one"></div><div class="ambient two"></div>
-<main class="shell">
-  <header class="topbar">
-    <div class="brand"><div class="brand-mark">RF</div><div><h1>RogueForge</h1><p>Container & stack command centre</p></div></div>
-    <div class="engine-pill" id="engine">Connecting…</div>
-  </header>
-  <section class="stats">
-    <div><strong id="stackCount">—</strong><span>Stacks</span></div>
-    <div><strong id="containerCount">—</strong><span>Containers</span></div>
-    <div><strong id="runningCount">—</strong><span>Running</span></div>
-    <div><strong id="engineVersion">—</strong><span>Engine version</span></div>
-  </section>
-  <nav class="tabs">
-    <button class="active" data-tab="stacks">Stacks</button>
-    <button data-tab="containers">Containers</button>
-  </nav>
-  <section id="stacks" class="panel active"><div class="grid" id="stackGrid"></div></section>
-  <section id="containers" class="panel"><div class="grid" id="containerGrid"></div></section>
-</main>
-<dialog id="editor"><form method="dialog" class="modal">
-  <header><div><h2 id="editorTitle">Compose</h2><p>Validation runs before saving.</p></div><button value="cancel">×</button></header>
-  <textarea id="composeText" spellcheck="false"></textarea>
-  <footer><button value="cancel" class="button">Cancel</button><button type="button" id="saveCompose" class="button primary">Validate & save</button></footer>
-</form></dialog>
-<dialog id="logs"><form method="dialog" class="modal logs-modal">
-  <header><div><h2 id="logsTitle">Logs</h2><p>Last 250 lines</p></div><button value="cancel">×</button></header>
-  <pre id="logText"></pre>
-  <footer><button value="cancel" class="button">Close</button></footer>
-</form></dialog>
-<script src="/app.js"></script>
-</body></html>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark"><span>R</span></div>
+        <div><strong>RogueForge</strong><small>Operations console</small></div>
+      </div>
+      <nav class="primary-nav" aria-label="Primary">
+        <button class="nav-item active" data-view="overview"><span class="nav-icon">⌂</span><span>Overview</span></button>
+        <button class="nav-item" data-view="stacks"><span class="nav-icon">◇</span><span>Stacks</span><span class="nav-count" id="stackNavCount">0</span></button>
+        <button class="nav-item" data-view="containers"><span class="nav-icon">▣</span><span>Containers</span><span class="nav-count" id="containerNavCount">0</span></button>
+        <button class="nav-item disabled" title="Planned for the monitoring milestone"><span class="nav-icon">⌁</span><span>Monitors</span><span class="soon">Soon</span></button>
+        <button class="nav-item disabled" title="Planned for multi-host support"><span class="nav-icon">⌘</span><span>Hosts</span><span class="soon">Soon</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="host-card">
+          <div class="host-top"><span class="status-dot"></span><span id="engineName">Connecting</span></div>
+          <strong>Local engine</strong>
+          <small id="engineDetail">Detecting Docker or Podman…</small>
+        </div>
+        <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span><span>Settings</span></button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-button menu-button" id="menuButton" aria-label="Open navigation">☰</button>
+          <div><p class="eyebrow" id="pageEyebrow">Command centre</p><h1 id="pageTitle">Overview</h1></div>
+        </div>
+        <div class="top-actions">
+          <div class="connection"><span class="status-dot"></span><span>Connected</span></div>
+          <button class="icon-button" id="refreshButton" aria-label="Refresh">↻</button>
+          <button class="account-button" id="accountButton" aria-label="Administrator account">Sign in</button>
+        </div>
+      </header>
+
+      <section class="content">
+        <div class="view active" id="view-overview">
+          <section class="welcome">
+            <div>
+              <span class="welcome-kicker">SYSTEM READY</span>
+              <h2>Your infrastructure,<br><em>under control.</em></h2>
+              <p>Deploy, inspect, and operate every Compose stack from one focused command centre.</p>
+            </div>
+            <div class="welcome-art" aria-hidden="true"><div class="orb"><span>RF</span></div></div>
+          </section>
+
+          <section class="metrics" aria-label="System summary">
+            <article class="metric"><div class="metric-icon purple">◇</div><div><span>Stacks</span><strong id="stackCount">—</strong><small id="stackCaption">Discovering projects</small></div></article>
+            <article class="metric"><div class="metric-icon cyan">▣</div><div><span>Containers</span><strong id="containerCount">—</strong><small id="containerCaption">Across this host</small></div></article>
+            <article class="metric"><div class="metric-icon green">↑</div><div><span>Running</span><strong id="runningCount">—</strong><small>Healthy workloads</small></div></article>
+            <article class="metric"><div class="metric-icon amber">!</div><div><span>Attention</span><strong id="attentionCount">—</strong><small>Stopped workloads</small></div></article>
+          </section>
+
+          <div class="dashboard-grid">
+            <section class="section-card span-2">
+              <header class="section-head"><div><p class="eyebrow">Workloads</p><h3>Stack overview</h3></div><button class="text-button" data-go="stacks">View all <span>→</span></button></header>
+              <div class="stack-list" id="overviewStacks"><div class="empty-state">Loading stacks…</div></div>
+            </section>
+            <section class="section-card">
+              <header class="section-head"><div><p class="eyebrow">Runtime</p><h3>Engine status</h3></div><span class="live-pill"><i></i> Live</span></header>
+              <div class="engine-panel">
+                <div class="engine-gauge"><div><strong id="engineInitial">D</strong><small>ENGINE</small></div></div>
+                <dl><div><dt>Runtime</dt><dd id="engineRuntime">—</dd></div><div><dt>Version</dt><dd id="engineVersion">—</dd></div><div><dt>API</dt><dd id="apiVersion">—</dd></div><div><dt>Refresh</dt><dd>15 seconds</dd></div></dl>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="view" id="view-stacks">
+          <section class="page-intro"><div><p>Compose-native workload management with your files kept exactly where they belong.</p></div><div class="filter"><span>⌕</span><input id="stackSearch" type="search" placeholder="Filter stacks…"></div></section>
+          <div class="card-grid" id="stackGrid"></div>
+        </div>
+
+        <div class="view" id="view-containers">
+          <section class="page-intro"><div><p>Every container on the connected engine, grouped into one clear inventory.</p></div><div class="filter"><span>⌕</span><input id="containerSearch" type="search" placeholder="Filter containers…"></div></section>
+          <div class="table-card"><div class="container-table" id="containerGrid"></div></div>
+        </div>
+
+        <div class="view" id="view-settings">
+          <div class="settings-grid">
+            <section class="section-card"><header class="section-head"><div><p class="eyebrow">Runtime</p><h3>Connection</h3></div></header><div class="settings-list"><div><span>Engine socket</span><code id="socketPath">—</code></div><div><span>Podman context</span><strong id="engineContext">—</strong></div><div><span>Stacks directory</span><code id="stacksPath">—</code></div><div><span>Public URL</span><code id="publicUrl">Not configured</code></div><div><span>RogueForge version</span><strong id="appVersion">—</strong></div></div></section>
+            <section class="section-card"><header class="section-head"><div><p class="eyebrow">Security</p><h3>Exposure</h3></div></header><div class="notice"><strong>Reverse proxy recommended</strong><p>Keep RogueForge bound to localhost or a trusted network until authentication and role controls are enabled.</p></div></section>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast-region" id="toasts" aria-live="polite"></div>
+
+  <dialog id="editorDialog"><form method="dialog" class="modal wide">
+    <header><div><p class="eyebrow">Stack configuration</p><h2 id="editorTitle">Compose</h2></div><button value="cancel" class="close-button" aria-label="Close">×</button></header>
+    <div class="editor-toolbar"><span id="editorFile">compose.yaml</span><span>Validated before save · automatic backup</span></div>
+    <textarea id="composeText" spellcheck="false" aria-label="Compose YAML"></textarea>
+    <footer><button value="cancel" class="button secondary">Cancel</button><button type="button" id="saveCompose" class="button primary">Validate & save</button></footer>
+  </form></dialog>
+
+  <dialog id="logsDialog"><form method="dialog" class="modal wide">
+    <header><div><p class="eyebrow">Container output</p><h2 id="logsTitle">Logs</h2></div><button value="cancel" class="close-button" aria-label="Close">×</button></header>
+    <pre id="logText"></pre>
+    <footer><button value="cancel" class="button secondary">Close</button></footer>
+  </form></dialog>
+
+  <dialog id="confirmDialog"><form method="dialog" class="modal confirm-modal">
+    <div class="confirm-icon" id="confirmIcon">!</div><h2 id="confirmTitle">Confirm action</h2><p id="confirmMessage"></p>
+    <footer><button value="cancel" class="button secondary">Cancel</button><button value="confirm" class="button primary" id="confirmButton">Continue</button></footer>
+  </form></dialog>
+  <dialog id="loginDialog"><form class="modal login-modal" id="loginForm">
+    <header><div><p class="eyebrow">Protected operations</p><h2>Administrator sign in</h2></div><button type="button" class="close-button" id="closeLogin" aria-label="Close">×</button></header>
+    <div class="login-body">
+      <p>Sign in to view logs, edit Compose files, or control workloads.</p>
+      <label>Username<input id="loginUsername" name="username" autocomplete="username" required></label>
+      <label>Password<input id="loginPassword" name="password" type="password" autocomplete="current-password" required></label>
+      <div class="login-error" id="loginError"></div>
+    </div>
+    <footer><button type="button" class="button secondary" id="cancelLogin">Cancel</button><button type="submit" class="button primary" id="loginButton">Sign in</button></footer>
+  </form></dialog>
+  <script src="/app.js"></script>
+</body>
+</html>
