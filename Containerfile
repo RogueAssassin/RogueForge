@@ -10,6 +10,7 @@ RUN apt-get update \
 
 WORKDIR /opt/rogueforge
 COPY rogueforge.py ./rogueforge.py
+COPY rogueforge_ext.py ./rogueforge_ext.py
 COPY setup-auth.py ./setup-auth.py
 COPY static ./static
 
@@ -24,4 +25,4 @@ EXPOSE 7810
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7810/health', timeout=3)" || exit 1
 
-CMD ["python3", "/opt/rogueforge/rogueforge.py"]
+CMD ["python3", "/opt/rogueforge/rogueforge_ext.py"]
