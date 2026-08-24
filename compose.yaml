@@ -1,6 +1,6 @@
 services:
   rogueforge:
-    image: ${ROGUEFORGE_IMAGE:-ghcr.io/rogueassassin/rogueforge:0.5.0}
+    image: ${ROGUEFORGE_IMAGE:-ghcr.io/rogueassassin/rogueforge:0.6.0}
     container_name: rogueforge
     hostname: rogueforge
     restart: unless-stopped
