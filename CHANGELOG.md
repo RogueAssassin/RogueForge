@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.5.0 — Rootless Podman command and deployment reliability
+
+- Unified rootless Podman control around the mounted host Podman socket.
+- Made Podman Compose commands explicitly inherit `CONTAINER_HOST`/`DOCKER_HOST` pointing at the mounted remote socket.
+- Kept Podman container inventory, logs, and lifecycle actions on explicit `podman --remote --url ...` execution.
+- Replaced destructive Compose restart (`down` followed by `up -d`) with native `restart`.
+- Changed normal stack Stop to `compose stop` so it no longer removes the Compose project.
+- Added an explicit Recreate action using `up -d --force-recreate`.
+- Added a self-stack guard so RogueForge cannot stop, restart, recreate, pull, edit, or otherwise manage its own Compose project from inside itself.
+- Added `managed` stack metadata so the UI clearly shows RogueForge as self-managed externally.
+- Reloaded authoritative session/infrastructure state immediately after login and logout.
+- Added authentication-file diagnostics for missing, unreadable, malformed, or invalid `auth.json` state.
+- Added authenticated `/api/diagnostics` runtime checks for engine/socket, remote Podman CLI, stack root, icons and authentication state.
+- Kept LAN HTTP cookies compatible while preserving `Secure` cookies when `X-Forwarded-Proto` is HTTPS.
+- Updated Compose defaults to the 0.5.0 image and added `ROGUEFORGE_SELF_STACK=rogueforge`.
+- Kept FEILSBEASTSERVER-compatible defaults: `/opt/media-server`, rootless UID 1000 socket example, port 17810, `media-net`, and the existing Rogue Dashboard icon path.
+- Updated first installation to validate Compose before startup and to derive the rootless Podman socket from the actual installer user.
+- Reworked `upgrade.sh` so future upgrades back up and update deployment files as well as the application image while preserving `.env` and `data/auth.json`.
+- Added rollback restoration for the Compose definition, environment, auth record, setup helper and upgrader.
+- Updated README and installation guidance for the one-time 0.4.x to 0.5.0 deployment bootstrap.
+
 ## 0.4.3 — Docker and Podman deployment parity
 
 - Added automatic and explicit Docker/rootless Podman selection to first installation.
