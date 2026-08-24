@@ -11,40 +11,31 @@ ghcr.io/rogueassassin/rogueforge:sha-<commit>
 
 Images are built for `linux/amd64` and `linux/arm64`.
 
-For tag builds, the workflow imports `rogueforge.py` and refuses publication when the Git tag and application version differ. This prevents a `v0.4.3` release from accidentally publishing code that still identifies itself as another version.
+For tag builds, the workflow imports `rogueforge.py` and refuses publication when the Git tag and application version differ. The 0.5.0 source reports `VERSION = "0.5.0"`, so the semantic release tag must be `v0.5.0`.
 
-## First publication
+## Publish 0.5.0
 
-1. Commit the 0.4.3 source and workflow to the `main` branch.
-2. Push a `v0.4.3` tag.
-3. Open the repository's **Actions** tab and confirm the publishing workflow succeeds.
-4. Open the resulting package and set package visibility to public if it should be pulled without authentication.
-
-Example tag:
+After the final 0.5.0 source is on `main`:
 
 ```bash
-git tag v0.4.3
-git push origin main v0.4.3
+git pull --ff-only origin main
+git tag v0.5.0
+git push origin v0.5.0
 ```
 
-The workflow uses GitHub's short-lived `GITHUB_TOKEN`; no personal access token is stored in the repository.
+The tag-triggered workflow publishes the immutable `0.5.0` and `0.5` tags. The default branch workflow also maintains `latest` and commit-SHA tags.
 
-## Pulling a public image
+Confirm the workflow succeeds in the repository Actions view before upgrading production to the semantic tag.
+
+## Pulling the release
 
 ```bash
-podman pull ghcr.io/rogueassassin/rogueforge:0.4.3
+podman pull ghcr.io/rogueassassin/rogueforge:0.5.0
 ```
 
-## Pulling while the package is private
+## Package authentication
 
-Create a GitHub token with read access to packages, then authenticate on the server:
-
-```bash
-printf '%s' "$GHCR_TOKEN" | podman login ghcr.io -u RogueAssassin --password-stdin
-podman pull ghcr.io/rogueassassin/rogueforge:0.4.3
-```
-
-Do not place the token in Compose YAML, `.env`, shell history, or the repository.
+If the package is public, no GHCR login is needed. If private, authenticate with a package-read token through stdin and do not place the token in Compose YAML, `.env`, shell history, or the repository.
 
 ## Local development image
 
