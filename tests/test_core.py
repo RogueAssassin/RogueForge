@@ -63,9 +63,11 @@ class RogueForgeTests(unittest.TestCase):
         self.assertIn("--stacks-dir", installer)
         self.assertIn("--icons-dir", installer)
         self.assertIn("--public-url", installer)
+        self.assertIn("--engine", installer)
         self.assertIn("/opt/media-server/rogueforge", installer)
-        self.assertLess(installer.index('podman pull "$IMAGE"'), installer.index('sudo install -d'))
+        self.assertLess(installer.index('"${ENGINE[@]}" pull "$IMAGE"'), installer.index('sudo install -d'))
         self.assertIn("systemctl --user enable --now podman.socket", installer)
+        self.assertIn("SOCKET_SOURCE=/var/run/docker.sock", installer)
         self.assertIn("@INSTALL_DIR@", service)
         self.assertIn("@STACKS_DIR@", service)
         self.assertIn("@PROTECT_HOME@", service)
@@ -139,7 +141,15 @@ class RogueForgeTests(unittest.TestCase):
         self.assertIn("ROGUEFORGE_NETWORK:-media-net", compose)
         self.assertIn("container_name: rogueforge", compose)
         self.assertIn("ghcr.io/rogueassassin/rogueforge", compose)
-        self.assertIn("ghcr.io/rogueassassin/rogueforge:0.4.2", compose)
+        self.assertIn("ghcr.io/rogueassassin/rogueforge:0.4.3", compose)
+        self.assertIn("ROGUEFORGE_SOCKET_SOURCE", compose)
+
+    def test_container_image_supports_docker_and_podman_clients(self):
+        containerfile = (ROOT / "Containerfile").read_text(encoding="utf-8")
+        compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
+        self.assertIn("docker.io docker-compose podman podman-compose", containerfile)
+        self.assertIn("DOCKER_HOST", compose)
+        self.assertIn("ROGUEFORGE_ENGINE:-podman", compose)
 
     def test_password_hash_and_signed_session(self):
         salt = b"s" * 24
@@ -186,17 +196,19 @@ class RogueForgeTests(unittest.TestCase):
     def test_upgrader_pulls_first_and_can_rollback(self):
         upgrader = (ROOT / "upgrade.sh").read_text(encoding="utf-8")
         self.assertIn("VERSION=${1:-latest}", upgrader)
-        self.assertLess(upgrader.index('podman pull "$IMAGE"'), upgrader.index("sed -i"))
+        self.assertLess(upgrader.index('"${ENGINE[@]}" pull "$IMAGE"'), upgrader.index("sed -i"))
         self.assertIn("Upgrade failed; restoring", upgrader)
         self.assertIn("--retry-all-errors", upgrader)
+        self.assertIn("docker compose", upgrader)
 
-    def test_release_042_assets_and_image_are_consistent(self):
+    def test_release_043_assets_and_image_are_consistent(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
-        self.assertEqual(self.app.VERSION, "0.4.2")
-        self.assertIn("rogueforge-v0.4.2-banner.png", readme)
-        self.assertTrue((ROOT / "docs" / "assets" / "rogueforge-v0.4.2-banner.png").is_file())
-        self.assertIn("ghcr.io/rogueassassin/rogueforge:0.4.2", env_example)
+        self.assertEqual(self.app.VERSION, "0.4.3")
+        self.assertIn("rogueforge-banner.png", readme)
+        self.assertNotIn("rogueforge-v0.4.2-banner.png", readme)
+        self.assertTrue((ROOT / "docs" / "assets" / "rogueforge-banner.png").is_file())
+        self.assertIn("ghcr.io/rogueassassin/rogueforge:0.4.3", env_example)
 
     def test_migration_pulls_before_stopping_old_install(self):
         migration = (ROOT / "scripts" / "migrate-to-0.4.0.sh").read_text(encoding="utf-8")

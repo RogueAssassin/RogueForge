@@ -5,7 +5,7 @@ LABEL org.opencontainers.image.source="https://github.com/RogueAssassin/RogueFor
       org.opencontainers.image.description="Self-hosted operations console for Docker and Podman Compose stacks"
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates podman podman-compose python3 \
+    && apt-get install -y --no-install-recommends ca-certificates docker.io docker-compose podman podman-compose python3 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/rogueforge

@@ -1,5 +1,13 @@
 # RogueForge milestones
 
+## 0.4.3 — Runtime parity
+
+- [x] Docker and rootless Podman first-install detection.
+- [x] Runtime-specific socket and Compose configuration.
+- [x] Runtime-aware upgrades and rollback.
+- [x] Clean-clone upgrade recovery flow.
+- [x] Permanent version-free repository artwork.
+
 ## 0.4.2 — Reliable ownership
 
 - [x] LAN HTTP and reverse-proxy HTTPS login compatibility.

@@ -25,7 +25,7 @@ import time
 import threading
 from urllib.parse import parse_qs, unquote, urlparse
 
-VERSION = "0.4.2"
+VERSION = "0.4.3"
 PORT = int(os.environ.get("ROGUEFORGE_PORT", "7810"))
 BIND = os.environ.get("ROGUEFORGE_BIND", "127.0.0.1")
 STACKS_DIR = Path(os.environ.get("ROGUEFORGE_STACKS_DIR", "/opt/stacks")).resolve()
@@ -274,8 +274,8 @@ def compose_command(stack: str, args: list[str]) -> list[str]:
             cmd += ["--env-file", ".env"]
         cmd += ["-f", cf.name]
     else:
-        docker = os.environ.get("ROGUEFORGE_DOCKER", "/usr/bin/docker")
-        cmd = [docker, "compose"]
+        docker_compose = os.environ.get("ROGUEFORGE_DOCKER_COMPOSE", "/usr/bin/docker-compose")
+        cmd = [docker_compose]
         if (directory / ".env").is_file():
             cmd += ["--env-file", ".env"]
         cmd += ["-f", cf.name]

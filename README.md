@@ -1,77 +1,97 @@
-![RogueForge v0.4.2](docs/assets/rogueforge-v0.4.2-banner.png)
+![RogueForge](docs/assets/rogueforge-banner.png)
 
-# RogueForge 0.4.2
+# RogueForge
 
-**A secure, local-first command centre for Podman Compose stacks.**
+**A secure, local-first command centre for Docker and Podman Compose stacks.**
 
-RogueForge discovers existing stacks and containers, shows their state, reads logs, and performs authenticated lifecycle and Compose operations. Its layout is inspired by the clarity of Dockge and Uptime Kuma while retaining an original implementation and visual identity.
+RogueForge discovers existing stacks and containers, shows their state, reads logs, and performs authenticated lifecycle and Compose operations. Its workflow takes inspiration from the file-based clarity of Dockge and the approachable interface of Uptime Kuma while remaining an original implementation.
 
-## What v0.4.2 provides
+## Features
 
-- First-install helper that prepares `/opt/media-server/rogueforge` automatically.
-- Prebuilt multi-architecture image from GitHub Container Registry.
-- Rootless Podman inventory and controls through the owner’s Unix socket.
-- Shared `media-net` networking for Nginx Proxy Manager.
-- Persistent local account data in `./data`.
-- Administrator login, signed sessions, CSRF protection, and throttled authentication.
-- Optional icons from `/opt/media-server/rogue-dashboard/app/static/icons`.
-- Configurable installation, stacks, icon, port, network, and public URL values.
-- Correct session cookies for direct LAN HTTP and reverse-proxied HTTPS login.
-- In-place upgrades with image preflight, health verification, and rollback.
+- Manage normal Compose files without importing them into a proprietary database.
+- Discover Docker or rootless Podman containers through the local Unix socket.
+- Start, stop, restart, pull, inspect logs, and safely edit Compose projects.
+- Require administrator login for privileged operations.
+- Connect directly to Nginx Proxy Manager over a shared network.
+- Reuse local service icons without an external icon provider.
+- Pull prebuilt `linux/amd64` and `linux/arm64` images from GHCR.
+- Upgrade in place with preflight pulling, health verification, and rollback.
 
-## Install from scratch
+## How GHCR installation works
+
+`docker pull` or `podman pull` downloads the application image into the engine’s image store. An OCI image cannot safely create `/opt/media-server/rogueforge`, `.env`, credentials, networks, or persistent bind-mounted folders on the host.
+
+RogueForge therefore uses the same practical model as other Compose applications:
+
+1. Keep a small Compose deployment in `/opt/media-server/rogueforge`.
+2. Keep persistent account data in `/opt/media-server/rogueforge/data`.
+3. Pull the application from `ghcr.io/rogueassassin/rogueforge`.
+4. Start or update it using the host’s Compose command.
+
+## First installation
 
 ### Requirements
 
-- Linux server with rootless Podman configured for the installation user.
-- `podman-compose`, Python 3, `curl`, and `sudo`.
-- Git for the recommended installation method.
-- The account that owns the existing Podman containers and `media-net` network.
+- Linux with Docker Engine or rootless Podman.
+- Docker Compose v2, `docker-compose`, or `podman-compose`.
+- Python 3, `curl`, Git, and `sudo` for creating the `/opt` directory.
+- Run the installer as the user that owns the containers—not as root.
 
-### 1. Download the deployment files
-
-Run as the rootless Podman owner—`administrator` on the reference server:
+### Automatic runtime detection
 
 ```bash
 cd /tmp
-git clone https://github.com/RogueAssassin/RogueForge.git rogueforge-install
-cd rogueforge-install
-git checkout v0.4.2
-```
-
-### 2. Run the installer
-
-```bash
+git clone --branch v0.4.3 --depth 1 \
+  https://github.com/RogueAssassin/RogueForge.git rogueforge-install-0.4.3
+cd rogueforge-install-0.4.3
 chmod +x install.sh
 ./install.sh
 ```
 
-The installer pulls `ghcr.io/rogueassassin/rogueforge:0.4.2` before changing the host. It then:
+The installer pulls the image before changing the host, detects Podman or Docker, creates `/opt/media-server/rogueforge`, provisions the first administrator, creates or reuses `media-net`, starts the container, and waits for a healthy response.
 
-1. Creates `/opt/media-server/rogueforge` and its protected `data/` directory.
-2. Writes `.env` and installs the Compose deployment files.
-3. Detects the rootless user ID and mounts that user’s Podman socket.
-4. Asks you to create the first local administrator password.
-5. Creates or reuses `media-net`.
-6. Pulls and starts the RogueForge container.
-7. Waits for the health endpoint before reporting success.
+Use a new clone directory for each release. This avoids checkout failures caused by local changes in an older installer checkout.
 
-The image contains the application. The repository supplies the host-side installer and Compose configuration; pulling an OCI image alone cannot create those host files safely.
+### Explicit rootless Podman installation
 
-### 3. Open RogueForge
-
-```text
-LAN:          http://<server-ip>:17810
-NPM upstream: http://rogueforge:7810
-Public URL:   https://manage.roguegaming.com.au
+```bash
+./install.sh --engine podman
 ```
 
-Sign in with the administrator account created during installation.
+This enables the current user’s Podman socket and mounts:
 
-## Custom first installation
+```text
+/run/user/<UID>/podman/podman.sock -> /run/podman/podman.sock
+```
+
+Run normal lifecycle commands without `sudo`:
+
+```bash
+podman-compose ps
+```
+
+### Explicit Docker installation
+
+The current user must already have permission to access `/var/run/docker.sock`:
+
+```bash
+docker info
+./install.sh --engine docker
+```
+
+The deployment mounts:
+
+```text
+/var/run/docker.sock -> /var/run/docker.sock
+```
+
+RogueForge uses Docker’s API for inventory and container actions and the bundled Docker Compose client for stack operations.
+
+### Custom paths and networking
 
 ```bash
 ./install.sh \
+  --engine podman \
   --install-dir /opt/media-server/rogueforge \
   --stacks-dir /opt/media-server \
   --icons-dir /opt/media-server/rogue-dashboard/app/static/icons \
@@ -80,97 +100,99 @@ Sign in with the administrator account created during installation.
   --public-url https://manage.roguegaming.com.au
 ```
 
-The application folder and stacks root must be different. Paths must be absolute and contain no whitespace.
-
-## What Podman starts
+## Open RogueForge
 
 ```text
-Browser :17810 ──> rogueforge :7810
-                         │
-                         ├── ./data/auth.json
-                         ├── /opt/media-server stacks
-                         ├── Rogue Dashboard icons
-                         └── rootless Podman socket
-
-Nginx Proxy Manager ── media-net ──> rogueforge:7810
+LAN:          http://<server-ip>:17810
+NPM upstream: http://rogueforge:7810
+Public URL:   https://manage.roguegaming.com.au
 ```
 
-## Updating RogueForge
+The default account name is `administrator`; the password is created interactively during installation.
 
-Navigate to the deployment folder and provide the semantic release tag:
+## Updating
+
+Use the installed deployment directory, not the temporary Git checkout:
 
 ```bash
 cd /opt/media-server/rogueforge
-chmod +x upgrade.sh
-./upgrade.sh 0.4.2
+./upgrade.sh 0.4.3
 ```
 
-For a future release, replace `0.4.2` with its new tag. To deliberately follow the mutable GHCR tag:
+For a future release, substitute its semantic version:
 
 ```bash
 cd /opt/media-server/rogueforge
+./upgrade.sh 0.4.4
+```
+
+To deliberately follow the mutable channel:
+
+```bash
 ./upgrade.sh latest
 ```
 
-The upgrader pulls first, backs up `.env`, recreates the container, tolerates transient startup connection errors, and restores the previous image if health verification fails. It preserves `data/auth.json`.
+The upgrader automatically uses the Docker or Podman runtime recorded during installation. It pulls first, backs up `.env`, recreates the container, verifies health, and restores the previous image if startup fails.
 
-Existing v0.4.1 installations need the upgrader installed once:
+### One-time upgrade from v0.4.1 or v0.4.2
+
+Older installations do not contain the final runtime-aware upgrader. Use a clean clone so no local checkout changes can block the operation:
 
 ```bash
-cd /tmp/rogueforge-install
-git fetch --tags
-git checkout v0.4.2
-sudo install -m 0755 upgrade.sh /opt/media-server/rogueforge/upgrade.sh
+cd /tmp
+git clone --branch v0.4.3 --depth 1 \
+  https://github.com/RogueAssassin/RogueForge.git rogueforge-upgrade-0.4.3
+sudo cp -a /opt/media-server/rogueforge/compose.yaml \
+  /opt/media-server/rogueforge/compose.yaml.pre-0.4.3
+sudo install -m 0644 rogueforge-upgrade-0.4.3/compose.yaml \
+  /opt/media-server/rogueforge/compose.yaml
+sudo install -m 0755 rogueforge-upgrade-0.4.3/upgrade.sh \
+  /opt/media-server/rogueforge/upgrade.sh
+sudo chown -R "$(id -u):$(id -g)" /opt/media-server/rogueforge
 cd /opt/media-server/rogueforge
-./upgrade.sh 0.4.2
+./upgrade.sh 0.4.3
 ```
 
-## Restarting, logs, and stopping
+## Restart, stop, start, and logs
+
+First navigate to the deployment:
 
 ```bash
 cd /opt/media-server/rogueforge
+```
 
-podman-compose ps
-podman-compose logs -f
+Podman:
+
+```bash
 podman-compose restart
 podman-compose down
+podman-compose up -d
+podman-compose logs -f
 ```
 
-Do not delete `data/auth.json` unless intentionally resetting the administrator account.
+Docker:
+
+```bash
+docker compose restart
+docker compose down
+docker compose up -d
+docker compose logs -f
+```
+
+These commands preserve `.env` and `data/auth.json`. Do not add `-v` to `down` unless persistent data removal is intentional.
 
 ## Login and password recovery
 
-The default username is `administrator`, not `admin`. To replace a forgotten password and invalidate all existing sessions:
+The username is `administrator`, not `admin`. Reset the password and invalidate existing sessions with:
 
 ```bash
 cd /opt/media-server/rogueforge
 python3 setup-auth.py --username administrator
-podman restart rogueforge
 ```
 
-## GHCR releases
+Restart the container afterward using the command for your runtime.
 
-Normal installations pin the semantic release:
-
-```text
-ghcr.io/rogueassassin/rogueforge:0.4.2
-```
-
-The workflow produces `0.4.2`, `0.4`, `latest`, and `sha-<commit>` tags when `v0.4.2` is pushed. A release guard rejects a Git tag that does not match the application version.
-
-To publish v0.4.2 after committing the release source:
-
-```bash
-git push origin main
-git tag v0.4.2
-git push origin v0.4.2
-```
-
-The package must be public for anonymous Podman pulls. Private packages require `podman login ghcr.io` with a token that has package-read access.
-
-## Reverse proxy
-
-Configure Nginx Proxy Manager with:
+## Nginx Proxy Manager
 
 | Setting | Value |
 | --- | --- |
@@ -179,9 +201,30 @@ Configure Nginx Proxy Manager with:
 | Forward hostname | `rogueforge` |
 | Forward port | `7810` |
 | WebSockets | enabled |
+| Block Common Exploits | enabled |
 | Force SSL | enabled after issuing the certificate |
 
-NPM and RogueForge must share the same rootless `media-net` network.
+NPM and RogueForge must belong to the same `${ROGUEFORGE_NETWORK:-media-net}` network.
+
+## Publishing GHCR releases
+
+Normal servers should use semantic tags such as:
+
+```text
+ghcr.io/rogueassassin/rogueforge:0.4.3
+```
+
+Push the source and matching release tag:
+
+```bash
+git add .
+git commit -m "Release RogueForge v0.4.3"
+git push origin main
+git tag v0.4.3
+git push origin v0.4.3
+```
+
+The workflow publishes `0.4.3`, `0.4`, `latest`, and `sha-<commit>` tags. It refuses a tag that does not match RogueForge’s internal application version.
 
 ## Documentation
 
@@ -191,14 +234,6 @@ NPM and RogueForge must share the same rootless `media-net` network.
 - [Security model](SECURITY.md)
 - [Release history](CHANGELOG.md)
 - [Milestones](MILESTONES.md)
-
-## Design principles
-
-1. Compose files remain owned by the server administrator.
-2. Privileged changes require an authenticated local account.
-3. The Podman socket remains a local Unix socket and is never exposed over TCP.
-4. Updates preserve host-side account data and configuration.
-5. Unknown icons fall back locally without external tracking services.
 
 ## Acknowledgements
 

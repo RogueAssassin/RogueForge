@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.3 — Docker and Podman deployment parity
+
+- Added automatic and explicit Docker/rootless Podman selection to first installation.
+- Parameterized the engine socket mount, socket target, container host, and remote-Podman mode in Compose.
+- Added Docker Compose support inside the GHCR application image for stack operations.
+- Made `upgrade.sh` select the recorded Docker or Podman runtime automatically.
+- Changed upgrade documentation to use clean, release-specific Git clones so local changes cannot block tag checkout.
+- Reworked installation, update, restart, stop, start, and troubleshooting instructions for both runtimes.
+- Replaced versioned GitHub artwork with a permanent version-free RogueForge banner.
+
 ## 0.4.2 — Login and lifecycle reliability
 
 - Fixed LAN login by setting `Secure` session cookies only for requests forwarded as HTTPS.

@@ -1,4 +1,4 @@
-# RogueForge 0.4.2 installation and proxy guide
+# RogueForge 0.4.3 installation and proxy guide
 
 ## Resulting server layout
 
@@ -19,7 +19,9 @@ The default first installation creates:
 
 Application code remains inside the GHCR image. Only deployment configuration and persistent account data are stored on the host.
 
-## Rootless Podman prerequisites
+## Runtime prerequisites
+
+For rootless Podman, run these as the user that owns the containers:
 
 Run these as the user that owns the containers:
 
@@ -33,13 +35,19 @@ systemctl --user enable --now podman.socket
 
 Do not run RogueForge’s installer with `sudo`. It invokes `sudo` only when `/opt` directories must be created or assigned to the current user.
 
+For Docker, confirm the current user can access the daemon and Compose without `sudo`:
+
+```bash
+docker info
+docker compose version
+```
+
 ## First installation
 
 ```bash
 cd /tmp
-git clone https://github.com/RogueAssassin/RogueForge.git rogueforge-install
-cd rogueforge-install
-git checkout v0.4.2
+git clone --branch v0.4.3 --depth 1 https://github.com/RogueAssassin/RogueForge.git rogueforge-install-0.4.3
+cd rogueforge-install-0.4.3
 chmod +x install.sh
 ./install.sh
 ```
@@ -50,17 +58,22 @@ To override the defaults:
 
 ```bash
 ./install.sh \
+  --engine podman \
   --install-dir /opt/media-server/rogueforge \
   --stacks-dir /opt/media-server \
   --icons-dir /opt/media-server/rogue-dashboard/app/static/icons \
-  --image ghcr.io/rogueassassin/rogueforge:0.4.2 \
+  --image ghcr.io/rogueassassin/rogueforge:0.4.3 \
   --host-port 17810 \
   --network media-net \
   --public-url https://manage.roguegaming.com.au \
   --username administrator
 ```
 
+Use `--engine docker` instead on a Docker host.
+
 ## Verification
+
+Podman:
 
 ```bash
 cd /opt/media-server/rogueforge
@@ -69,6 +82,17 @@ podman logs rogueforge
 curl http://127.0.0.1:17810/health
 podman network inspect media-net
 podman exec nginx-proxy-manager getent hosts rogueforge
+```
+
+Docker:
+
+```bash
+cd /opt/media-server/rogueforge
+docker compose ps
+docker logs rogueforge
+curl http://127.0.0.1:17810/health
+docker network inspect media-net
+docker exec nginx-proxy-manager getent hosts rogueforge
 ```
 
 ## Nginx Proxy Manager
@@ -114,5 +138,7 @@ This removes the RogueForge container while retaining the deployment and account
 cd /opt/media-server/rogueforge
 podman-compose down
 ```
+
+For Docker, use `docker compose down`.
 
 Delete `/opt/media-server/rogueforge` only when you intentionally want to remove the administrator account and all local RogueForge configuration.
