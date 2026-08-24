@@ -1,40 +1,31 @@
 # RogueForge on Docker, rootless Podman, and media-net
 
-RogueForge 0.4.3 is distributed as a prebuilt GHCR image and installed with a small host-side deployment bundle.
+RogueForge 0.5.0 is distributed as a prebuilt GHCR image with a small host-side deployment bundle.
 
-## Why an installer is still needed
+## Runtime model
 
-`podman pull` or `docker pull` downloads the application image into the engine’s image store. OCI pulls do not create host directories, `.env`, Compose files, credentials, networks, or bind-mounted persistent data. `install.sh` performs those host-specific operations and then starts the pulled image.
+For rootless Podman, RogueForge mounts the host user's Podman API socket into the application container:
 
-## Default address model
+```text
+Host:      /run/user/<UID>/podman/podman.sock
+Container: /run/podman/podman.sock
+```
+
+Container inventory, logs and lifecycle actions use explicit `podman --remote --url unix:///run/podman/podman.sock` execution. Compose operations run inside the RogueForge application container but receive `CONTAINER_HOST=unix:///run/podman/podman.sock`, which makes the Podman client operate remotely against the same host engine.
+
+This keeps container and Compose actions in the same rootless Podman storage/context instead of accidentally using an isolated Podman store inside RogueForge.
+
+## Default FEILSBEASTSERVER address model
 
 ```text
 Container/network: http://rogueforge:7810
 Host/LAN:          http://<server-ip>:17810
 Public proxy:      https://manage.roguegaming.com.au
+Shared network:    media-net
+Stacks root:       /opt/media-server
 ```
 
-Nginx Proxy Manager and RogueForge share the external `media-net` network. NPM targets container port `7810`; the configurable host port is for LAN diagnostics and direct trusted access.
-
-## Automated first installation
-
-```bash
-git clone --branch v0.4.3 --depth 1 https://github.com/RogueAssassin/RogueForge.git RogueForge-0.4.3
-cd RogueForge-0.4.3
-chmod +x install.sh
-./install.sh
-```
-
-Run as the user that owns the Docker or rootless Podman containers. The installer:
-
-1. Validates requirements and paths.
-2. Detects Docker or rootless Podman and pulls `ghcr.io/rogueassassin/rogueforge:0.4.3` before host changes.
-3. Refuses to overwrite an existing deployment.
-4. Creates `/opt/media-server/rogueforge` and protected persistent data.
-5. Writes the selected engine and socket plus requested settings to `.env`.
-6. Provisions the first administrator interactively.
-7. Creates or reuses `media-net`.
-8. Starts the stack and waits for a successful health check.
+Nginx Proxy Manager and RogueForge share `media-net`. NPM forwards to `rogueforge:7810`.
 
 ## Compose mounts
 
@@ -44,7 +35,61 @@ Run as the user that owns the Docker or rootless Podman containers. The installe
 ./data                            -> /opt/rogueforge/data
 ```
 
-For Docker, `/var/run/docker.sock` is mounted at the same path instead. Both engine sockets remain local Unix sockets and are never exposed over TCP. The container uses `label=disable` to permit the explicitly configured bind mounts in common SELinux environments.
+For FEILSBEASTSERVER the current owner UID is 1000, so the first path is `/run/user/1000/podman/podman.sock`. The installer writes the actual current UID to `.env` rather than depending on the example default.
+
+## Self-stack protection
+
+`/opt/media-server/rogueforge/compose.yaml` is intentionally discoverable, but the API marks the `rogueforge` project as `managed: false`. The web UI shows it as self-managed externally and does not present lifecycle/edit actions.
+
+The backend also rejects attempts to manage the self stack, so a stale or malicious client cannot make RogueForge execute a command that stops/removes the container handling that request.
+
+Manage RogueForge itself from the host:
+
+```bash
+cd /opt/media-server/rogueforge
+podman-compose restart
+```
+
+## Stack action semantics
+
+RogueForge 0.5.0 uses:
+
+```text
+Start     -> compose up -d
+Stop      -> compose stop
+Restart   -> compose restart
+Pull      -> compose pull
+Recreate  -> compose up -d --force-recreate
+```
+
+Restart no longer tears the project down. Recreate is a separate deliberate operation.
+
+## First installation
+
+```bash
+git clone --branch v0.5.0 --depth 1 https://github.com/RogueAssassin/RogueForge.git RogueForge-0.5.0
+cd RogueForge-0.5.0
+chmod +x install.sh
+./install.sh --engine podman
+```
+
+The installer validates the runtime/Compose client, enables the rootless socket, pulls the image before host changes, writes `.env`, provisions authentication, validates Compose, starts the service and checks health.
+
+## Persistent authentication
+
+The host file:
+
+```text
+/opt/media-server/rogueforge/data/auth.json
+```
+
+is mounted at:
+
+```text
+/opt/rogueforge/data/auth.json
+```
+
+inside the application. It is preserved by normal upgrades and recreates.
 
 ## Local icons
 
@@ -54,28 +99,16 @@ The default icon folder is:
 /opt/media-server/rogue-dashboard/app/static/icons
 ```
 
-RogueForge recognizes SVG, PNG, WebP, JPG, and JPEG assets. Unknown services receive a generated initials tile and do not contact an external icon provider.
-
 ## Manual lifecycle
-
-Podman:
 
 ```bash
 cd /opt/media-server/rogueforge
+podman-compose config
 podman-compose pull
 podman-compose up -d
+podman-compose restart
 podman-compose logs -f
 podman-compose down
 ```
 
-Do not use `sudo podman` for a rootless installation. That selects a different container store and socket.
-
-Docker:
-
-```bash
-cd /opt/media-server/rogueforge
-docker compose pull
-docker compose up -d
-docker compose logs -f
-docker compose down
-```
+Do not use `sudo podman` for a rootless deployment because it selects a different container store/socket.
