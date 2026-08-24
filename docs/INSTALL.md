@@ -1,14 +1,13 @@
-# RogueForge 0.4.3 installation and proxy guide
+# RogueForge 0.5.0 installation and proxy guide
 
-## Resulting server layout
-
-The default first installation creates:
+## Default production layout
 
 ```text
 /opt/media-server/
 ├── rogueforge/
 │   ├── compose.yaml
 │   ├── setup-auth.py
+│   ├── upgrade.sh
 │   ├── .env
 │   └── data/
 │       └── auth.json
@@ -17,13 +16,11 @@ The default first installation creates:
 └── <other Compose stacks>/
 ```
 
-Application code remains inside the GHCR image. Only deployment configuration and persistent account data are stored on the host.
+For FEILSBEASTSERVER the expected rootless Podman owner is UID 1000, so the host socket is `/run/user/1000/podman/podman.sock`. The installer still derives the UID dynamically from the account that runs it.
 
-## Runtime prerequisites
+## Rootless Podman prerequisites
 
-For rootless Podman, run these as the user that owns the containers:
-
-Run these as the user that owns the containers:
+Run as the user that owns the containers:
 
 ```bash
 whoami
@@ -31,52 +28,70 @@ id -u
 podman ps -a
 podman info --format '{{.Host.Security.Rootless}}'
 systemctl --user enable --now podman.socket
+podman-compose version
 ```
 
-Do not run RogueForge’s installer with `sudo`. It invokes `sudo` only when `/opt` directories must be created or assigned to the current user.
-
-For Docker, confirm the current user can access the daemon and Compose without `sudo`:
-
-```bash
-docker info
-docker compose version
-```
+Do not run `install.sh` with `sudo`. The installer only invokes `sudo` when it needs to create or assign the `/opt/media-server/rogueforge` host directory.
 
 ## First installation
 
 ```bash
 cd /tmp
-git clone --branch v0.4.3 --depth 1 https://github.com/RogueAssassin/RogueForge.git rogueforge-install-0.4.3
-cd rogueforge-install-0.4.3
+git clone --branch v0.5.0 --depth 1 \
+  https://github.com/RogueAssassin/RogueForge.git rogueforge-install-0.5.0
+cd rogueforge-install-0.5.0
 chmod +x install.sh
-./install.sh
+./install.sh --engine podman
 ```
 
-The GHCR image is pulled before the installer changes the server. An unavailable or private image therefore leaves the host untouched.
+The default deployment uses:
 
-To override the defaults:
+```text
+Install directory:     /opt/media-server/rogueforge
+Stacks directory:      /opt/media-server
+Host port:             17810
+Container port:        7810
+Shared network:        media-net
+Public URL:            https://manage.roguegaming.com.au
+Icon directory:        /opt/media-server/rogue-dashboard/app/static/icons
+Self stack:            rogueforge
+```
+
+The installer pulls the image before making deployment changes, writes the actual rootless socket source into `.env`, provisions `administrator`, validates Compose, starts the service and waits for `/health`.
+
+## One-time 0.4.x to 0.5.0 upgrade
+
+0.4.x upgraders only replaced the image. Bootstrap the new deployment definition and upgrader once:
 
 ```bash
-./install.sh \
-  --engine podman \
-  --install-dir /opt/media-server/rogueforge \
-  --stacks-dir /opt/media-server \
-  --icons-dir /opt/media-server/rogue-dashboard/app/static/icons \
-  --image ghcr.io/rogueassassin/rogueforge:0.4.3 \
-  --host-port 17810 \
-  --network media-net \
-  --public-url https://manage.roguegaming.com.au \
-  --username administrator
+cd /tmp
+git clone --branch v0.5.0 --depth 1 \
+  https://github.com/RogueAssassin/RogueForge.git rogueforge-upgrade-0.5.0
+
+sudo cp -a /opt/media-server/rogueforge/compose.yaml \
+  /opt/media-server/rogueforge/compose.yaml.pre-0.5.0
+sudo cp -a /opt/media-server/rogueforge/.env \
+  /opt/media-server/rogueforge/.env.pre-0.5.0
+sudo cp -a /opt/media-server/rogueforge/data/auth.json \
+  /opt/media-server/rogueforge/data/auth.json.pre-0.5.0
+
+sudo install -m 0644 rogueforge-upgrade-0.5.0/compose.yaml \
+  /opt/media-server/rogueforge/compose.yaml
+sudo install -m 0755 rogueforge-upgrade-0.5.0/upgrade.sh \
+  /opt/media-server/rogueforge/upgrade.sh
+sudo chown -R "$(id -u):$(id -g)" /opt/media-server/rogueforge
+
+cd /opt/media-server/rogueforge
+./upgrade.sh 0.5.0
 ```
 
-Use `--engine docker` instead on a Docker host.
+From 0.5.0 onward, `upgrade.sh` backs up the deployment and downloads the matching release `compose.yaml`, `setup-auth.py`, `.env.example`, and upgrader while keeping the existing host `.env` and `data/auth.json`.
 
 ## Verification
 
-Podman:
-
 ```bash
 cd /opt/media-server/rogueforge
+podman-compose config
 podman-compose ps
 podman logs rogueforge
 curl http://127.0.0.1:17810/health
@@ -84,20 +99,33 @@ podman network inspect media-net
 podman exec nginx-proxy-manager getent hosts rogueforge
 ```
 
-Docker:
+The health response should include `"ok":true` and version `0.5.0`.
+
+## Podman socket verification
+
+```bash
+uid=$(id -u)
+ls -l "/run/user/$uid/podman/podman.sock"
+curl --unix-socket "/run/user/$uid/podman/podman.sock" http://localhost/version
+```
+
+RogueForge mounts this host socket at `/run/podman/podman.sock` inside its own container. Container operations use explicit remote Podman commands, while Compose commands receive `CONTAINER_HOST=unix:///run/podman/podman.sock` so they use the same host engine.
+
+## Authentication troubleshooting
+
+The default account name is `administrator`.
 
 ```bash
 cd /opt/media-server/rogueforge
-docker compose ps
-docker logs rogueforge
-curl http://127.0.0.1:17810/health
-docker network inspect media-net
-docker exec nginx-proxy-manager getent hosts rogueforge
+ls -l data/auth.json
+python3 -m json.tool data/auth.json >/dev/null
+python3 setup-auth.py --username administrator
+podman-compose restart
 ```
 
-## Nginx Proxy Manager
+RogueForge 0.5.0 reports missing/unreadable/invalid authentication state instead of only returning a generic login failure.
 
-Create a Proxy Host with:
+## Nginx Proxy Manager
 
 ```text
 Domain Names:          manage.roguegaming.com.au
@@ -109,36 +137,16 @@ Block Common Exploits: On
 WebSockets Support:    On
 ```
 
-Request a certificate, enable Force SSL, and enable HTTP/2. Only ports 80 and 443 should be forwarded from the internet. Keep host port `17810` private to the LAN.
+Request a certificate, enable Force SSL and HTTP/2. NPM and RogueForge must both be connected to `media-net`.
 
-## Troubleshooting an empty container list
-
-Compare rootless and rootful stores:
-
-```bash
-podman ps -a
-sudo podman ps -a
-```
-
-The normal installation must be run by the account for which the first command shows the expected containers. The container mounts `/run/user/<UID>/podman/podman.sock` for that user.
-
-Check the socket:
-
-```bash
-uid=$(id -u)
-ls -l "/run/user/$uid/podman/podman.sock"
-curl --unix-socket "/run/user/$uid/podman/podman.sock" http://localhost/version
-```
-
-## Removal
-
-This removes the RogueForge container while retaining the deployment and account data:
+## Manual lifecycle
 
 ```bash
 cd /opt/media-server/rogueforge
+podman-compose restart
 podman-compose down
+podman-compose up -d
+podman-compose logs -f
 ```
 
-For Docker, use `docker compose down`.
-
-Delete `/opt/media-server/rogueforge` only when you intentionally want to remove the administrator account and all local RogueForge configuration.
+The in-app RogueForge stack itself is intentionally protected from lifecycle and Compose editing operations. Manage RogueForge from the host deployment directory instead.
