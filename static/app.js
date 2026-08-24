@@ -40,7 +40,8 @@ function protectedOptions(options = {}) {
 
 function ensureAuthenticated() {
   if (state.auth.authenticated) return true;
-  $("#loginError").textContent = state.auth.configured ? "" : "No administrator account has been provisioned yet.";
+  const authInfo = state.auth.auth || {};
+  $("#loginError").textContent = state.auth.configured ? "" : (authInfo.exists ? "Administrator credentials could not be read or validated." : "No administrator account has been provisioned yet.");
   $("#loginDialog").showModal();
   setTimeout(() => $("#loginUsername").focus(), 50);
   return false;
@@ -77,6 +78,22 @@ function serviceLogo(key) {
   return `<span class="service-logo"><img src="/api/icons/${encodeURIComponent(key)}" alt=""><b>${escapeHtml(initial)}</b></span>`;
 }
 
+function stackActions(stack, compact = false) {
+  if (stack.managed === false) {
+    return `<span class="service-count" title="RogueForge protects its own Compose project from in-app lifecycle operations">Self-managed externally</span>`;
+  }
+  if (compact) {
+    return `<button class="small-button accent" data-edit-stack="${attr(stack.name)}">Compose</button><button class="small-button" data-stack-action="restart" data-stack="${attr(stack.name)}">Restart</button>`;
+  }
+  return `
+    <button class="primary-action" data-stack-action="start" data-stack="${attr(stack.name)}">Start</button>
+    <button data-stack-action="stop" data-stack="${attr(stack.name)}">Stop</button>
+    <button data-stack-action="restart" data-stack="${attr(stack.name)}">Restart</button>
+    <button data-stack-action="pull" data-stack="${attr(stack.name)}">Pull</button>
+    <button data-stack-action="recreate" data-stack="${attr(stack.name)}">Recreate</button>
+    <button data-edit-stack="${attr(stack.name)}">Edit</button>`;
+}
+
 function renderOverview() {
   const running = state.containers.filter(item => item.state === "running").length;
   $("#stackCount").textContent = state.stacks.length;
@@ -90,7 +107,7 @@ function renderOverview() {
       <div class="stack-identity">${serviceLogo(stack.name)}<div><strong>${escapeHtml(stack.name)}</strong><small>${escapeHtml(stack.composeFile)}</small></div></div>
       ${stateBadge(stack.state)}
       <span class="service-count">${stack.running}/${stack.services} running</span>
-      <div class="row-actions"><button class="small-button accent" data-edit-stack="${attr(stack.name)}">Compose</button><button class="small-button" data-stack-action="restart" data-stack="${attr(stack.name)}">Restart</button></div>
+      <div class="row-actions">${stackActions(stack, true)}</div>
     </div>`).join("");
   $("#overviewStacks").innerHTML = rows || '<div class="empty-state">No Compose stacks found in the configured directory.</div>';
 }
@@ -104,22 +121,16 @@ function renderStacks() {
       <div class="stack-card-top">
         <header><div class="stack-title">${serviceLogo(stack.name)}<div><h3>${escapeHtml(stack.name)}</h3><div class="file">${escapeHtml(stack.composeFile)}</div></div></div>${stateBadge(stack.state)}</header>
         <div class="stack-health"><div class="health-track"><i style="width:${progress}%"></i></div><strong>${progress}%</strong></div>
-        <div class="stack-meta"><span>${stack.services} services</span><span>${stack.hasEnv ? ".env linked" : "No .env"}</span><span>${escapeHtml(stack.engineHint)}</span></div>
+        <div class="stack-meta"><span>${stack.services} services</span><span>${stack.hasEnv ? ".env linked" : "No .env"}</span><span>${stack.managed === false ? "protected self stack" : escapeHtml(stack.engineHint)}</span></div>
       </div>
-      <div class="stack-card-actions">
-        <button class="primary-action" data-stack-action="start" data-stack="${attr(stack.name)}">Start</button>
-        <button data-stack-action="stop" data-stack="${attr(stack.name)}">Stop</button>
-        <button data-stack-action="restart" data-stack="${attr(stack.name)}">Restart</button>
-        <button data-stack-action="pull" data-stack="${attr(stack.name)}">Pull</button>
-        <button data-edit-stack="${attr(stack.name)}">Edit</button>
-      </div>
+      <div class="stack-card-actions">${stackActions(stack)}</div>
     </article>`;
   }).join("") || '<div class="empty-state">No stacks match this filter.</div>';
 }
 
 function renderContainers() {
   const query = $("#containerSearch").value.trim().toLowerCase();
-  const containers = state.containers.filter(item => [item.name, item.image, item.state].some(value => value.toLowerCase().includes(query)));
+  const containers = state.containers.filter(item => [item.name, item.image, item.state].some(value => String(value).toLowerCase().includes(query)));
   $("#containerGrid").innerHTML = `<div class="container-head"><span>Container</span><span>Image</span><span>State</span><span>Ports</span><span></span></div>` + containers.map(container => `
     <div class="container-row">
       <div class="container-name">${serviceLogo(container.name)}<div><strong>${escapeHtml(container.name)}</strong><small>${escapeHtml(container.id)}</small></div></div>
@@ -179,8 +190,12 @@ function confirmAction(title, message, button = "Continue") {
 
 async function stackAction(name, action) {
   if (!ensureAuthenticated()) return;
-  const dangerous = ["stop", "restart"].includes(action);
-  if (dangerous && !await confirmAction(`${action[0].toUpperCase() + action.slice(1)} ${name}?`, action === "stop" ? "This takes the entire Compose project down." : "Services may be briefly unavailable while the stack restarts.", action[0].toUpperCase() + action.slice(1))) return;
+  const prompts = {
+    stop: "Stops the services without removing the Compose project.",
+    restart: "Restarts the services without taking the Compose project down.",
+    recreate: "Recreates the project containers with the current Compose definition."
+  };
+  if (prompts[action] && !await confirmAction(`${action[0].toUpperCase() + action.slice(1)} ${name}?`, prompts[action], action[0].toUpperCase() + action.slice(1))) return;
   try {
     toast(`${action[0].toUpperCase() + action.slice(1)} started for ${name}`);
     const result = await api(`/api/stacks/${encodeURIComponent(name)}/${action}`, protectedOptions({ method: "POST" }));
@@ -243,6 +258,7 @@ async function login(event) {
     $("#loginPassword").value = "";
     $("#loginDialog").close();
     renderAuth();
+    await load({ quiet: true });
     toast(`Signed in as ${result.user}`);
   } catch (error) { $("#loginError").textContent = error.message; }
   finally { button.disabled = false; }
@@ -255,6 +271,7 @@ async function accountAction() {
     await api("/api/auth/logout", protectedOptions({ method: "POST" }));
     state.auth = { configured: true, authenticated: false, user: null, csrf: null };
     renderAuth();
+    await load({ quiet: true });
     toast("Signed out");
   } catch (error) { toast(error.message, "error"); }
 }
