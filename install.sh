@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION=0.5.0
+VERSION=0.6.0
 INSTALL_DIR=${ROGUEFORGE_INSTALL_DIR:-/opt/media-server/rogueforge}
 STACKS_DIR=${ROGUEFORGE_STACKS_DIR:-/opt/media-server}
 ICONS_DIR=${ROGUEFORGE_ICONS_DIR:-/opt/media-server/rogue-dashboard/app/static/icons}
