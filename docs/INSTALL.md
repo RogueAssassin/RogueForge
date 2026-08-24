@@ -1,166 +1,118 @@
-# RogueForge installation and proxy guide
+# RogueForge 0.4.1 installation and proxy guide
 
-## Directory layout
+## Resulting server layout
 
-Keep RogueForge separate from the Compose projects it manages:
+The default first installation creates:
 
 ```text
-/opt/rogueforge/           RogueForge application
-/opt/media-server/         Your existing Compose projects
-/etc/default/rogueforge    Runtime configuration
+/opt/media-server/
+├── rogueforge/
+│   ├── compose.yaml
+│   ├── setup-auth.py
+│   ├── .env
+│   └── data/
+│       └── auth.json
+├── rogue-dashboard/
+│   └── app/static/icons/
+└── <other Compose stacks>/
 ```
 
-The stacks directory may be any absolute path without whitespace.
+Application code remains inside the GHCR image. Only deployment configuration and persistent account data are stored on the host.
 
-## Stop an existing installation
+## Rootless Podman prerequisites
 
-```bash
-sudo systemctl stop rogueforge
-```
-
-The service remains installed and can be restarted with:
-
-```bash
-sudo systemctl start rogueforge
-```
-
-## Determine whether Podman is rootless
-
-Run these commands without `sudo`, using the account that normally manages the containers:
+Run these as the user that owns the containers:
 
 ```bash
 whoami
 id -u
 podman ps -a
 podman info --format '{{.Host.Security.Rootless}}'
+systemctl --user enable --now podman.socket
 ```
 
-If the final command returns `true`, use the `--podman-user` installer option. The official Podman socket locations are:
+Do not run RogueForge’s installer with `sudo`. It invokes `sudo` only when `/opt` directories must be created or assigned to the current user.
 
-```text
-Rootful:  /run/podman/podman.sock
-Rootless: /run/user/<UID>/podman/podman.sock
-```
-
-## Install for rootless Podman
-
-Replace `rogue` and the stacks path with the correct values:
+## First installation
 
 ```bash
-sudo ./install.sh \
-  --podman-user rogue \
-  --stacks-dir /opt/media-server
+cd /tmp
+git clone https://github.com/RogueAssassin/RogueForge.git rogueforge-install
+cd rogueforge-install
+git checkout v0.4.1
+chmod +x install.sh
+./install.sh
 ```
 
-This performs four related operations:
+The GHCR image is pulled before the installer changes the server. An unavailable or private image therefore leaves the host untouched.
 
-1. Enables lingering for the selected user.
-2. Enables and starts that user's `podman.socket` unit.
-3. Configures RogueForge to use `/run/user/<UID>/podman/podman.sock`.
-4. Runs `podman-compose` as the selected user for stack actions.
-
-Verify the generated configuration:
+To override the defaults:
 
 ```bash
-sudo grep '^ROGUEFORGE_' /etc/default/rogueforge
-sudo systemctl restart rogueforge
-curl http://127.0.0.1:7810/api/status
-curl http://127.0.0.1:7810/api/containers
-```
-
-## Install for rootful Podman
-
-Use rootful mode only when `sudo podman ps -a` shows the expected containers:
-
-```bash
-sudo ./install.sh \
-  --engine podman \
-  --socket /run/podman/podman.sock \
-  --stacks-dir /opt/media-server
-```
-
-## Configure Nginx Proxy Manager
-
-### Install RogueForge for a proxy on the same network
-
-If Nginx Proxy Manager runs inside a container, it normally cannot reach the host's `127.0.0.1`. Bind RogueForge to the host network interfaces and restrict port 7810 with the server firewall:
-
-```bash
-sudo ./install.sh \
-  --podman-user rogue \
+./install.sh \
+  --install-dir /opt/media-server/rogueforge \
   --stacks-dir /opt/media-server \
-  --bind 0.0.0.0 \
-  --proxy-hostname manage.roguegaming.com.au
+  --icons-dir /opt/media-server/rogue-dashboard/app/static/icons \
+  --image ghcr.io/rogueassassin/rogueforge:0.4.1 \
+  --host-port 17810 \
+  --network media-net \
+  --public-url https://manage.roguegaming.com.au \
+  --username administrator
 ```
 
-Use the server's private LAN address as the upstream. Do not forward port 7810 directly from the internet.
+## Verification
 
-### Add the Proxy Host
+```bash
+cd /opt/media-server/rogueforge
+podman-compose ps
+podman logs rogueforge
+curl http://127.0.0.1:17810/health
+podman network inspect media-net
+podman exec nginx-proxy-manager getent hosts rogueforge
+```
 
-In Nginx Proxy Manager choose **Hosts → Proxy Hosts → Add Proxy Host** and set:
+## Nginx Proxy Manager
+
+Create a Proxy Host with:
 
 ```text
-Domain Names:       manage.roguegaming.com.au
-Scheme:             http
-Forward Hostname:   <RogueForge server LAN IP>
-Forward Port:       7810
-Cache Assets:       Off
+Domain Names:          manage.roguegaming.com.au
+Scheme:                http
+Forward Hostname/IP:   rogueforge
+Forward Port:          7810
+Cache Assets:          Off
 Block Common Exploits: On
-Websockets Support: On
+WebSockets Support:    On
 ```
 
-In the **SSL** section:
+Request a certificate, enable Force SSL, and enable HTTP/2. Only ports 80 and 443 should be forwarded from the internet. Keep host port `17810` private to the LAN.
 
-```text
-SSL Certificate:    Request a new Let's Encrypt certificate
-Force SSL:          On
-HTTP/2 Support:     On
-HSTS:               On after confirming HTTPS works
-```
+## Troubleshooting an empty container list
 
-### Protect the management interface
-
-RogueForge 0.4.0 protects privileged operations with its administrator account. An Nginx Proxy Manager **Access List** can still be attached as defence in depth, and a VPN or identity-aware proxy remains preferable for a management surface.
-
-Do not expose the Podman socket itself over TCP. RogueForge accesses it locally through Unix socket permissions.
-
-### DNS
-
-Create a DNS record for `manage.roguegaming.com.au` pointing to the public address that reaches Nginx Proxy Manager. Only ports 80 and 443 should be forwarded to Nginx Proxy Manager; port 7810 should remain private.
-
-## Troubleshooting
-
-### Connected, but zero containers
-
-Compare both stores:
+Compare rootless and rootful stores:
 
 ```bash
 podman ps -a
 sudo podman ps -a
 ```
 
-Whichever command displays your workloads identifies the correct context. For the first command, reinstall using `--podman-user <username>`. For the second, use the rootful socket.
+The normal installation must be run by the account for which the first command shows the expected containers. The container mounts `/run/user/<UID>/podman/podman.sock` for that user.
 
-### Check the rootless socket
+Check the socket:
 
 ```bash
 uid=$(id -u)
-systemctl --user enable --now podman.socket
 ls -l "/run/user/$uid/podman/podman.sock"
 curl --unix-socket "/run/user/$uid/podman/podman.sock" http://localhost/version
 ```
 
-### Review RogueForge logs
+## Removal
+
+This removes the RogueForge container while retaining the deployment and account data:
 
 ```bash
-sudo journalctl -u rogueforge -n 100 --no-pager
-sudo journalctl -u rogueforge -f
+cd /opt/media-server/rogueforge
+podman-compose down
 ```
 
-### Confirm the upstream is reachable from the proxy server
-
-```bash
-curl http://<RogueForge-server-LAN-IP>:7810/health
-```
-
-If this fails, check the RogueForge bind address, host firewall, and routing between Nginx Proxy Manager and the RogueForge host.
+Delete `/opt/media-server/rogueforge` only when you intentionally want to remove the administrator account and all local RogueForge configuration.

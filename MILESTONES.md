@@ -1,5 +1,13 @@
 # RogueForge milestones
 
+## 0.4.1 — First-install release
+
+- [x] GHCR-first rootless Podman installer.
+- [x] Default `/opt/media-server/rogueforge` deployment layout.
+- [x] Automatic persistent folders, local administrator, and shared network setup.
+- [x] Semantic GHCR release documentation.
+- [x] Updated GitHub banner and README.
+
 ## 0.1 — Foundation
 
 Status: Complete

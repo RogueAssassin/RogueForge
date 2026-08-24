@@ -61,8 +61,11 @@ class RogueForgeTests(unittest.TestCase):
         service = (ROOT / "systemd" / "rogueforge.service").read_text(encoding="utf-8")
         self.assertIn("--install-dir", installer)
         self.assertIn("--stacks-dir", installer)
-        self.assertIn("--podman-user", installer)
-        self.assertIn("--proxy-hostname", installer)
+        self.assertIn("--icons-dir", installer)
+        self.assertIn("--public-url", installer)
+        self.assertIn("/opt/media-server/rogueforge", installer)
+        self.assertLess(installer.index('podman pull "$IMAGE"'), installer.index('sudo install -d'))
+        self.assertIn("systemctl --user enable --now podman.socket", installer)
         self.assertIn("@INSTALL_DIR@", service)
         self.assertIn("@STACKS_DIR@", service)
         self.assertIn("@PROTECT_HOME@", service)
@@ -133,9 +136,10 @@ class RogueForgeTests(unittest.TestCase):
     def test_container_deployment_targets_media_net(self):
         compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
         self.assertIn('17810}:7810', compose)
-        self.assertIn("name: media-net", compose)
+        self.assertIn("ROGUEFORGE_NETWORK:-media-net", compose)
         self.assertIn("container_name: rogueforge", compose)
         self.assertIn("ghcr.io/rogueassassin/rogueforge", compose)
+        self.assertIn("ghcr.io/rogueassassin/rogueforge:0.4.1", compose)
 
     def test_password_hash_and_signed_session(self):
         salt = b"s" * 24
@@ -177,6 +181,20 @@ class RogueForgeTests(unittest.TestCase):
         self.assertIn("packages: write", workflow)
         self.assertIn("ghcr.io/rogueassassin/rogueforge", workflow)
         self.assertIn("linux/amd64,linux/arm64", workflow)
+
+    def test_release_041_assets_and_image_are_consistent(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
+        self.assertEqual(self.app.VERSION, "0.4.1")
+        self.assertIn("rogueforge-v0.4.1-banner.png", readme)
+        self.assertTrue((ROOT / "docs" / "assets" / "rogueforge-v0.4.1-banner.png").is_file())
+        self.assertIn("ghcr.io/rogueassassin/rogueforge:0.4.1", env_example)
+
+    def test_migration_pulls_before_stopping_old_install(self):
+        migration = (ROOT / "scripts" / "migrate-to-0.4.0.sh").read_text(encoding="utf-8")
+        self.assertLess(migration.index('podman pull "$IMAGE"'), migration.index("systemctl disable --now rogueforge"))
+        self.assertIn("attempting rollback", migration)
+        self.assertIn("podman network exists media-net", migration)
 
     def test_privileged_http_actions_require_session_and_csrf(self):
         original_auth_file = self.app.AUTH_FILE

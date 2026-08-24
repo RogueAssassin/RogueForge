@@ -25,7 +25,7 @@ import time
 import threading
 from urllib.parse import parse_qs, unquote, urlparse
 
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 PORT = int(os.environ.get("ROGUEFORGE_PORT", "7810"))
 BIND = os.environ.get("ROGUEFORGE_BIND", "127.0.0.1")
 STACKS_DIR = Path(os.environ.get("ROGUEFORGE_STACKS_DIR", "/opt/stacks")).resolve()
