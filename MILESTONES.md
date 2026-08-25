@@ -1,16 +1,17 @@
 # RogueForge Roadmap
 
-## 0.8.3 — Operations quality foundation
+## 0.8.4 — Operations visibility and health
 
 Status: **current testing/release line**
 
-- [x] Single `rogueforge.py` backend runtime retained.
-- [x] Update backups moved outside the stack discovery tree with legacy migration.
-- [x] Persistent Operations activity drawer for stack/container mutations.
-- [x] Operation history with success/failure details, timestamps, duration and captured output.
-- [x] Resilient Dashboard Icons resolver with exact Nginx Proxy Manager and Cloudflared aliases.
-- [x] GHCR release aliases: `latest`, semantic, v-prefixed, compact and SHA tags.
-- [x] Automatic Git release-tag creation for new versions.
+- [x] Canonical non-versioned `operations.js` / `operations.css` frontend quality layer.
+- [x] Stack health filters for All, Healthy, Partial and Stopped workloads.
+- [x] Stronger stack/service visual fault highlighting.
+- [x] Operations history filtering by running/success/failed state.
+- [x] Export Operations history as JSON for troubleshooting/support.
+- [x] Resilient Dashboard Icons resolver retained with Nginx Proxy Manager and Cloudflared aliases.
+- [x] Fix release workflow so the actual published container runtime is stamped with the `VERSION` value before the image build.
+- [x] Keep semantic, v-prefixed, compact, latest and SHA GHCR aliases.
 
 ## 0.8.x — Operations quality
 
@@ -18,7 +19,7 @@ Status: **current testing/release line**
 - [ ] Cancel supported long-running operations safely.
 - [ ] Stack clone/import/create workflows.
 - [ ] Compose templates and rollback UI.
-- [ ] Better service health/dependency visualization.
+- [x] Better service health visualization and stack health filtering.
 - [ ] Server-side persistent operation/audit history shared across browsers.
 
 ## 0.9.0 — Runtime resources
