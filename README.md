@@ -4,38 +4,34 @@
 
 **A secure, local-first command centre for Docker and Podman Compose stacks.**
 
-RogueForge discovers existing Compose projects and containers, shows runtime state, reads logs, edits Compose files with validation/backup, and performs authenticated lifecycle operations through the host container engine.
+RogueForge discovers existing Compose projects and containers, shows runtime state, edits Compose files safely, manages container/stack lifecycle, streams logs, and provides authenticated container terminal access through the host container engine.
 
-## Current base: 0.6.2
+## Current release: 0.7.0
 
-0.6.2 builds on the reliable 0.5.x rootless Podman/Compose foundation and the 0.6.x container-management work. The Containers page now supports state-aware Start/Stop/Restart, Inspect, Logs, Compose-aware Update/Recreate, guarded Remove operations, live resource usage, image update checks, Update All, sorting, multi-select bulk actions, restart-policy inspection, and self-container protection.
+0.7.0 adds the live-operations layer on top of the stable 0.6.2 container-management base. Running containers now expose **Live logs** and **Terminal** controls. Live logs stream through authenticated Server-Sent Events with pause, filtering, clear and download controls. Terminal sessions use authenticated container exec with Bash-to-`sh` fallback, CSRF-protected input/close operations, process-exit tracking and automatic idle cleanup.
 
-The project roadmap is maintained in [MILESTONES.md](MILESTONES.md), covering the remaining 0.6.x operations polish, 0.7 console/terminal work, 0.8 stack-management parity, 0.9 storage/runtime resources and the path to a production-quality 1.0 release.
+See [MILESTONES.md](MILESTONES.md) for the remaining 0.7.x live-operation polish, 0.8 stack-management parity, 0.9 storage/runtime resources, and the path to 1.0.
 
 ## Current features
 
-- Discover Docker or rootless Podman containers through the mounted Unix socket.
-- Discover normal Compose files under the configured stacks directory without importing them into a proprietary database.
-- Start, stop, restart, pull and recreate Compose projects.
-- Start, stop, restart, update, recreate, inspect, log and remove individual containers/services where safe.
-- Apply bulk Start, Stop, Restart, Update, Recreate and Remove operations to selected manageable containers.
-- Display live CPU, memory and network usage.
-- Check pulled image state against the image used by a running container.
-- Update all manageable containers while excluding RogueForge itself.
-- Sort and filter containers by name, state, project and image.
-- Inspect restart policy, runtime timestamps, image IDs, mounts, networks and service metadata.
-- Update and recreate Compose-managed services without unnecessarily rebuilding the complete stack.
-- Edit Compose files with automatic backup and validation before changes are accepted.
-- Protect privileged operations with signed administrator sessions and CSRF validation.
-- Protect RogueForge's own Compose project/container from self-destructive lifecycle operations.
-- Reuse local Rogue Dashboard-compatible service icons.
-- Run behind Nginx Proxy Manager on the shared `media-net` network.
-- Pull multi-architecture images from GHCR.
-- Upgrade image and deployment files together with rollback backups.
+- Docker and rootless Podman through a mounted Unix socket.
+- Compose stack discovery without importing stack definitions into a proprietary database.
+- Stack Start, Stop, Restart, Pull, Recreate and validated Compose editing.
+- Container Start, Stop, Restart, Update, Recreate, Inspect, Logs and guarded Remove.
+- Compose-aware per-service updates and recreation.
+- Multi-select bulk Start/Stop/Restart/Update/Recreate/Remove.
+- Update checks and Update All while excluding RogueForge itself.
+- CPU, memory and network usage.
+- Sorting/filtering plus restart-policy inspection.
+- Authenticated live container logs with pause/search/download.
+- Authenticated container terminal/exec with shell fallback and automatic cleanup.
+- Signed administrator sessions, CSRF protection and login throttling.
+- Self-stack and self-container protection.
+- Nginx Proxy Manager support on shared `media-net`.
+- Multi-architecture GHCR publishing.
+- Runtime-aware upgrades with deployment backup/rollback.
 
 ## FEILSBEASTSERVER / default rootless Podman layout
-
-The supported production defaults are:
 
 ```text
 Container owner UID:  1000
@@ -50,43 +46,64 @@ Public URL:           https://manage.roguegaming.com.au
 Account file:         /opt/media-server/rogueforge/data/auth.json
 ```
 
-The installer derives the Podman socket UID dynamically from the user running it. UID 1000 is only the repository/example default.
+The installer derives the rootless Podman socket UID from the user running it. UID 1000 is the repository/default example.
 
 ## Branding
 
-The permanent GitHub/documentation banner remains:
+The permanent repository banner is:
 
 ```text
 docs/assets/rogueforge-banner.png
 ```
 
-The browser favicon and touch icon now use the RogueAssassin GitHub profile identity image. The application sidebar has a stable RogueForge-specific logo with a text fallback, and future shared RogueForge/Rogue Dashboard artwork remains version-independent under:
+Canonical application branding lives under:
 
 ```text
 static/branding/rogueforge-logo.svg
 static/branding/favicon.svg
 ```
 
-This keeps web identity independent from release numbers and leaves a clean path for Rogue Dashboard to reuse the same RogueForge service artwork later.
+The browser favicon/touch icon currently uses the RogueAssassin GitHub identity image. The sidebar uses the RogueForge service logo with a text fallback. Rogue Dashboard can later reuse the same canonical service artwork.
 
-## Installation and upgrades
+## First installation
 
-Run the installer/upgrader as the user that owns the rootless Podman or Docker containers, not as root.
+Requirements:
 
-To follow the current development release:
+- Linux with rootless Podman or Docker.
+- `podman-compose` for Podman, or Docker Compose for Docker.
+- Python 3, `curl`, Git and `sudo`.
+- Run installation as the account that owns the containers, not root.
+
+```bash
+cd /tmp
+git clone --branch v0.7.0 --depth 1 \
+  https://github.com/RogueAssassin/RogueForge.git rogueforge-install-0.7.0
+cd rogueforge-install-0.7.0
+chmod +x install.sh
+./install.sh --engine podman
+```
+
+## Existing installation: upgrade
+
+To follow the current `main`/`latest` development image:
 
 ```bash
 cd /opt/media-server/rogueforge
 ./upgrade.sh latest
 ```
 
-The upgrader preserves `.env` and `data/auth.json`, backs up the deployment, pulls the target image first, refreshes the matching deployment bundle, validates Compose, recreates RogueForge and verifies `/health`.
+For the immutable semantic release once the `v0.7.0` tag/image is published:
+
+```bash
+cd /opt/media-server/rogueforge
+./upgrade.sh 0.7.0
+```
+
+The upgrader preserves `.env` and `data/auth.json`, backs up the deployment, refreshes matching deployment files, validates Compose, recreates RogueForge and verifies `/health`.
 
 ## Login and password recovery
 
 The default username is `administrator`.
-
-Reset the password and invalidate existing sessions with:
 
 ```bash
 cd /opt/media-server/rogueforge
@@ -94,11 +111,7 @@ python3 setup-auth.py --username administrator
 podman-compose restart
 ```
 
-Authentication data remains in `data/auth.json`.
-
 ## Nginx Proxy Manager
-
-Use:
 
 | Setting | Value |
 | --- | --- |
@@ -110,7 +123,11 @@ Use:
 | Block Common Exploits | enabled |
 | Force SSL | enabled after certificate issuance |
 
-NPM and RogueForge must both be attached to `media-net`.
+NPM and RogueForge must both be attached to `media-net`. For live logs, proxy buffering should remain disabled; RogueForge also sends `X-Accel-Buffering: no` on the SSE stream.
+
+## Security notes for terminal access
+
+Terminal access requires an authenticated administrator session. Creating a terminal, sending input and closing the terminal are CSRF-protected. Sessions are held only in RogueForge memory, close when the exec process exits, and expire after inactivity. RogueForge does not expose terminal sessions without authentication.
 
 ## Documentation
 
