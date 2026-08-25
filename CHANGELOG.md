@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.8.3 — Operations quality, icon reliability and release workflow
+
+- Moved updater deployment backups out of `/opt/media-server` and into `/tmp/rogueforge-update-backups` (or `$TMPDIR/rogueforge-update-backups`) so backup Compose snapshots are not discovered as dashboard stacks.
+- Added automatic migration of legacy `data/update-backups` contents into the external temporary backup area.
+- Hardened recursive stack discovery in the packaged runtime to ignore `update-backups` and `rogueforge-update-backups` directory names.
+- Added an Operations activity drawer that records stack/container mutation operations with running/success/failure status, timestamps, duration and captured output.
+- Persisted recent Operations history in browser local storage with a clear-completed action.
+- Reworked service icon handling to remove the fragile single inline-error chain and use layered Dashboard Icons resolution: jsDelivr → raw GitHub → RogueForge local endpoint → generic Docker icon.
+- Added explicit icon aliases for Nginx Proxy Manager (`nginx-proxy-manager.svg`) and Cloudflared (`cloudflare.svg`) plus common alternate names/image references.
+- Ensured the service initial remains visible if every icon source is unavailable, preventing blank stack/service identity tiles.
+- Added `VERSION` release metadata and prepared v0.8.3 packaging while retaining the single `rogueforge.py` application runtime.
+- Updated GHCR publishing to support `latest`, semantic (`0.8.3`), v-prefixed (`v0.8.3`), compact (`083`) and SHA tags.
+- Updated the release workflow to create the matching immutable Git version tag when a new version is first published.
+- Kept deployment tooling sourced from `main` so updater/Compose fixes remain available when installing a pinned runtime image.
+- Updated README, roadmap, Compose defaults, environment example, tests and CI release checks for v0.8.3.
+
 ## 0.8.2 — Single-runtime consolidation and release cleanup
 
 - Consolidated RogueForge backend functionality into the single canonical `rogueforge.py` runtime.
