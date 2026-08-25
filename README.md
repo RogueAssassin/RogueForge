@@ -4,29 +4,29 @@
 
 **A secure, local-first command centre for Docker and Podman Compose stacks.**
 
-RogueForge discovers existing Compose projects and containers, shows runtime state, edits Compose files safely, manages container/stack lifecycle, streams logs, and provides authenticated container terminal access through the host container engine.
+RogueForge discovers existing Compose projects and containers, shows runtime state, edits Compose and `.env` files safely, manages stack/service lifecycle, streams logs, and provides authenticated container terminal access through the host container engine.
 
-## Current release: 0.7.0
+## Current release: 0.8.0
 
-0.7.0 adds the live-operations layer on top of the stable 0.6.2 container-management base. Running containers now expose **Live logs** and **Terminal** controls. Live logs stream through authenticated Server-Sent Events with pause, filtering, clear and download controls. Terminal sessions use authenticated container exec with Bash-to-`sh` fallback, CSRF-protected input/close operations, process-exit tracking and automatic idle cleanup.
+0.8.0 makes **Stacks** the primary operational surface. Each discovered Compose stack now groups its associated services/containers, status, resource information and service-level controls directly inside the stack view. The old Containers page remains as an advanced **Runtime** view for standalone containers, inspection and troubleshooting.
 
-See [MILESTONES.md](MILESTONES.md) for the remaining 0.7.x live-operation polish, 0.8 stack-management parity, 0.9 storage/runtime resources, and the path to 1.0.
+The interface has been restyled around the new dark RogueForge operations design with neon purple/cyan accents, compact system summaries and denser stack rows. Service icons are pulled automatically from the public `RogueAssassin/rogue-dashboard` icon library, with RogueForge local icons and a generic icon as fallbacks.
 
 ## Current features
 
 - Docker and rootless Podman through a mounted Unix socket.
-- Compose stack discovery without importing stack definitions into a proprietary database.
-- Stack Start, Stop, Restart, Pull, Recreate and validated Compose editing.
-- Container Start, Stop, Restart, Update, Recreate, Inspect, Logs and guarded Remove.
-- Compose-aware per-service updates and recreation.
-- Multi-select bulk Start/Stop/Restart/Update/Recreate/Remove.
-- Update checks and Update All while excluding RogueForge itself.
-- CPU, memory and network usage.
-- Sorting/filtering plus restart-policy inspection.
-- Authenticated live container logs with pause/search/download.
+- Flexible recursive Compose discovery using runtime labels, working directories, config-file labels and filesystem scanning.
+- Stack Start, Stop, Restart, Recreate and **Update Stack** (`pull` + `up -d --remove-orphans`).
+- Stack-level Compose editor with automatic backup and runtime-aware validation.
+- Stack-level `.env` editor with automatic backup and validation before save.
+- Expandable stack services with individual Start/Stop/Restart/Update, Logs and Terminal controls.
+- Authenticated live logs with pause/search/download.
 - Authenticated container terminal/exec with shell fallback and automatic cleanup.
+- Advanced Runtime page for individual containers, standalone workloads and troubleshooting.
+- Container Inspect, resource usage, update checks, Update All and bulk runtime actions.
 - Signed administrator sessions, CSRF protection and login throttling.
-- Self-stack and self-container protection.
+- RogueForge self-stack/self-container protection.
+- Centralized service icons from `RogueAssassin/rogue-dashboard` with local/generic fallback.
 - Nginx Proxy Manager support on shared `media-net`.
 - Multi-architecture GHCR publishing.
 - Runtime-aware upgrades with deployment backup/rollback.
@@ -44,62 +44,52 @@ Container port:       7810
 Shared network:       media-net
 Public URL:           https://manage.roguegaming.com.au
 Account file:         /opt/media-server/rogueforge/data/auth.json
+Discovery depth:      4
+Discovery cache:      10 seconds
 ```
 
 The installer derives the rootless Podman socket UID from the user running it. UID 1000 is the repository/default example.
 
-## Branding
+## Centralized icons
 
-The permanent repository banner is:
-
-```text
-docs/assets/rogueforge-banner.png
-```
-
-Canonical application branding lives under:
+RogueForge now prefers the public Rogue Dashboard icon repository:
 
 ```text
-static/branding/rogueforge-logo.svg
-static/branding/favicon.svg
+https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/app/static/icons/<service>.svg
 ```
 
-The browser favicon/touch icon currently uses the RogueAssassin GitHub identity image. The sidebar uses the RogueForge service logo with a text fallback. Rogue Dashboard can later reuse the same canonical service artwork.
+The browser falls back to `/api/icons/<service>` and finally `generic.svg` if a centralized icon does not exist. This lets RogueForge and Rogue Dashboard share one icon library without duplicating normal service artwork in every project.
 
 ## First installation
 
-Requirements:
-
-- Linux with rootless Podman or Docker.
-- `podman-compose` for Podman, or Docker Compose for Docker.
-- Python 3, `curl`, Git and `sudo`.
-- Run installation as the account that owns the containers, not root.
+Requirements: Linux with rootless Podman or Docker, `podman-compose` for Podman or Docker Compose for Docker, Python 3, `curl`, Git and `sudo`. Run installation as the account that owns the containers, not root.
 
 ```bash
 cd /tmp
-git clone --branch v0.7.0 --depth 1 \
-  https://github.com/RogueAssassin/RogueForge.git rogueforge-install-0.7.0
-cd rogueforge-install-0.7.0
+git clone --branch v0.8.0 --depth 1 \
+  https://github.com/RogueAssassin/RogueForge.git rogueforge-install-0.8.0
+cd rogueforge-install-0.8.0
 chmod +x install.sh
 ./install.sh --engine podman
 ```
 
 ## Existing installation: upgrade
 
-To follow the current `main`/`latest` development image:
+To test the current `main`/`latest` build:
 
 ```bash
 cd /opt/media-server/rogueforge
 ./upgrade.sh latest
 ```
 
-For the immutable semantic release once the `v0.7.0` tag/image is published:
+For the immutable release once `v0.8.0` is tagged/published:
 
 ```bash
 cd /opt/media-server/rogueforge
-./upgrade.sh 0.7.0
+./upgrade.sh 0.8.0
 ```
 
-The upgrader preserves `.env` and `data/auth.json`, backs up the deployment, refreshes matching deployment files, validates Compose, recreates RogueForge and verifies `/health`.
+The upgrader preserves `.env` and `data/auth.json`, backs up deployment state, refreshes matching deployment files, recreates RogueForge and verifies `/health`.
 
 ## Login and password recovery
 
@@ -124,10 +114,6 @@ podman-compose restart
 | Force SSL | enabled after certificate issuance |
 
 NPM and RogueForge must both be attached to `media-net`. For live logs, proxy buffering should remain disabled; RogueForge also sends `X-Accel-Buffering: no` on the SSE stream.
-
-## Security notes for terminal access
-
-Terminal access requires an authenticated administrator session. Creating a terminal, sending input and closing the terminal are CSRF-protected. Sessions are held only in RogueForge memory, close when the exec process exits, and expire after inactivity. RogueForge does not expose terminal sessions without authentication.
 
 ## Documentation
 
