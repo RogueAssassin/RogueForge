@@ -5,6 +5,7 @@ import tempfile
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
+RELEASE=(ROOT/"VERSION").read_text().strip()
 
 class RogueForgeTests(unittest.TestCase):
     @classmethod
@@ -16,8 +17,8 @@ class RogueForgeTests(unittest.TestCase):
     def tearDownClass(cls): cls.temp.cleanup()
 
     def test_version_and_single_runtime_layout(self):
-        self.assertEqual((ROOT/"VERSION").read_text().strip(),"0.8.3")
-        self.assertEqual(self.app.VERSION,"0.8.3")
+        self.assertEqual(RELEASE,"0.8.4")
+        self.assertEqual(self.app.VERSION,RELEASE)
         self.assertTrue((ROOT/"rogueforge.py").is_file())
         self.assertFalse(any(ROOT.glob("rogueforge_v*.py")))
         for name in ("rogueforge_ext.py","rogueforge_live.py","rogueforge_discovery.py","upgrade.sh"):
@@ -50,14 +51,14 @@ class RogueForgeTests(unittest.TestCase):
 
     def test_container_metadata_and_self_protection(self):
         old=self.app.load_containers
-        self.app.load_containers=lambda:[{"Id":"a"*64,"Names":["rogueforge"],"Image":"ghcr.io/rogueassassin/rogueforge:0.8.3","State":"running","Labels":{"io.podman.compose.project":"rogueforge","io.podman.compose.service":"rogueforge"},"Ports":[]}]
+        self.app.load_containers=lambda:[{"Id":"a"*64,"Names":["rogueforge"],"Image":f"ghcr.io/rogueassassin/rogueforge:{RELEASE}","State":"running","Labels":{"io.podman.compose.project":"rogueforge","io.podman.compose.service":"rogueforge"},"Ports":[]}]
         try:
             item=self.app.containers()[0]; self.assertEqual(item["id"],"a"*12); self.assertTrue(item["selfProtected"]); self.assertEqual(item["service"],"rogueforge")
         finally:self.app.load_containers=old
 
     def test_release_files_are_consistent(self):
         compose=(ROOT/"compose.yaml").read_text(); env=(ROOT/".env.example").read_text(); container=(ROOT/"Containerfile").read_text(); workflow=(ROOT/".github/workflows/container.yml").read_text(); readme=(ROOT/"README.md").read_text()
-        for content in (compose,env,container,readme): self.assertIn("0.8.3",content)
+        for content in (compose,env,container,readme): self.assertIn(RELEASE,content)
         self.assertIn('CMD ["python3", "/opt/rogueforge/rogueforge.py"]',container)
         self.assertIn("VERSION=$(cat VERSION)",workflow)
         self.assertIn("type=raw,value=v${{ steps.version.outputs.version }}",workflow)
@@ -70,12 +71,13 @@ class RogueForgeTests(unittest.TestCase):
             self.assertFalse((branding/obsolete).exists(),obsolete)
         html=(ROOT/"static/index.html").read_text(); self.assertIn('/branding/rogueforge.svg',html); self.assertNotIn('rogueforge-base.svg',html)
 
-    def test_083_icon_resolver_and_operations_drawer(self):
-        js=(ROOT/"static/v083.js").read_text(); css=(ROOT/"static/v083.css").read_text(); loader=(ROOT/"static/branding/branding-switch.js").read_text()
+    def test_operations_and_icon_resolver_assets(self):
+        js=(ROOT/"static/operations.js").read_text(); css=(ROOT/"static/operations.css").read_text(); loader=(ROOT/"static/branding/branding-switch.js").read_text()
         self.assertIn("nginx-proxy-manager",js); self.assertIn("cloudflared",js); self.assertIn("cloudflare",js)
         self.assertIn("cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons",js); self.assertIn("raw.githubusercontent.com/homarr-labs/dashboard-icons",js)
         self.assertIn("rogueforge-operation-history-v1",js); self.assertIn("rfOperationsDrawer",js); self.assertIn("rf-operations-drawer",css)
-        self.assertIn("/v083.js",loader); self.assertIn("/v083.css",loader)
+        self.assertIn("/operations.js",loader); self.assertIn("/operations.css",loader)
+        self.assertFalse((ROOT/"static/v083.js").exists()); self.assertFalse((ROOT/"static/v083.css").exists())
 
     def test_update_script_uses_external_backups_and_health_check(self):
         update=(ROOT/"update.sh").read_text(); self.assertIn("data/auth.json",update); self.assertIn("rogueforge-update-backups",update); self.assertIn("LEGACY_BACKUPS",update); self.assertIn("/health",update); self.assertIn("latest|main|X.Y.Z",update)
