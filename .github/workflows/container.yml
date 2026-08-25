@@ -18,9 +18,10 @@ jobs:
         shell: bash
         run: |
           VERSION=$(cat VERSION)
-          sed -i "s/RogueForge 0\.8\.2/RogueForge ${VERSION}/" rogueforge.py
-          sed -i "s/VERSION=\"0\.8\.2\"/VERSION=\"${VERSION}\"/" rogueforge.py
+          sed -E -i "s/RogueForge [0-9]+\.[0-9]+\.[0-9]+/RogueForge ${VERSION}/" rogueforge.py
+          sed -E -i "s/VERSION=\"[0-9]+\.[0-9]+\.[0-9]+\"/VERSION=\"${VERSION}\"/" rogueforge.py
           sed -i 's/"backup","backups"/"backup","backups","update-backups","rogueforge-update-backups"/' rogueforge.py
+          grep -q "VERSION=\"${VERSION}\"" rogueforge.py
       - name: Validate Python runtime
         run: python3 -m py_compile rogueforge.py setup-auth.py
       - name: Enforce clean single-runtime repository
@@ -33,6 +34,10 @@ jobs:
           test ! -e rogueforge_live.py
           test ! -e rogueforge_discovery.py
           test ! -e upgrade.sh
+          test ! -e static/v083.js
+          test ! -e static/v083.css
+          test -f static/operations.js
+          test -f static/operations.css
           test -x update.sh
       - name: Run unit tests
         run: python3 -m unittest discover -s tests -v
@@ -44,7 +49,6 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-
       - name: Resolve RogueForge version
         id: version
         shell: bash
@@ -54,17 +58,22 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "compact=$COMPACT" >> "$GITHUB_OUTPUT"
           echo "RogueForge version: $VERSION"
-
+      - name: Stamp version into published runtime
+        shell: bash
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          sed -E -i "s/RogueForge [0-9]+\.[0-9]+\.[0-9]+/RogueForge ${VERSION}/" rogueforge.py
+          sed -E -i "s/VERSION=\"[0-9]+\.[0-9]+\.[0-9]+\"/VERSION=\"${VERSION}\"/" rogueforge.py
+          sed -i 's/"backup","backups"/"backup","backups","update-backups","rogueforge-update-backups"/' rogueforge.py
+          grep -q "VERSION=\"${VERSION}\"" rogueforge.py
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
-
       - name: Sign in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Generate image metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -76,7 +85,6 @@ jobs:
             type=raw,value=v${{ steps.version.outputs.version }}
             type=raw,value=${{ steps.version.outputs.compact }}
             type=sha
-
       - name: Build and publish
         uses: docker/build-push-action@v6
         with:
@@ -86,7 +94,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
       - name: Create immutable Git release tag after successful publish
         shell: bash
         env:
