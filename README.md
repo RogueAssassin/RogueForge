@@ -6,22 +6,25 @@
 
 RogueForge discovers existing Compose projects and containers, shows runtime state, reads logs, edits Compose files with validation/backup, and performs authenticated lifecycle operations through the host container engine.
 
-## Current base: 0.6.0
+## Current base: 0.6.2
 
-0.6.0 builds on the reliable 0.5.x rootless Podman/Compose foundation and expands individual-container management. The Containers page now supports state-aware Start/Stop/Restart controls, Inspect, Logs, Compose-aware Update/Recreate, guarded Remove operations and self-container protection.
+0.6.2 builds on the reliable 0.5.x rootless Podman/Compose foundation and the 0.6.x container-management work. The Containers page now supports state-aware Start/Stop/Restart, Inspect, Logs, Compose-aware Update/Recreate, guarded Remove operations, live resource usage, image update checks, Update All, sorting, multi-select bulk actions, restart-policy inspection, and self-container protection.
 
-The project roadmap has been realigned to the actual codebase. See [MILESTONES.md](MILESTONES.md) for the planned 0.6.x operations polish, 0.7 console/terminal work, 0.8 stack-management parity, 0.9 storage/runtime resources and the path to a production-quality 1.0 release.
+The project roadmap is maintained in [MILESTONES.md](MILESTONES.md), covering the remaining 0.6.x operations polish, 0.7 console/terminal work, 0.8 stack-management parity, 0.9 storage/runtime resources and the path to a production-quality 1.0 release.
 
 ## Current features
 
 - Discover Docker or rootless Podman containers through the mounted Unix socket.
 - Discover normal Compose files under the configured stacks directory without importing them into a proprietary database.
 - Start, stop, restart, pull and recreate Compose projects.
-- Start, stop and restart individual containers.
-- Inspect individual container runtime/configuration information.
-- Read individual container logs.
+- Start, stop, restart, update, recreate, inspect, log and remove individual containers/services where safe.
+- Apply bulk Start, Stop, Restart, Update, Recreate and Remove operations to selected manageable containers.
+- Display live CPU, memory and network usage.
+- Check pulled image state against the image used by a running container.
+- Update all manageable containers while excluding RogueForge itself.
+- Sort and filter containers by name, state, project and image.
+- Inspect restart policy, runtime timestamps, image IDs, mounts, networks and service metadata.
 - Update and recreate Compose-managed services without unnecessarily rebuilding the complete stack.
-- Guard container removal behind authentication and confirmation.
 - Edit Compose files with automatic backup and validation before changes are accepted.
 - Protect privileged operations with signed administrator sessions and CSRF validation.
 - Protect RogueForge's own Compose project/container from self-destructive lifecycle operations.
@@ -51,25 +54,20 @@ The installer derives the Podman socket UID dynamically from the user running it
 
 ## Branding
 
-The repository already contains the permanent GitHub/documentation banner:
+The permanent GitHub/documentation banner remains:
 
 ```text
 docs/assets/rogueforge-banner.png
 ```
 
-The web interface currently keeps a CSS/text RF fallback so branding can never prevent the management UI from loading. The canonical service-logo contract for future artwork is documented in [MILESTONES.md](MILESTONES.md): a version-independent square RogueForge logo will live under `static/branding/` and can be reused by Rogue Dashboard instead of maintaining a second design.
-
-Planned stable paths are:
+The browser favicon and touch icon now use the RogueAssassin GitHub profile identity image. The application sidebar has a stable RogueForge-specific logo with a text fallback, and future shared RogueForge/Rogue Dashboard artwork remains version-independent under:
 
 ```text
-static/branding/rogueforge-logo.png
 static/branding/rogueforge-logo.svg
-static/branding/rogueforge-wordmark.svg
 static/branding/favicon.svg
-static/branding/apple-touch-icon.png
 ```
 
-This allows a future RogueForge logo to be dropped into the webpage and copied/uploaded into Rogue Dashboard without changing application code or tying the artwork to a release number.
+This keeps web identity independent from release numbers and leaves a clean path for Rogue Dashboard to reuse the same RogueForge service artwork later.
 
 ## Installation and upgrades
 
