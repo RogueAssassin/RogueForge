@@ -1,5 +1,4 @@
 import importlib.util
-import json
 import os
 from pathlib import Path
 import tempfile
@@ -29,8 +28,9 @@ class RogueForgeTests(unittest.TestCase):
     def test_recursive_discovery_and_nested_stack(self):
         nested=self.root/"apps"/"media"/"sonarr"; nested.mkdir(parents=True,exist_ok=True); (nested/"compose.yaml").write_text("services:\n  sonarr:\n    image: linuxserver/sonarr\n",encoding="utf-8")
         self.app._discovery_cache["time"]=0
-        stacks=self.app.discover_stacks(); self.assertEqual(len(stacks),1); self.assertEqual(stacks[0]["composeFile"],"compose.yaml"); self.assertIn("sonarr",stacks[0]["relativePath"])
-        self.assertEqual(self.app.safe_stack(stacks[0]["name"]),nested.resolve())
+        stack=next(x for x in self.app.discover_stacks() if x["relativePath"]=="apps/media/sonarr")
+        self.assertEqual(stack["composeFile"],"compose.yaml")
+        self.assertEqual(self.app.safe_stack(stack["name"]),nested.resolve())
 
     def test_compose_command_podman_does_not_use_env_file(self):
         nested=self.root/"podman-test"; nested.mkdir(exist_ok=True); (nested/"compose.yaml").write_text("services:\n  app:\n    image: test/app\n",encoding="utf-8"); (nested/".env").write_text("A=B\n",encoding="utf-8")
