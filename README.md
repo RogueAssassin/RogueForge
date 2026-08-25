@@ -1,40 +1,45 @@
-![RogueForge](docs/assets/rogueforge-banner.png)
+![RogueForge](static/branding/rogueforge.svg)
 
 # RogueForge
 
-**A secure, local-first command centre for Docker and Podman Compose stacks.**
+**A local-first operations console for Docker and Podman Compose.**
 
-RogueForge discovers existing Compose projects and containers, shows runtime state, edits Compose and `.env` files safely, manages stack/service lifecycle, streams logs, and provides authenticated container terminal access through the host container engine.
+## Current release: 0.8.2
 
-## Current release: 0.8.0
+RogueForge 0.8.2 consolidates the complete backend into **one maintained runtime file: `rogueforge.py`**. Historical version wrappers and extension modules have been removed so new releases update one runtime rather than layering monkey patches across older versions.
 
-0.8.0 makes **Stacks** the primary operational surface. Each discovered Compose stack now groups its associated services/containers, status, resource information and service-level controls directly inside the stack view. The old Containers page remains as an advanced **Runtime** view for standalone containers, inspection and troubleshooting.
+### What it manages
 
-The interface has been restyled around the new dark RogueForge operations design with neon purple/cyan accents, compact system summaries and denser stack rows. Service icons are pulled automatically from the public `RogueAssassin/rogue-dashboard` icon library, with RogueForge local icons and a generic icon as fallbacks.
-
-## Current features
-
+- Recursive Compose stack discovery from runtime labels, working-directory/config-file metadata, and filesystem scanning.
 - Docker and rootless Podman through a mounted Unix socket.
-- Flexible recursive Compose discovery using runtime labels, working directories, config-file labels and filesystem scanning.
-- Stack Start, Stop, Restart, Recreate and **Update Stack** (`pull` + `up -d --remove-orphans`).
-- Stack-level Compose editor with automatic backup and runtime-aware validation.
-- Stack-level `.env` editor with automatic backup and validation before save.
-- Expandable stack services with individual Start/Stop/Restart/Update, Logs and Terminal controls.
-- Authenticated live logs with pause/search/download.
-- Authenticated container terminal/exec with shell fallback and automatic cleanup.
-- Advanced Runtime page for individual containers, standalone workloads and troubleshooting.
-- Container Inspect, resource usage, update checks, Update All and bulk runtime actions.
-- Signed administrator sessions, CSRF protection and login throttling.
-- RogueForge self-stack/self-container protection.
-- Centralized service icons from `RogueAssassin/rogue-dashboard` with local/generic fallback.
-- Nginx Proxy Manager support on shared `media-net`.
-- Multi-architecture GHCR publishing.
-- Runtime-aware upgrades with deployment backup/rollback.
+- Stack Start, Stop, Restart, Pull, Recreate, and Update (`pull` + `up -d --remove-orphans`).
+- Compose and `.env` editing with backups and runtime-aware validation.
+- Service/container Start, Stop, Restart, Update, Recreate, Remove, Inspect, image checks, bulk actions, and resource statistics.
+- Live logs over authenticated Server-Sent Events.
+- Authenticated container terminal/exec sessions with Bash → `sh` fallback and automatic cleanup.
+- RogueForge self-container/self-stack protection.
+- Signed administrator sessions, CSRF protection, and login throttling.
+- Centralized stack/service icons from [Dashboard Icons](https://dashboardicons.com/icons), with local fallback assets.
+
+## Repository layout
+
+```text
+rogueforge.py          # complete application runtime
+setup-auth.py          # administrator password maintenance
+install.sh             # first installation
+update.sh              # updates/releases
+compose.yaml            # deployment
+Containerfile           # image build
+static/                 # web interface and RogueForge branding
+tests/                  # validation tests
+docs/                   # deployment documentation
+```
+
+There are no versioned `rogueforge_v*.py` entry points and no runtime extension modules.
 
 ## FEILSBEASTSERVER / default rootless Podman layout
 
 ```text
-Container owner UID:  1000
 Stacks root:          /opt/media-server
 RogueForge install:   /opt/media-server/rogueforge
 Podman socket source: /run/user/1000/podman/podman.sock
@@ -43,77 +48,66 @@ LAN port:             17810
 Container port:       7810
 Shared network:       media-net
 Public URL:           https://manage.roguegaming.com.au
-Account file:         /opt/media-server/rogueforge/data/auth.json
 Discovery depth:      4
 Discovery cache:      10 seconds
 ```
 
-The installer derives the rootless Podman socket UID from the user running it. UID 1000 is the repository/default example.
+The installer derives the Podman socket from the user who runs it; UID 1000 is only the default example.
 
-## Centralized icons
+## Install
 
-RogueForge now prefers the public Rogue Dashboard icon repository:
-
-```text
-https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/app/static/icons/<service>.svg
-```
-
-The browser falls back to `/api/icons/<service>` and finally `generic.svg` if a centralized icon does not exist. This lets RogueForge and Rogue Dashboard share one icon library without duplicating normal service artwork in every project.
-
-## First installation
-
-Requirements: Linux with rootless Podman or Docker, `podman-compose` for Podman or Docker Compose for Docker, Python 3, `curl`, Git and `sudo`. Run installation as the account that owns the containers, not root.
+Run as the user that owns the containers, not root:
 
 ```bash
 cd /tmp
-git clone --branch v0.8.0 --depth 1 \
-  https://github.com/RogueAssassin/RogueForge.git rogueforge-install-0.8.0
-cd rogueforge-install-0.8.0
+curl -fsSLO https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/install.sh
 chmod +x install.sh
 ./install.sh --engine podman
 ```
 
-## Existing installation: upgrade
+## Update
 
-To test the current `main`/`latest` build:
+`update.sh` is the supported update path.
 
-```bash
-cd /opt/media-server/rogueforge
-./upgrade.sh latest
-```
-
-For the immutable release once `v0.8.0` is tagged/published:
+Latest build from `main`:
 
 ```bash
 cd /opt/media-server/rogueforge
-./upgrade.sh 0.8.0
+./update.sh latest
 ```
 
-The upgrader preserves `.env` and `data/auth.json`, backs up deployment state, refreshes matching deployment files, recreates RogueForge and verifies `/health`.
+Immutable tagged release:
 
-## Login and password recovery
+```bash
+./update.sh 0.8.2
+```
 
-The default username is `administrator`.
+If an older installation does not have `update.sh` yet, bootstrap it once:
+
+```bash
+cd /opt/media-server/rogueforge
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/update.sh -o update.sh
+chmod +x update.sh
+./update.sh latest
+```
+
+The updater preserves `.env` and `data/auth.json`, records deployment backups under `data/update-backups/`, updates the image, recreates RogueForge, and verifies `/health`.
+
+## Administrator account
 
 ```bash
 cd /opt/media-server/rogueforge
 python3 setup-auth.py --username administrator
-podman-compose restart
+podman-compose restart rogueforge
 ```
 
-## Nginx Proxy Manager
+## Branding and service icons
 
-| Setting | Value |
-| --- | --- |
-| Domain | `manage.roguegaming.com.au` |
-| Scheme | `http` |
-| Forward hostname | `rogueforge` |
-| Forward port | `7810` |
-| WebSockets | enabled |
-| Block Common Exploits | enabled |
-| Force SSL | enabled after certificate issuance |
+RogueForge includes only its approved Base, Dark, and Light icon assets under `static/branding/`. Stack/service icons are resolved in the browser from Dashboard Icons' centralized CDN and fall back to RogueForge's local icon endpoint when needed.
 
-NPM and RogueForge must both be attached to `media-net`. For live logs, proxy buffering should remain disabled; RogueForge also sends `X-Accel-Buffering: no` on the SSE stream.
+## Reverse proxy
+
+For Nginx Proxy Manager, forward `https://manage.roguegaming.com.au` to `http://rogueforge:7810` on the shared `media-net`. Enable WebSockets and SSL. Live-log streaming sends `X-Accel-Buffering: no`.
 
 ## Documentation
 

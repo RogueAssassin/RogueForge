@@ -2,6 +2,7 @@ FROM debian:bookworm-slim
 
 LABEL org.opencontainers.image.source="https://github.com/RogueAssassin/RogueForge" \
       org.opencontainers.image.title="RogueForge" \
+      org.opencontainers.image.version="0.8.2" \
       org.opencontainers.image.description="Self-hosted operations console for Docker and Podman Compose stacks"
 
 RUN apt-get update \
@@ -9,14 +10,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/rogueforge
-COPY rogueforge.py ./rogueforge.py
-COPY rogueforge_ext.py ./rogueforge_ext.py
-COPY rogueforge_discovery.py ./rogueforge_discovery.py
-COPY rogueforge_live.py ./rogueforge_live.py
-COPY rogueforge_v071.py ./rogueforge_v071.py
-COPY rogueforge_v080.py ./rogueforge_v080.py
-COPY rogueforge_v081.py ./rogueforge_v081.py
-COPY setup-auth.py ./setup-auth.py
+COPY rogueforge.py setup-auth.py ./
 COPY static ./static
 
 ENV ROGUEFORGE_BIND=0.0.0.0 \
@@ -31,5 +25,4 @@ ENV ROGUEFORGE_BIND=0.0.0.0 \
 EXPOSE 7810
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7810/health', timeout=3)" || exit 1
-
-CMD ["python3", "/opt/rogueforge/rogueforge_v081.py"]
+CMD ["python3", "/opt/rogueforge/rogueforge.py"]

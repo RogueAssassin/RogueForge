@@ -1,6 +1,6 @@
 services:
   rogueforge:
-    image: ${ROGUEFORGE_IMAGE:-ghcr.io/rogueassassin/rogueforge:0.8.1}
+    image: ${ROGUEFORGE_IMAGE:-ghcr.io/rogueassassin/rogueforge:0.8.2}
     container_name: rogueforge
     hostname: rogueforge
     restart: unless-stopped
@@ -29,7 +29,6 @@ services:
       - label=disable
     networks:
       - media-net
-
 networks:
   media-net:
     external: true
