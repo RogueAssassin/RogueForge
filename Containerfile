@@ -11,6 +11,7 @@ RUN apt-get update \
 WORKDIR /opt/rogueforge
 COPY rogueforge.py ./rogueforge.py
 COPY rogueforge_ext.py ./rogueforge_ext.py
+COPY rogueforge_discovery.py ./rogueforge_discovery.py
 COPY rogueforge_live.py ./rogueforge_live.py
 COPY setup-auth.py ./setup-auth.py
 COPY static ./static
@@ -20,6 +21,8 @@ ENV ROGUEFORGE_BIND=0.0.0.0 \
     ROGUEFORGE_ENGINE=podman \
     ROGUEFORGE_SOCKET=/run/podman/podman.sock \
     ROGUEFORGE_PODMAN_REMOTE=true \
+    ROGUEFORGE_SCAN_DEPTH=4 \
+    ROGUEFORGE_DISCOVERY_CACHE=10 \
     CONTAINER_HOST=unix:///run/podman/podman.sock
 
 EXPOSE 7810
