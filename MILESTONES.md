@@ -1,55 +1,58 @@
 # RogueForge roadmap
 
-RogueForge is being developed as a local-first Docker/Podman operations platform. The roadmap below reflects the actual 0.6.0 codebase rather than the older placeholder version numbering.
+RogueForge is being developed as a local-first Docker/Podman operations platform. The roadmap reflects the actual shipped codebase and keeps normal Compose files as the source of truth.
 
-## 0.6.0 — Container operations foundation
+## 0.6.x — Container operations foundation
 
-Status: Current base
+Status: Complete
 
 - [x] Rootless Podman and Docker socket connectivity.
 - [x] Compose stack discovery and lifecycle controls.
 - [x] Safe Compose editing with validation and backup.
 - [x] Signed administrator sessions and CSRF protection.
 - [x] Self-stack/self-container protection.
-- [x] Per-container Start, Stop and Restart controls.
-- [x] Per-container Logs and Inspect views.
-- [x] Compose-aware per-service Update and Recreate actions.
-- [x] Guarded container Remove action.
-- [x] Rootless Podman-aware installer and upgrade path.
-- [x] Stable FEILSBEASTSERVER deployment defaults.
+- [x] Per-container Start, Stop, Restart, Update, Recreate, Inspect, Logs and guarded Remove.
+- [x] Compose-aware per-service updates.
+- [x] Update checks and Update All.
+- [x] CPU, memory and network usage.
+- [x] Multi-select and bulk Start/Stop/Restart/Update/Recreate/Remove.
+- [x] Sorting/filtering and restart-policy inspection.
+- [x] Rootless Podman-aware installer/upgrader and stable FEILSBEASTSERVER defaults.
 
-## 0.6.x — Operations polish
+## 0.7.0 — Live logs and terminal
+
+Status: Current release
+
+- [x] Stream container logs in real time.
+- [x] Pause/resume live log display.
+- [x] Search/filter streamed log output.
+- [x] Download captured live logs.
+- [x] Authenticated container exec terminal.
+- [x] Bash-to-`sh` shell auto-detection/fallback.
+- [x] Tokenized terminal sessions with authenticated reads and CSRF-protected writes.
+- [x] Automatic inactive-session cleanup.
+- [x] Explicit terminal close/cleanup.
+- [ ] Stream Compose command output in real time.
+- [ ] Persist operational command/action history.
+- [ ] Keep long-running actions resumable across UI navigation/reloads.
+- [ ] Add cancellation where the underlying runtime supports it.
+- [ ] Add terminal resize/PTY support for full-screen interactive applications.
+
+## 0.7.x — Live operations polish
 
 Priority: Immediate
 
-- [ ] Replace basic container table with richer responsive cards/table modes.
-- [ ] Add live action output instead of toast-only completion messages.
-- [ ] Add progress/busy states per container and per stack.
-- [ ] Disable conflicting controls while an action is running.
-- [ ] Add bulk selection and bulk Start/Stop/Restart/Update.
-- [ ] Add Update All with Compose-aware grouping.
-- [ ] Add image update-available detection and last-checked timestamps.
-- [ ] Show current image digest, remote digest and update status.
-- [ ] Add CPU, memory, network and block-I/O statistics.
-- [ ] Add health-check state and health history snippets.
-- [ ] Add restart policy, uptime, created time and last restart to container cards.
-- [ ] Add sortable/filterable columns and state/project/image filters.
-- [ ] Add container/stack favourites or pinning.
-- [ ] Improve mobile/tablet layouts.
-- [ ] Add keyboard-accessible dialogs and stronger action confirmations.
-
-## 0.7.0 — Console, terminal and logs
-
-Priority: High
-
-- [ ] Stream Compose command output in real time.
-- [ ] Stream container logs with pause/resume, follow and line limits.
-- [ ] Search/filter/download log output.
-- [ ] Add authenticated container exec terminal.
-- [ ] Add shell auto-detection (`bash`, `sh`, etc.).
-- [ ] Add command history for operational actions.
-- [ ] Keep long-running actions alive safely across UI navigation.
-- [ ] Add action cancellation where the underlying runtime supports it.
+- [ ] Add an Operations/Tasks drawer for active and recently completed actions.
+- [ ] Stream Pull/Update/Recreate/Compose validation output.
+- [ ] Add timestamps and severity highlighting to live logs.
+- [ ] Add configurable line limits and follow-to-bottom toggle.
+- [ ] Add copy-selection/copy-all terminal controls.
+- [ ] Add configurable terminal idle timeout.
+- [ ] Add command history navigation in terminal input.
+- [ ] Add per-action duration and exit status.
+- [ ] Add health-check state and health-history snippets to container cards.
+- [ ] Add uptime/last-restart information directly to container rows/cards.
+- [ ] Continue responsive/mobile polish.
 
 ## 0.8.0 — Stack management parity
 
@@ -64,7 +67,7 @@ Priority: High
 - [ ] Display Compose services, networks, volumes and dependencies graphically.
 - [ ] Per-service Start/Stop/Restart/Update/Recreate from the stack page.
 - [ ] Pull + deploy workflow matching Dockge-style update behaviour.
-- [ ] Roll back to the previous Compose/config backup.
+- [ ] Roll back to previous Compose/config backups.
 - [ ] Optional Git-backed stack source and change history.
 
 ## 0.9.0 — Images, volumes and networks
@@ -140,26 +143,21 @@ Goal: Production-quality single-host container management.
 
 ## Branding and Rogue Dashboard integration
 
-RogueForge branding must remain version-independent so the same assets can be reused by Rogue Dashboard and other Rogue services.
-
-Canonical planned assets:
+RogueForge branding remains version-independent so the same assets can be reused by Rogue Dashboard and other Rogue services.
 
 ```text
-static/branding/rogueforge-logo.png       # square transparent application/service logo
-static/branding/rogueforge-logo.svg       # scalable source where available
-static/branding/rogueforge-wordmark.svg   # horizontal RogueForge wordmark
-static/branding/favicon.svg               # browser favicon
-static/branding/apple-touch-icon.png      # 180x180 app icon
-docs/assets/rogueforge-banner.png         # GitHub/documentation banner (already present)
+static/branding/rogueforge-logo.svg       # canonical scalable RogueForge service logo
+static/branding/favicon.svg               # repository fallback favicon
+docs/assets/rogueforge-banner.png         # GitHub/documentation banner
 ```
 
-The webpage should reference the canonical `/branding/rogueforge-logo.*` asset with a CSS/text fallback so a missing or replaced artwork file cannot break navigation. Rogue Dashboard should import/copy the same canonical square logo rather than maintaining a separate RogueForge-specific design.
+The browser currently uses the RogueAssassin GitHub identity image for its favicon/touch icon. The webpage references the canonical RogueForge sidebar logo with a text fallback. Rogue Dashboard should reuse the canonical square/service artwork rather than maintaining a separate RogueForge design.
 
 ## Guiding principles
 
 - Keep normal Compose files as the source of truth.
 - Prefer service-aware Compose operations over destructive raw-container recreation.
-- Support rootless Podman as a first-class runtime, not a compatibility afterthought.
+- Support rootless Podman as a first-class runtime.
 - Preserve Docker support without forcing Docker-specific architecture on Podman users.
 - Make destructive actions explicit, authenticated and recoverable.
-- Build single-host operations to production quality before making multi-host complexity the default.
+- Build single-host operations to production quality before multi-host complexity becomes the default.
