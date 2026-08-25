@@ -6,20 +6,26 @@
 
 RogueForge discovers existing Compose projects and containers, shows runtime state, reads logs, edits Compose files with validation/backup, and performs authenticated lifecycle operations through the host container engine.
 
-## Current release: 0.5.0
+## Current base: 0.6.0
 
-0.5.0 fixes the rootless Podman/Compose control path and deployment lifecycle. Podman container and Compose operations now target the mounted host socket consistently, RogueForge protects its own stack from in-app lifecycle actions, Restart no longer performs `down` followed by `up`, and upgrades now refresh the deployment bundle as well as the application image.
+0.6.0 builds on the reliable 0.5.x rootless Podman/Compose foundation and expands individual-container management. The Containers page now supports state-aware Start/Stop/Restart controls, Inspect, Logs, Compose-aware Update/Recreate, guarded Remove operations and self-container protection.
 
-## Features
+The project roadmap has been realigned to the actual codebase. See [MILESTONES.md](MILESTONES.md) for the planned 0.6.x operations polish, 0.7 console/terminal work, 0.8 stack-management parity, 0.9 storage/runtime resources and the path to a production-quality 1.0 release.
 
-- Discover existing Docker or rootless Podman containers through the mounted Unix socket.
+## Current features
+
+- Discover Docker or rootless Podman containers through the mounted Unix socket.
 - Discover normal Compose files under the configured stacks directory without importing them into a proprietary database.
 - Start, stop, restart, pull and recreate Compose projects.
-- Restart individual containers and inspect their logs.
+- Start, stop and restart individual containers.
+- Inspect individual container runtime/configuration information.
+- Read individual container logs.
+- Update and recreate Compose-managed services without unnecessarily rebuilding the complete stack.
+- Guard container removal behind authentication and confirmation.
 - Edit Compose files with automatic backup and validation before changes are accepted.
 - Protect privileged operations with signed administrator sessions and CSRF validation.
-- Keep RogueForge's own Compose project visible but protected from self-stop/restart/recreate operations.
-- Reuse local service icons.
+- Protect RogueForge's own Compose project/container from self-destructive lifecycle operations.
+- Reuse local Rogue Dashboard-compatible service icons.
 - Run behind Nginx Proxy Manager on the shared `media-net` network.
 - Pull multi-architecture images from GHCR.
 - Upgrade image and deployment files together with rollback backups.
@@ -43,78 +49,40 @@ Account file:         /opt/media-server/rogueforge/data/auth.json
 
 The installer derives the Podman socket UID dynamically from the user running it. UID 1000 is only the repository/example default.
 
-## First installation
+## Branding
 
-Requirements:
+The repository already contains the permanent GitHub/documentation banner:
 
-- Linux with rootless Podman or Docker.
-- `podman-compose` for Podman, or Docker Compose for Docker.
-- Python 3, `curl`, Git and `sudo`.
-- Run the installer as the user that owns the containers, not as root.
-
-For 0.5.0:
-
-```bash
-cd /tmp
-git clone --branch v0.5.0 --depth 1 \
-  https://github.com/RogueAssassin/RogueForge.git rogueforge-install-0.5.0
-cd rogueforge-install-0.5.0
-chmod +x install.sh
-./install.sh --engine podman
+```text
+docs/assets/rogueforge-banner.png
 ```
 
-The installer:
+The web interface currently keeps a CSS/text RF fallback so branding can never prevent the management UI from loading. The canonical service-logo contract for future artwork is documented in [MILESTONES.md](MILESTONES.md): a version-independent square RogueForge logo will live under `static/branding/` and can be reused by Rogue Dashboard instead of maintaining a second design.
 
-1. Verifies the selected engine and Compose client.
-2. Enables the current user's rootless Podman socket when Podman is selected.
-3. Pulls the target image before changing the host deployment.
-4. Creates `/opt/media-server/rogueforge` and persistent `data/` state.
-5. Writes a host-specific `.env`, including the real current UID socket path.
-6. Provisions the administrator account interactively.
-7. Creates/reuses `media-net`.
-8. Validates Compose before startup.
-9. Starts RogueForge and waits for `/health`.
+Planned stable paths are:
 
-## Existing 0.4.x installation: upgrade to 0.5.0
-
-Older 0.4.x `upgrade.sh` files only update the image, so perform this one-time bootstrap of the new upgrader and Compose definition:
-
-```bash
-cd /tmp
-git clone --branch v0.5.0 --depth 1 \
-  https://github.com/RogueAssassin/RogueForge.git rogueforge-upgrade-0.5.0
-
-sudo cp -a /opt/media-server/rogueforge/compose.yaml \
-  /opt/media-server/rogueforge/compose.yaml.pre-0.5.0
-sudo cp -a /opt/media-server/rogueforge/.env \
-  /opt/media-server/rogueforge/.env.pre-0.5.0
-sudo cp -a /opt/media-server/rogueforge/data/auth.json \
-  /opt/media-server/rogueforge/data/auth.json.pre-0.5.0
-
-sudo install -m 0644 rogueforge-upgrade-0.5.0/compose.yaml \
-  /opt/media-server/rogueforge/compose.yaml
-sudo install -m 0755 rogueforge-upgrade-0.5.0/upgrade.sh \
-  /opt/media-server/rogueforge/upgrade.sh
-sudo chown -R "$(id -u):$(id -g)" /opt/media-server/rogueforge
-
-cd /opt/media-server/rogueforge
-./upgrade.sh 0.5.0
+```text
+static/branding/rogueforge-logo.png
+static/branding/rogueforge-logo.svg
+static/branding/rogueforge-wordmark.svg
+static/branding/favicon.svg
+static/branding/apple-touch-icon.png
 ```
 
-The 0.5.0 upgrader preserves `.env` and `data/auth.json`, backs up the deployment, pulls first, downloads the matching release deployment files, validates Compose, recreates RogueForge and verifies health.
+This allows a future RogueForge logo to be dropped into the webpage and copied/uploaded into Rogue Dashboard without changing application code or tying the artwork to a release number.
 
-## Normal future upgrades
+## Installation and upgrades
+
+Run the installer/upgrader as the user that owns the rootless Podman or Docker containers, not as root.
+
+To follow the current development release:
 
 ```bash
 cd /opt/media-server/rogueforge
-./upgrade.sh 0.5.1
-```
-
-Or deliberately follow `main`/`latest`:
-
-```bash
 ./upgrade.sh latest
 ```
+
+The upgrader preserves `.env` and `data/auth.json`, backs up the deployment, pulls the target image first, refreshes the matching deployment bundle, validates Compose, recreates RogueForge and verifies `/health`.
 
 ## Login and password recovery
 
@@ -128,17 +96,7 @@ python3 setup-auth.py --username administrator
 podman-compose restart
 ```
 
-Authentication data remains in `data/auth.json`. RogueForge 0.5.0 also reports whether that file exists, is readable and contains a valid credential record when authentication is unavailable.
-
-## Runtime diagnostics
-
-After signing in:
-
-```bash
-curl -b '<session-cookie>' http://127.0.0.1:17810/api/diagnostics
-```
-
-The diagnostics endpoint reports the selected engine/socket, remote Podman CLI status, stack root, self-stack guard, icon path and authentication-file status. The normal UI remains the preferred way to interact with RogueForge.
+Authentication data remains in `data/auth.json`.
 
 ## Nginx Proxy Manager
 
@@ -156,32 +114,14 @@ Use:
 
 NPM and RogueForge must both be attached to `media-net`.
 
-## Manual lifecycle
-
-From `/opt/media-server/rogueforge` on a Podman host:
-
-```bash
-podman-compose ps
-podman-compose restart
-podman-compose down
-podman-compose up -d
-podman-compose logs -f
-```
-
-Do not add `-v` to `down` unless persistent data removal is intentional.
-
-## Publishing 0.5.0
-
-The GHCR workflow verifies that a semantic release tag matches `rogueforge.VERSION`. After the 0.5.0 source is finalized on `main`, create and push `v0.5.0`. The workflow publishes `0.5.0`, `0.5`, `latest`, and a commit-SHA tag.
-
 ## Documentation
 
+- [Roadmap](MILESTONES.md)
 - [Installation and reverse proxy](docs/INSTALL.md)
 - [Container deployment](docs/CONTAINER_DEPLOYMENT.md)
 - [GHCR publishing](docs/GHCR.md)
 - [Security model](SECURITY.md)
 - [Release history](CHANGELOG.md)
-- [Milestones](MILESTONES.md)
 
 ## Acknowledgements
 
