@@ -23,10 +23,10 @@ core.Handler.server_version = f"RogueForge/{VERSION}"
 
 _previous_get = core.Handler.do_GET
 _previous_post = core.Handler.do_POST
-_previous_delete = getattr(core.Handler, "do_DELETE", None)
 _terminal_sessions: dict[str, dict] = {}
 _terminal_lock = threading.Lock()
 TERMINAL_TTL = 1800
+TERMINAL_CLOSED_GRACE = 60
 MAX_TERMINAL_CHUNKS = 2500
 
 
@@ -42,15 +42,7 @@ def _engine_prefix():
 
 def _popen_engine(args: list[str], *, stdin=False):
     prefix, env = _engine_prefix()
-    return subprocess.Popen(
-        prefix + args,
-        env=env,
-        stdin=subprocess.PIPE if stdin else subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
+    return subprocess.Popen(prefix + args, env=env, stdin=subprocess.PIPE if stdin else subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
 
 def _cleanup_terminals():
@@ -58,8 +50,8 @@ def _cleanup_terminals():
     stale = []
     with _terminal_lock:
         for token, session in _terminal_sessions.items():
-            proc = session["process"]
-            if now - session["lastAccess"] > TERMINAL_TTL or proc.poll() is not None:
+            idle = now - session["lastAccess"]
+            if idle > TERMINAL_TTL or (session.get("closed") and idle > TERMINAL_CLOSED_GRACE):
                 stale.append(token)
     for token in stale:
         close_terminal(token)
@@ -111,19 +103,7 @@ def start_terminal(cid: str):
         pass
     proc = _popen_engine(["exec", "-i", meta["id"], shell], stdin=True)
     token = secrets.token_urlsafe(24)
-    session = {
-        "token": token,
-        "containerId": meta["id"],
-        "containerName": meta["name"],
-        "shell": shell,
-        "process": proc,
-        "chunks": [],
-        "baseCursor": 0,
-        "created": time.time(),
-        "lastAccess": time.time(),
-        "closed": False,
-        "exitCode": None,
-    }
+    session = {"token": token, "containerId": meta["id"], "containerName": meta["name"], "shell": shell, "process": proc, "chunks": [], "baseCursor": 0, "created": time.time(), "lastAccess": time.time(), "closed": False, "exitCode": None}
     with _terminal_lock:
         _terminal_sessions[token] = session
     threading.Thread(target=_terminal_reader, args=(token,), daemon=True).start()
@@ -141,14 +121,7 @@ def terminal_output(token: str, cursor: int):
         start = max(0, cursor - base_cursor)
         chunks = session["chunks"][start:]
         next_cursor = base_cursor + len(session["chunks"])
-        return {
-            "output": "".join(chunks),
-            "cursor": next_cursor,
-            "closed": session["closed"],
-            "exitCode": session["exitCode"],
-            "container": session["containerName"],
-            "shell": session["shell"],
-        }
+        return {"output": "".join(chunks), "cursor": next_cursor, "closed": session["closed"], "exitCode": session["exitCode"], "container": session["containerName"], "shell": session["shell"]}
 
 
 def terminal_input(token: str, value: str):
