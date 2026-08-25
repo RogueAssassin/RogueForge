@@ -15,6 +15,21 @@ VERSION = "0.7.1"
 core.VERSION = VERSION
 core.Handler.server_version = f"RogueForge/{VERSION}"
 _previous_get = core.Handler.do_GET
+_discover_stacks = core.discover_stacks
+
+
+def public_stack_list():
+    """Expose useful discovery metadata without leaking absolute host paths."""
+    result = []
+    for stack in _discover_stacks():
+        item = dict(stack)
+        item.pop("directory", None)
+        item.pop("composePath", None)
+        result.append(item)
+    return result
+
+
+core.discover_stacks = public_stack_list
 
 
 def do_GET_v071(self):
