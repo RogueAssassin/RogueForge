@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-VERSION=0.8.2
+VERSION=0.8.3
 INSTALL_DIR=${ROGUEFORGE_INSTALL_DIR:-/opt/media-server/rogueforge}
 STACKS_DIR=${ROGUEFORGE_STACKS_DIR:-/opt/media-server}
 HOST_PORT=${ROGUEFORGE_HOST_PORT:-17810}
