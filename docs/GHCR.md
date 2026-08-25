@@ -1,36 +1,44 @@
 # Publishing RogueForge to GHCR
 
-The repository includes `.github/workflows/container.yml`. It publishes:
+The repository includes `.github/workflows/container.yml`. Each current release publishes:
 
 ```text
-ghcr.io/rogueassassin/rogueforge:<version>
-ghcr.io/rogueassassin/rogueforge:<major>.<minor>
 ghcr.io/rogueassassin/rogueforge:latest
+ghcr.io/rogueassassin/rogueforge:0.8.3
+ghcr.io/rogueassassin/rogueforge:v0.8.3
+ghcr.io/rogueassassin/rogueforge:083
 ghcr.io/rogueassassin/rogueforge:sha-<commit>
 ```
 
 Images are built for `linux/amd64` and `linux/arm64`.
 
-For tag builds, the workflow imports `rogueforge.py` and refuses publication when the Git tag and application version differ. The 0.5.0 source reports `VERSION = "0.5.0"`, so the semantic release tag must be `v0.5.0`.
+## Release metadata
 
-## Publish 0.5.0
+The canonical release number is stored in the root `VERSION` file. CI validates the packaged single-file runtime using that version, creates the matching immutable Git tag (`v<version>`) when it does not already exist, and publishes all GHCR aliases from the same validated build.
 
-After the final 0.5.0 source is on `main`:
+`latest` tracks the current release line on `main`. Semantic (`0.8.3`) and v-prefixed (`v0.8.3`) tags are convenient pinned aliases, while compact (`083`) is provided for short update references. SHA tags remain available for exact build identification.
+
+## Updating
+
+Recommended:
 
 ```bash
-git pull --ff-only origin main
-git tag v0.5.0
-git push origin v0.5.0
+cd /opt/media-server/rogueforge
+./update.sh latest
 ```
 
-The tag-triggered workflow publishes the immutable `0.5.0` and `0.5` tags. The default branch workflow also maintains `latest` and commit-SHA tags.
-
-Confirm the workflow succeeds in the repository Actions view before upgrading production to the semantic tag.
-
-## Pulling the release
+Pinned semantic release:
 
 ```bash
-podman pull ghcr.io/rogueassassin/rogueforge:0.5.0
+./update.sh 0.8.3
+```
+
+The updater always downloads current deployment tooling from `main`, then pulls the requested runtime image tag. This means updater and Compose compatibility fixes remain available even when rolling back to a historical RogueForge runtime image.
+
+## Pulling directly
+
+```bash
+podman pull ghcr.io/rogueassassin/rogueforge:0.8.3
 ```
 
 ## Package authentication
