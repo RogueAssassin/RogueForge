@@ -2,7 +2,7 @@ FROM debian:bookworm-slim
 
 LABEL org.opencontainers.image.source="https://github.com/RogueAssassin/RogueForge" \
       org.opencontainers.image.title="RogueForge" \
-      org.opencontainers.image.version="0.8.2" \
+      org.opencontainers.image.version="0.8.3" \
       org.opencontainers.image.description="Self-hosted operations console for Docker and Podman Compose stacks"
 
 RUN apt-get update \
@@ -12,6 +12,14 @@ RUN apt-get update \
 WORKDIR /opt/rogueforge
 COPY rogueforge.py setup-auth.py ./
 COPY static ./static
+
+# Keep the repository on a single rogueforge.py runtime while stamping the release
+# version into the packaged image and hard-excluding updater backup directories from
+# recursive Compose discovery.
+RUN sed -i 's/RogueForge 0\.8\.2/RogueForge 0.8.3/' rogueforge.py \
+    && sed -i 's/VERSION="0\.8\.2"/VERSION="0.8.3"/' rogueforge.py \
+    && sed -i 's/"backup","backups"/"backup","backups","update-backups","rogueforge-update-backups"/' rogueforge.py \
+    && python3 -m py_compile rogueforge.py setup-auth.py
 
 ENV ROGUEFORGE_BIND=0.0.0.0 \
     ROGUEFORGE_PORT=7810 \
