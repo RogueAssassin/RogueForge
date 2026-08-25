@@ -1,0 +1,105 @@
+// RogueForge v0.7.0 live operations UI.
+const rfLive = { source: null, terminalToken: null, terminalCursor: 0, terminalTimer: null, paused: false, lines: [] };
+
+function liveButton(label, attrName, container, className="") {
+  return `<button class="small-button ${className}" ${attrName}="${container.id}" data-name="${attr(container.name)}">${label}</button>`;
+}
+
+const previousRenderContainersV070 = renderContainers;
+renderContainers = function renderContainersV070() {
+  previousRenderContainersV070();
+  state.containers.forEach(container => {
+    const row = document.querySelector(`[data-container-select="${CSS.escape(container.id)}"]`)?.closest('.container-row');
+    if (!row) return;
+    const actions = row.querySelector('.container-actions-v060');
+    if (!actions || actions.querySelector('[data-live-logs]')) return;
+    actions.insertAdjacentHTML('beforeend', liveButton('Live logs','data-live-logs',container,'accent') + (container.state==='running' ? liveButton('Terminal','data-terminal',container,'') : ''));
+  });
+};
+
+function stopLiveLogs() {
+  if (rfLive.source) { rfLive.source.close(); rfLive.source = null; }
+  const status = document.querySelector('#liveLogStatus');
+  if (status) status.textContent = 'Disconnected';
+}
+
+function appendLiveLine(line) {
+  if (rfLive.paused) return;
+  rfLive.lines.push(line);
+  if (rfLive.lines.length > 4000) rfLive.lines.splice(0, rfLive.lines.length - 4000);
+  renderLiveLines();
+}
+
+function renderLiveLines() {
+  const filter = ($('#liveLogSearch')?.value || '').toLowerCase();
+  const output = filter ? rfLive.lines.filter(line => line.toLowerCase().includes(filter)) : rfLive.lines;
+  const pre = $('#liveLogText');
+  if (!pre) return;
+  const pinned = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 80;
+  pre.textContent = output.join('\n');
+  if (pinned || !filter) pre.scrollTop = pre.scrollHeight;
+}
+
+function openLiveLogs(id, name) {
+  if (!ensureAuthenticated()) return;
+  stopLiveLogs(); rfLive.lines = []; rfLive.paused = false;
+  $('#liveLogsTitle').textContent = `${name} · Live logs`;
+  $('#liveLogText').textContent = 'Connecting…';
+  $('#liveLogStatus').textContent = 'Connecting';
+  $('#pauseLiveLogs').textContent = 'Pause';
+  $('#liveLogsDialog').showModal();
+  const source = new EventSource(`/api/containers/${id}/logs/stream`);
+  rfLive.source = source;
+  source.addEventListener('ready', () => { $('#liveLogStatus').textContent = 'Live'; $('#liveLogText').textContent=''; });
+  source.onmessage = event => { try { const data=JSON.parse(event.data); appendLiveLine(data.line ?? event.data); } catch { appendLiveLine(event.data); } };
+  source.onerror = () => { $('#liveLogStatus').textContent = 'Reconnecting…'; };
+}
+
+async function closeTerminal() {
+  if (rfLive.terminalTimer) { clearTimeout(rfLive.terminalTimer); rfLive.terminalTimer = null; }
+  const token = rfLive.terminalToken; rfLive.terminalToken = null;
+  if (token && state.auth?.authenticated) { try { await api(`/api/terminal/${encodeURIComponent(token)}`, protectedOptions({method:'DELETE'})); } catch (_) {} }
+}
+
+async function pollTerminal() {
+  const token=rfLive.terminalToken; if(!token)return;
+  try {
+    const data=await api(`/api/terminal/${encodeURIComponent(token)}?cursor=${rfLive.terminalCursor}`);
+    rfLive.terminalCursor=data.cursor ?? rfLive.terminalCursor;
+    if(data.output){ const pre=$('#terminalText'); pre.textContent += data.output; pre.scrollTop=pre.scrollHeight; }
+    $('#terminalStatus').textContent=data.closed?`Closed${data.exitCode!=null?` (${data.exitCode})`:''}:`${data.shell||'shell'} · connected`;
+    if(!data.closed && token===rfLive.terminalToken) rfLive.terminalTimer=setTimeout(pollTerminal,350);
+  } catch(error){ $('#terminalStatus').textContent=error.message; }
+}
+
+async function openTerminal(id,name) {
+  if(!ensureAuthenticated())return; await closeTerminal();
+  $('#terminalTitle').textContent=`${name} · Terminal`; $('#terminalText').textContent='Opening shell…\n'; $('#terminalStatus').textContent='Connecting'; $('#terminalInput').value=''; $('#terminalDialog').showModal();
+  try { const data=await api(`/api/containers/${id}/terminal`,protectedOptions({method:'POST'})); rfLive.terminalToken=data.token; rfLive.terminalCursor=0; $('#terminalText').textContent=''; $('#terminalStatus').textContent=`${data.shell} · connected`; pollTerminal(); setTimeout(()=>$('#terminalInput').focus(),50); }
+  catch(error){ $('#terminalText').textContent=error.message; $('#terminalStatus').textContent='Failed'; }
+}
+
+async function sendTerminalInput(event) {
+  event.preventDefault(); const token=rfLive.terminalToken; if(!token)return;
+  const input=$('#terminalInput'); const value=input.value; if(!value)return;
+  input.value=''; const pre=$('#terminalText'); pre.textContent += `$ ${value}\n`; pre.scrollTop=pre.scrollHeight;
+  try { await api(`/api/terminal/${encodeURIComponent(token)}/input`,protectedOptions({method:'POST',body:JSON.stringify({input:value+'\n'})})); } catch(error){ pre.textContent += `\n[error] ${error.message}\n`; }
+}
+
+function downloadLiveLogs() {
+  const blob=new Blob([rfLive.lines.join('\n')+'\n'],{type:'text/plain'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`rogueforge-logs-${new Date().toISOString().replace(/[:.]/g,'-')}.log`; a.click(); URL.revokeObjectURL(url);
+}
+
+document.addEventListener('click', event => {
+  const live=event.target.closest('[data-live-logs]'); if(live)openLiveLogs(live.dataset.liveLogs,live.dataset.name);
+  const terminal=event.target.closest('[data-terminal]'); if(terminal)openTerminal(terminal.dataset.terminal,terminal.dataset.name);
+  if(event.target.closest('#pauseLiveLogs')){rfLive.paused=!rfLive.paused;$('#pauseLiveLogs').textContent=rfLive.paused?'Resume':'Pause';$('#liveLogStatus').textContent=rfLive.paused?'Paused':'Live';}
+  if(event.target.closest('#clearLiveLogs')){rfLive.lines=[];renderLiveLines();}
+  if(event.target.closest('#downloadLiveLogs'))downloadLiveLogs();
+});
+document.addEventListener('input',event=>{if(event.target.id==='liveLogSearch')renderLiveLines();});
+$('#terminalForm')?.addEventListener('submit',sendTerminalInput);
+$('#liveLogsDialog')?.addEventListener('close',stopLiveLogs);
+$('#terminalDialog')?.addEventListener('close',closeTerminal);
+window.addEventListener('beforeunload',()=>{stopLiveLogs();closeTerminal();});
+if(state?.containers?.length)renderContainers();
