@@ -7,6 +7,7 @@ layers while retaining live logs, terminal, bulk runtime controls and auth.
 from __future__ import annotations
 
 import re
+import subprocess
 import time
 from urllib.parse import urlparse
 
@@ -19,6 +20,33 @@ core.Handler.server_version = f"RogueForge/{VERSION}"
 _previous_get = core.Handler.do_GET
 _previous_post = core.Handler.do_POST
 _previous_put = core.Handler.do_PUT
+_base_run_compose = core.run_compose
+
+
+def validate_stack(name: str, timeout=60):
+    """Validate Compose using commands supported by the active implementation."""
+    if core.runtime()["engine"] != "podman":
+        return _base_run_compose(name, ["config"], timeout=timeout)
+    directory, command, env = core.compose_command(name, [])
+    # podman-compose 1.x has no `config` subcommand. Its global --dry-run flag
+    # parses/interpolates the project and plans `up` without changing runtime state.
+    command += ["--dry-run", "up"]
+    proc = subprocess.run(command, cwd=directory, env=env, text=True, capture_output=True, timeout=timeout)
+    output = (proc.stdout + proc.stderr)[-100_000:]
+    if proc.returncode:
+        raise RuntimeError(output or f"Compose validation failed ({proc.returncode})")
+    return output
+
+
+def run_compose_compat(name: str, args: list[str], timeout=900):
+    if args == ["config"]:
+        return validate_stack(name, timeout=timeout)
+    return _base_run_compose(name, args, timeout=timeout)
+
+
+# Existing Compose editor uses core.run_compose(..., ['config']). Redirect that old
+# path through the compatible validator as well as the new .env editor.
+core.run_compose = run_compose_compat
 
 
 def stack_env_path(name: str):
@@ -40,9 +68,8 @@ def save_stack_env(name: str, content: str):
         backup = path.with_name(f".env.rogueforge-{int(time.time())}.bak")
         backup.write_bytes(path.read_bytes())
     path.write_text(content, encoding="utf-8")
-    # Validate interpolation with the exact Compose implementation used by this host.
     try:
-        core.run_compose(name, ["config"], timeout=60)
+        validate_stack(name, timeout=60)
     except Exception:
         if backup and backup.is_file():
             path.write_bytes(backup.read_bytes())
