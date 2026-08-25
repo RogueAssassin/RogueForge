@@ -4,9 +4,9 @@
 
 **A local-first operations console for Docker and Podman Compose.**
 
-## Current release: 0.8.3
+## Current release: 0.8.4
 
-RogueForge 0.8.3 builds on the consolidated single-file backend with the first **Operations Quality** milestone features: a persistent Operations activity drawer, resilient Dashboard Icons resolution, cleaner update backups, and automatic release aliases for GHCR.
+RogueForge 0.8.4 advances the **Operations Quality** milestone with health-focused stack management, filterable/exportable Operations history, cleaner non-versioned frontend quality assets, and a corrected release workflow that stamps the actual published runtime with the root `VERSION` value.
 
 ### What it manages
 
@@ -19,25 +19,26 @@ RogueForge 0.8.3 builds on the consolidated single-file backend with the first *
 - Authenticated container terminal/exec sessions with Bash → `sh` fallback and automatic cleanup.
 - RogueForge self-container/self-stack protection.
 - Signed administrator sessions, CSRF protection, and login throttling.
-- Centralized stack/service icons from [Dashboard Icons](https://dashboardicons.com/icons), with jsDelivr, raw-GitHub, local and generic fallbacks.
-- Persistent browser-side Operations history for stack/container mutations with status, timestamps, duration and captured output.
+- Centralized stack/service icons from Dashboard Icons, with jsDelivr, raw-GitHub, local and generic fallbacks.
+- Persistent browser-side Operations history with status filtering, captured output and JSON export.
+- Stack health filtering for healthy, partial and stopped workloads with stronger fault highlighting.
 
 ## Repository layout
 
 ```text
 rogueforge.py          # complete application runtime
-VERSION                # release metadata
+VERSION                # canonical release metadata
 setup-auth.py          # administrator password maintenance
 install.sh             # first installation
 update.sh              # updates/releases
 compose.yaml           # deployment
 Containerfile          # image build
-static/                # web interface and RogueForge branding
+static/                # web interface, operations layer and branding
 tests/                 # validation tests
 docs/                  # deployment documentation
 ```
 
-There are no versioned `rogueforge_v*.py` entry points and no runtime extension modules.
+There are no versioned `rogueforge_v*.py` entry points and no backend runtime extension modules.
 
 ## FEILSBEASTSERVER / default rootless Podman layout
 
@@ -69,10 +70,6 @@ chmod +x install.sh
 
 ## Update
 
-`update.sh` is the supported update path.
-
-Latest release:
-
 ```bash
 cd /opt/media-server/rogueforge
 ./update.sh latest
@@ -81,10 +78,10 @@ cd /opt/media-server/rogueforge
 Pinned release:
 
 ```bash
-./update.sh 0.8.3
+./update.sh 0.8.4
 ```
 
-If an older installation does not have the newest updater yet, bootstrap it once:
+If an older installation needs the newest updater first:
 
 ```bash
 cd /opt/media-server/rogueforge
@@ -93,21 +90,21 @@ chmod +x update.sh
 ./update.sh latest
 ```
 
-The updater preserves `.env` and `data/auth.json`, stores deployment snapshots outside the stack scan tree under `/tmp/rogueforge-update-backups` (or `$TMPDIR/rogueforge-update-backups`), migrates older `data/update-backups` content there, updates the image, recreates RogueForge, and verifies `/health`.
+The updater preserves `.env` and `data/auth.json`, stores deployment snapshots outside the stack scan tree under `/tmp/rogueforge-update-backups` (or `$TMPDIR/rogueforge-update-backups`), migrates older `data/update-backups` content there, recreates RogueForge, and verifies `/health`.
 
 ## GHCR tags
 
-Each version is published with convenient aliases:
+Each version is published as:
 
 ```text
 latest
-0.8.3
-v0.8.3
-083
+0.8.4
+v0.8.4
+084
 sha-<commit>
 ```
 
-`latest` tracks the current main release; semantic and compact tags make pinning/rollback easy.
+The workflow stamps the runtime with the canonical `VERSION` immediately before both validation and the actual container build, so `/health`, the UI version and GHCR aliases refer to the same release.
 
 ## Administrator account
 
@@ -119,15 +116,15 @@ podman-compose restart rogueforge
 
 ## Branding and service icons
 
-RogueForge includes only its approved Base, Dark, and Light icon assets under `static/branding/`. Stack/service icons use Dashboard Icons with exact aliases and layered fallbacks. Nginx Proxy Manager resolves to `nginx-proxy-manager.svg`; Cloudflared resolves to `cloudflare.svg`.
+RogueForge includes its approved Base, Dark, and Light assets under `static/branding/`. Stack/service icons use Dashboard Icons with exact aliases and layered fallbacks. Nginx Proxy Manager resolves to `nginx-proxy-manager.svg`; Cloudflared resolves to `cloudflare.svg`.
 
-## Operations drawer
+## Operations and health
 
-The top bar now exposes an Operations activity drawer. Protected stack/container mutations are recorded locally in the browser with running/success/failure state, start time, duration and available command output. Completed history can be cleared without affecting workloads.
+The top bar Operations drawer records protected stack/container mutations locally with running/success/failure state, timestamps, duration and command output. v0.8.4 adds status filters and JSON export. The Stacks view adds All/Healthy/Partial/Stopped filters and visual fault rails so degraded workloads stand out immediately.
 
 ## Reverse proxy
 
-For Nginx Proxy Manager, forward `https://manage.roguegaming.com.au` to `http://rogueforge:7810` on the shared `media-net`. Enable WebSockets and SSL. Live-log streaming sends `X-Accel-Buffering: no`.
+For Nginx Proxy Manager, forward the configured public hostname to `http://rogueforge:7810` on the shared `media-net`. Enable WebSockets and SSL. Live-log streaming sends `X-Accel-Buffering: no`.
 
 ## Documentation
 
