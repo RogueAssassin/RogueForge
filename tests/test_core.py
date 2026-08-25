@@ -58,7 +58,9 @@ class RogueForgeTests(unittest.TestCase):
 
     def test_release_files_are_consistent(self):
         compose=(ROOT/"compose.yaml").read_text(); env=(ROOT/".env.example").read_text(); container=(ROOT/"Containerfile").read_text(); workflow=(ROOT/".github/workflows/container.yml").read_text(); readme=(ROOT/"README.md").read_text()
-        for content in (compose,env,container,readme): self.assertIn(RELEASE,content)
+        for content in (compose,env,readme): self.assertIn(RELEASE,content)
+        self.assertNotIn('org.opencontainers.image.version="0.8.3"',container)
+        self.assertIn('COPY rogueforge.py setup-auth.py VERSION ./',container)
         self.assertIn('CMD ["python3", "/opt/rogueforge/rogueforge.py"]',container)
         self.assertIn("VERSION=$(cat VERSION)",workflow)
         self.assertIn("type=raw,value=v${{ steps.version.outputs.version }}",workflow)
@@ -75,7 +77,7 @@ class RogueForgeTests(unittest.TestCase):
         js=(ROOT/"static/operations.js").read_text(); css=(ROOT/"static/operations.css").read_text(); loader=(ROOT/"static/branding/branding-switch.js").read_text()
         self.assertIn("nginx-proxy-manager",js); self.assertIn("cloudflared",js); self.assertIn("cloudflare",js)
         self.assertIn("cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons",js); self.assertIn("raw.githubusercontent.com/homarr-labs/dashboard-icons",js)
-        self.assertIn("rogueforge-operation-history-v1",js); self.assertIn("rfOperationsDrawer",js); self.assertIn("rf-operations-drawer",css)
+        self.assertIn("rogueforge-operation-history-v2",js); self.assertIn("rfOperationsDrawer",js); self.assertIn("rf-operations-drawer",css)
         self.assertIn("/operations.js",loader); self.assertIn("/operations.css",loader)
         self.assertFalse((ROOT/"static/v083.js").exists()); self.assertFalse((ROOT/"static/v083.css").exists())
 
