@@ -4,9 +4,9 @@
 
 **A local-first operations console for Docker and Podman Compose.**
 
-## Current release: 0.8.2
+## Current release: 0.8.3
 
-RogueForge 0.8.2 consolidates the complete backend into **one maintained runtime file: `rogueforge.py`**. Historical version wrappers and extension modules have been removed so new releases update one runtime rather than layering monkey patches across older versions.
+RogueForge 0.8.3 builds on the consolidated single-file backend with the first **Operations Quality** milestone features: a persistent Operations activity drawer, resilient Dashboard Icons resolution, cleaner update backups, and automatic release aliases for GHCR.
 
 ### What it manages
 
@@ -19,20 +19,22 @@ RogueForge 0.8.2 consolidates the complete backend into **one maintained runtime
 - Authenticated container terminal/exec sessions with Bash → `sh` fallback and automatic cleanup.
 - RogueForge self-container/self-stack protection.
 - Signed administrator sessions, CSRF protection, and login throttling.
-- Centralized stack/service icons from [Dashboard Icons](https://dashboardicons.com/icons), with local fallback assets.
+- Centralized stack/service icons from [Dashboard Icons](https://dashboardicons.com/icons), with jsDelivr, raw-GitHub, local and generic fallbacks.
+- Persistent browser-side Operations history for stack/container mutations with status, timestamps, duration and captured output.
 
 ## Repository layout
 
 ```text
 rogueforge.py          # complete application runtime
+VERSION                # release metadata
 setup-auth.py          # administrator password maintenance
 install.sh             # first installation
 update.sh              # updates/releases
-compose.yaml            # deployment
-Containerfile           # image build
-static/                 # web interface and RogueForge branding
-tests/                  # validation tests
-docs/                   # deployment documentation
+compose.yaml           # deployment
+Containerfile          # image build
+static/                # web interface and RogueForge branding
+tests/                 # validation tests
+docs/                  # deployment documentation
 ```
 
 There are no versioned `rogueforge_v*.py` entry points and no runtime extension modules.
@@ -69,20 +71,20 @@ chmod +x install.sh
 
 `update.sh` is the supported update path.
 
-Latest build from `main`:
+Latest release:
 
 ```bash
 cd /opt/media-server/rogueforge
 ./update.sh latest
 ```
 
-Immutable tagged release:
+Pinned release:
 
 ```bash
-./update.sh 0.8.2
+./update.sh 0.8.3
 ```
 
-If an older installation does not have `update.sh` yet, bootstrap it once:
+If an older installation does not have the newest updater yet, bootstrap it once:
 
 ```bash
 cd /opt/media-server/rogueforge
@@ -91,7 +93,21 @@ chmod +x update.sh
 ./update.sh latest
 ```
 
-The updater preserves `.env` and `data/auth.json`, records deployment backups under `data/update-backups/`, updates the image, recreates RogueForge, and verifies `/health`.
+The updater preserves `.env` and `data/auth.json`, stores deployment snapshots outside the stack scan tree under `/tmp/rogueforge-update-backups` (or `$TMPDIR/rogueforge-update-backups`), migrates older `data/update-backups` content there, updates the image, recreates RogueForge, and verifies `/health`.
+
+## GHCR tags
+
+Each version is published with convenient aliases:
+
+```text
+latest
+0.8.3
+v0.8.3
+083
+sha-<commit>
+```
+
+`latest` tracks the current main release; semantic and compact tags make pinning/rollback easy.
 
 ## Administrator account
 
@@ -103,7 +119,11 @@ podman-compose restart rogueforge
 
 ## Branding and service icons
 
-RogueForge includes only its approved Base, Dark, and Light icon assets under `static/branding/`. Stack/service icons are resolved in the browser from Dashboard Icons' centralized CDN and fall back to RogueForge's local icon endpoint when needed.
+RogueForge includes only its approved Base, Dark, and Light icon assets under `static/branding/`. Stack/service icons use Dashboard Icons with exact aliases and layered fallbacks. Nginx Proxy Manager resolves to `nginx-proxy-manager.svg`; Cloudflared resolves to `cloudflare.svg`.
+
+## Operations drawer
+
+The top bar now exposes an Operations activity drawer. Protected stack/container mutations are recorded locally in the browser with running/success/failure state, start time, duration and available command output. Completed history can be cleared without affecting workloads.
 
 ## Reverse proxy
 
