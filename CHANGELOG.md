@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.0 — Live logs and authenticated container terminal
+
+- Added authenticated live container log streaming over Server-Sent Events.
+- Added per-container **Live logs** controls with pause/resume, search, clear, automatic scroll, reconnect state, and browser-side log download.
+- Added authenticated container exec sessions with automatic Bash-to-`sh` fallback.
+- Added terminal session input/output APIs with CSRF protection on creation, input, and close operations.
+- Added automatic terminal-session cleanup after inactivity and process-exit tracking.
+- Added explicit terminal close handling so abandoned browser sessions do not leave long-running exec processes behind.
+- Kept live operations on the existing rootless Podman remote socket / Docker socket execution layer.
+- Kept the 0.6.2 lifecycle, bulk actions, update awareness, resource usage, and self-protection layers intact underneath the new live-operations module.
+- Added `rogueforge_live.py` as the 0.7 runtime entry point and updated the container image and GHCR release guard accordingly.
+- Updated Compose, `.env.example`, and first-install defaults to `ghcr.io/rogueassassin/rogueforge:0.7.0`.
+
 ## 0.6.2 — Bulk container operations and GitHub identity favicon
 
 - Replaced the temporary generated browser favicon with the RogueAssassin GitHub profile image used by the repository owner account.
