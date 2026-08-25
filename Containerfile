@@ -15,6 +15,7 @@ COPY rogueforge_discovery.py ./rogueforge_discovery.py
 COPY rogueforge_live.py ./rogueforge_live.py
 COPY rogueforge_v071.py ./rogueforge_v071.py
 COPY rogueforge_v080.py ./rogueforge_v080.py
+COPY rogueforge_v081.py ./rogueforge_v081.py
 COPY setup-auth.py ./setup-auth.py
 COPY static ./static
 
@@ -31,4 +32,4 @@ EXPOSE 7810
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7810/health', timeout=3)" || exit 1
 
-CMD ["python3", "/opt/rogueforge/rogueforge_v080.py"]
+CMD ["python3", "/opt/rogueforge/rogueforge_v081.py"]
