@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION=0.8.0
+VERSION=0.8.1
 INSTALL_DIR=${ROGUEFORGE_INSTALL_DIR:-/opt/media-server/rogueforge}
 STACKS_DIR=${ROGUEFORGE_STACKS_DIR:-/opt/media-server}
 ICONS_DIR=${ROGUEFORGE_ICONS_DIR:-/opt/media-server/rogue-dashboard/app/static/icons}
@@ -115,7 +115,11 @@ cd "$INSTALL_DIR"
 python3 setup-auth.py --username "$USERNAME"
 chmod 700 data && chmod 600 data/auth.json
 "${ENGINE[@]}" network inspect "$NETWORK" >/dev/null 2>&1 || "${ENGINE[@]}" network create "$NETWORK"
-"${COMPOSE[@]}" config >/dev/null
+if [[ $DEPLOY_ENGINE == podman ]]; then
+  "${COMPOSE[@]}" --dry-run up >/dev/null
+else
+  "${COMPOSE[@]}" config >/dev/null
+fi
 "${COMPOSE[@]}" pull
 "${COMPOSE[@]}" up -d
 curl --fail --silent --show-error --retry 20 --retry-delay 2 --retry-all-errors "http://127.0.0.1:$HOST_PORT/health" >/dev/null
