@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.6.2 — Bulk container operations and GitHub identity favicon
+
+- Replaced the temporary generated browser favicon with the RogueAssassin GitHub profile image used by the repository owner account.
+- Added multi-select container rows with protected self-container exclusion.
+- Added bulk Start, Stop, Restart, Update, Recreate, and Remove operations with per-container results and failure isolation.
+- Added container sorting by name, state, project, and image.
+- Added live CPU, memory, and network usage display to the Containers page.
+- Added restart-policy visibility to authenticated container inspection.
+- Added persistent action busy states and clearer aggregate feedback for bulk jobs.
+- Kept all bulk mutations authenticated, CSRF-protected, and routed through the existing remote Podman/Compose execution layer.
+- Updated Compose, `.env.example`, and first-install defaults to `ghcr.io/rogueassassin/rogueforge:0.6.2`.
+
+## 0.6.1 — Container update awareness and live usage
+
+- Added authenticated live container resource statistics.
+- Added per-container image update checks by comparing the running container image ID with the current locally pulled image ID.
+- Added Update All while continuing to exclude RogueForge itself from self-management.
+- Added canonical RogueForge web logo assets and favicon hooks.
+- Added action busy states so repeated clicks cannot accidentally queue duplicate container operations.
+
 ## 0.6.0 — Dockge-style container operations
 
 - Expanded the Containers page with state-aware Start, Stop, Restart, Update, Recreate, Inspect, Logs, and Remove controls.
