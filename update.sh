@@ -10,9 +10,11 @@ for cmd in curl awk; do command -v "$cmd" >/dev/null || { echo "Missing runtime:
 cd "$INSTALL_DIR"
 [[ -f compose.yaml && -f .env && -f data/auth.json ]] || { echo "Incomplete RogueForge installation at $INSTALL_DIR" >&2; exit 2; }
 
+# Deployment tooling always follows main so updater/Compose fixes remain available
+# even when installing an immutable historical image version.
 REF=main
 IMAGE_TAG=latest
-if [[ $TARGET =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then REF="v$TARGET"; IMAGE_TAG="$TARGET"; fi
+if [[ $TARGET =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then IMAGE_TAG="$TARGET"; fi
 BASE="https://raw.githubusercontent.com/RogueAssassin/RogueForge/$REF"
 
 # Update backups are deliberately kept outside ROGUEFORGE_STACKS_DIR so recursive
@@ -20,7 +22,7 @@ BASE="https://raw.githubusercontent.com/RogueAssassin/RogueForge/$REF"
 BACKUP_ROOT=${ROGUEFORGE_BACKUP_TMP:-${TMPDIR:-/tmp}/rogueforge-update-backups}
 mkdir -p "$BACKUP_ROOT"
 
-# Migrate backups created by pre-0.8.2 updater revisions out of the installation tree.
+# Migrate backups created by older updater revisions out of the installation tree.
 LEGACY_BACKUPS="$INSTALL_DIR/data/update-backups"
 if [[ -d "$LEGACY_BACKUPS" ]]; then
   LEGACY_TARGET="$BACKUP_ROOT/legacy-$(date +%Y%m%d-%H%M%S)"
@@ -49,14 +51,8 @@ command -v "$compose_bin" >/dev/null || { echo "Missing runtime: $compose_bin" >
 
 echo "RogueForge update target: $TARGET"
 echo "Deployment runtime: $deploy_engine"
+echo "Image tag: $IMAGE_TAG"
 echo "Backup: $BACKUP"
-
-# Verify release/source exists before replacing local deployment files.
-if ! curl -fsSI "$BASE/compose.yaml" >/dev/null; then
-  echo "RogueForge source '$REF' is not published on GitHub." >&2
-  [[ $TARGET =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && echo "Use './update.sh main' to test unreleased main, or './update.sh latest' for the latest published build." >&2
-  exit 3
-fi
 
 for file in compose.yaml update.sh; do
   tmp=$(mktemp)
@@ -72,7 +68,11 @@ else
   printf '\nROGUEFORGE_IMAGE=ghcr.io/rogueassassin/rogueforge:%s\n' "$IMAGE_TAG" >> .env
 fi
 
-$deploy_engine pull "ghcr.io/rogueassassin/rogueforge:$IMAGE_TAG"
+if ! $deploy_engine pull "ghcr.io/rogueassassin/rogueforge:$IMAGE_TAG"; then
+  echo "RogueForge image tag '$IMAGE_TAG' is not published in GHCR." >&2
+  [[ $TARGET =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && echo "Use './update.sh latest' for the current release, or choose a published version tag." >&2
+  exit 3
+fi
 $compose_bin -f compose.yaml up -d --remove-orphans
 
 for _ in {1..30}; do
