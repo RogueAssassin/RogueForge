@@ -33,6 +33,10 @@ class RogueForgeTests(unittest.TestCase):
  def test_ui_quality(self):
   controls=(ROOT/'static/container-controls.js').read_text();css=(ROOT/'static/operations.css').read_text();quality=(ROOT/'static/runtime-quality.js').read_text();loader=(ROOT/'static/branding/branding-switch.js').read_text()
   self.assertIn('const iconKey=c.image||c.service||c.name',controls);self.assertIn('rf-action-primary',controls);self.assertIn('object-position:center',css);self.assertIn('bestIdentity',quality);self.assertIn('/runtime-quality.js',loader)
- def test_testing_updater(self):
-  u=(ROOT/'update.sh').read_text();self.assertIn('DEFAULT_TEST_BRANCH="v0.8.5-runtime-fixes"',u);self.assertIn('IMAGE_TAG=testing',u);self.assertIn('/tmp}/rogueforge/update-backups',u)
+ def test_testing_updater_and_compose_root(self):
+  u=(ROOT/'update.sh').read_text();compose=(ROOT/'compose.yaml').read_text();env=(ROOT/'.env.example').read_text()
+  self.assertIn('DEFAULT_TEST_BRANCH="v0.8.5-runtime-fixes"',u);self.assertIn('IMAGE_TAG=testing',u);self.assertIn('/tmp}/rogueforge/update-backups',u)
+  self.assertIn('ROGUEFORGE_STACKS_DIR:-/opt/media-server/compose',compose);self.assertIn('ROGUEFORGE_MEDIA_ROOT:-/opt/media-server',compose)
+  self.assertIn('ROGUEFORGE_STACKS_DIR=/opt/media-server/compose',env);self.assertIn('ROGUEFORGE_MEDIA_ROOT=/opt/media-server',env)
+  self.assertIn('Discovery root migrated: /opt/media-server -> /opt/media-server/compose',u)
 if __name__=='__main__':unittest.main()
