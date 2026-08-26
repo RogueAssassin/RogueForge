@@ -23,6 +23,10 @@ class RogueForgeTests(unittest.TestCase):
   finally:self.app.engine_cli=old
  def test_update_uses_verified_podman_replacement(self):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('pulled=engine_cli(["pull",m["image"]],900)',src);self.assertIn('engine_cli(["rename",m["id"],preserved],60)',src);self.assertIn('Update verification failed',src);self.assertIn('engine_cli(["rename",preserved,old_name],60)',src);self.assertNotIn('run_compose(m["project"],["pull",m["service"]])',src)
+ def test_media_server_compose_contract(self):
+  src=(ROOT/'rogueforge.py').read_text();self.assertIn('"compose"]',src);self.assertIn('PODMAN_COMPOSE_WARNING_LOGS',src);self.assertIn('stack_env_path(stack)',src)
+  patch=(ROOT/'tools/apply_v086.py').read_text();self.assertIn('podman compose --env-file',patch)
+  update=(ROOT/'update.sh').read_text();self.assertIn('podman compose --env-file',update);self.assertNotIn('compose_bin=podman-compose',update)
  def test_active_project_discovery_precedence(self):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('Active Compose labels are authoritative',src);self.assertIn('labelled_projects',src)
  def test_release_files(self):
@@ -32,8 +36,9 @@ class RogueForgeTests(unittest.TestCase):
   controls=(ROOT/'static/container-controls.js').read_text();css=(ROOT/'static/operations.css').read_text();quality=(ROOT/'static/runtime-quality.js').read_text();loader=(ROOT/'static/branding/branding-switch.js').read_text()
   self.assertIn('const iconKey=c.image||c.service||c.name',controls);self.assertIn('rf-action-primary',controls);self.assertIn('object-position:center',css);self.assertIn('bestIdentity',quality);self.assertIn('/runtime-quality.js',loader)
  def test_testing_updater_and_roots(self):
-  u=(ROOT/'update.sh').read_text();compose=(ROOT/'compose.yaml').read_text();env=(ROOT/'.env.example').read_text()
+  u=(ROOT/'update.sh').read_text();compose=(ROOT/'compose.yaml').read_text();env=(ROOT/'.env.example').read_text();installer=(ROOT/'install.sh').read_text()
   self.assertIn('DEFAULT_TEST_BRANCH="v0.8.6-testing"',u);self.assertIn('IMAGE_TAG=testing',u);self.assertIn('/tmp}/rogueforge/update-backups',u)
-  for key in ('ROGUEFORGE_MEDIA_ROOT','ROGUEFORGE_COMPOSE_ROOT','ROGUEFORGE_ENV_ROOT'):self.assertIn(key,compose);self.assertIn(key,env);self.assertIn(key,u)
+  for key in ('ROGUEFORGE_MEDIA_ROOT','ROGUEFORGE_COMPOSE_ROOT','ROGUEFORGE_ENV_ROOT'):
+   self.assertIn(key,compose);self.assertIn(key,env);self.assertIn(key,u);self.assertIn(key,installer)
   self.assertIn('ROGUEFORGE_COMPOSE_ROOT=/opt/media-server/compose',env);self.assertIn('ROGUEFORGE_ENV_ROOT=/opt/media-server/compose',env)
 if __name__=='__main__':unittest.main()
