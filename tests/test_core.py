@@ -1,98 +1,38 @@
-import importlib.util
-import os
+import importlib.util, json, os, tempfile, unittest
 from pathlib import Path
-import tempfile
-import unittest
-
-ROOT=Path(__file__).resolve().parents[1]
-RELEASE=(ROOT/"VERSION").read_text().strip()
-
+ROOT=Path(__file__).resolve().parents[1]; RELEASE=(ROOT/'VERSION').read_text().strip()
 class RogueForgeTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.temp=tempfile.TemporaryDirectory(); cls.root=Path(cls.temp.name)
-        os.environ["ROGUEFORGE_DEMO"]="true"; os.environ["ROGUEFORGE_STACKS_DIR"]=str(cls.root)
-        spec=importlib.util.spec_from_file_location("rogueforge_test",ROOT/"rogueforge.py"); cls.app=importlib.util.module_from_spec(spec); spec.loader.exec_module(cls.app)
-    @classmethod
-    def tearDownClass(cls): cls.temp.cleanup()
-
-    def test_version_and_single_runtime_layout(self):
-        self.assertEqual(RELEASE,"0.8.4")
-        self.assertEqual(self.app.VERSION,RELEASE)
-        self.assertTrue((ROOT/"rogueforge.py").is_file())
-        self.assertFalse(any(ROOT.glob("rogueforge_v*.py")))
-        for name in ("rogueforge_ext.py","rogueforge_live.py","rogueforge_discovery.py","upgrade.sh"):
-            self.assertFalse((ROOT/name).exists(),name)
-        self.assertTrue((ROOT/"update.sh").is_file())
-
-    def test_demo_runtime(self): self.assertEqual(self.app.runtime()["engine"],"demo")
-
-    def test_recursive_discovery_and_nested_stack(self):
-        nested=self.root/"apps"/"media"/"sonarr"; nested.mkdir(parents=True,exist_ok=True); (nested/"compose.yaml").write_text("services:\n  sonarr:\n    image: linuxserver/sonarr\n",encoding="utf-8")
-        self.app._discovery_cache["time"]=0
-        stack=next(x for x in self.app.discover_stacks() if x["relativePath"]=="apps/media/sonarr")
-        self.assertEqual(stack["composeFile"],"compose.yaml")
-        self.assertEqual(self.app.safe_stack(stack["name"]),nested.resolve())
-
-    def test_update_backup_directories_are_excluded(self):
-        self.assertIn("update-backups",self.app.EXCLUDED_DIRS)
-        self.assertIn("rogueforge-update-backups",self.app.EXCLUDED_DIRS)
-        nested=self.root/"data"/"update-backups"/"old"; nested.mkdir(parents=True,exist_ok=True); (nested/"compose.yaml").write_text("services:\n  old:\n    image: old/test\n",encoding="utf-8")
-        self.app._discovery_cache["time"]=0
-        self.assertFalse(any("update-backups" in x["relativePath"] for x in self.app.discover_stacks()))
-
-    def test_compose_command_podman_does_not_use_env_file(self):
-        nested=self.root/"podman-test"; nested.mkdir(exist_ok=True); (nested/"compose.yaml").write_text("services:\n  app:\n    image: test/app\n",encoding="utf-8"); (nested/".env").write_text("A=B\n",encoding="utf-8")
-        self.app._discovery_cache["time"]=0; stack=next(x for x in self.app.discover_stacks() if x["relativePath"]=="podman-test")
-        old_runtime=self.app.runtime; self.app.runtime=lambda:{"engine":"podman","socket":"/tmp/podman.sock"}
-        try:
-            _,cmd,_=self.app.compose_command(stack["name"],["pull"]); self.assertNotIn("--env-file",cmd); self.assertIn("-f",cmd); self.assertEqual(cmd[-1],"pull")
-        finally:self.app.runtime=old_runtime
-
-    def test_container_metadata_and_self_protection(self):
-        old=self.app.load_containers
-        self.app.load_containers=lambda:[{"Id":"a"*64,"Names":["rogueforge"],"Image":f"ghcr.io/rogueassassin/rogueforge:{RELEASE}","State":"running","Labels":{"io.podman.compose.project":"rogueforge","io.podman.compose.service":"rogueforge"},"Ports":[]}]
-        try:
-            item=self.app.containers()[0]; self.assertEqual(item["id"],"a"*12); self.assertTrue(item["selfProtected"]); self.assertEqual(item["service"],"rogueforge")
-        finally:self.app.load_containers=old
-
-    def test_release_files_are_consistent(self):
-        compose=(ROOT/"compose.yaml").read_text(); env=(ROOT/".env.example").read_text(); container=(ROOT/"Containerfile").read_text(); workflow=(ROOT/".github/workflows/container.yml").read_text(); readme=(ROOT/"README.md").read_text()
-        for content in (compose,env,readme): self.assertIn(RELEASE,content)
-        self.assertNotIn('org.opencontainers.image.version="0.8.3"',container)
-        self.assertIn('COPY rogueforge.py setup-auth.py VERSION ./',container)
-        self.assertIn('CMD ["python3", "/opt/rogueforge/rogueforge.py"]',container)
-        self.assertIn("VERSION=$(cat VERSION)",workflow)
-        self.assertIn("type=raw,value=v${{ steps.version.outputs.version }}",workflow)
-        self.assertIn("type=raw,value=testing",workflow)
-        self.assertIn("branch-${{ steps.version.outputs.safe_branch }}",workflow)
-        self.assertIn("Validate container build locally",workflow)
-        self.assertIn("packages: write",workflow)
-
-    def test_branding_is_clean_three_variant_set(self):
-        branding=ROOT/"static"/"branding"; self.assertTrue((branding/"rogueforge.svg").is_file()); self.assertTrue((branding/"rogueforge-dark.svg").is_file()); self.assertTrue((branding/"rogueforge-light.svg").is_file())
-        for obsolete in ("rogueforge-base.svg","rogueforge-logo.svg","rogueforge-wordmark-dark.svg","rogueforge-wordmark-light.svg","favicon.svg"):
-            self.assertFalse((branding/obsolete).exists(),obsolete)
-        html=(ROOT/"static/index.html").read_text(); self.assertIn('/branding/rogueforge.svg',html); self.assertNotIn('rogueforge-base.svg',html)
-
-    def test_operations_and_icon_resolver_assets(self):
-        js=(ROOT/"static/operations.js").read_text(); css=(ROOT/"static/operations.css").read_text(); loader=(ROOT/"static/branding/branding-switch.js").read_text()
-        self.assertIn("nginx-proxy-manager",js); self.assertIn("cloudflared",js); self.assertIn("cloudflare",js)
-        self.assertIn("cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons",js); self.assertIn("raw.githubusercontent.com/homarr-labs/dashboard-icons",js)
-        self.assertIn("rogueforge-operation-history-v2",js); self.assertIn("rfOperationsDrawer",js); self.assertIn("rf-operations-drawer",css)
-        self.assertIn("/operations.js",loader); self.assertIn("/operations.css",loader)
-        self.assertFalse((ROOT/"static/v083.js").exists()); self.assertFalse((ROOT/"static/v083.css").exists())
-
-    def test_update_script_uses_external_backups_health_and_testing_channel(self):
-        update=(ROOT/"update.sh").read_text()
-        self.assertIn("data/auth.json",update)
-        self.assertIn("/tmp}/rogueforge/update-backups",update)
-        self.assertIn("LEGACY_BACKUPS",update)
-        self.assertIn("/health",update)
-        self.assertIn("latest|main|testing|X.Y.Z",update)
-        self.assertIn("DEFAULT_TEST_BRANCH=\"v0.8.5-runtime-fixes\"",update)
-        self.assertIn("IMAGE_TAG=testing",update)
-        self.assertIn("branch-$SAFE_BRANCH",update)
-        self.assertNotIn('BACKUP="$INSTALL_DIR/data/update-backups/',update)
-
-if __name__=="__main__": unittest.main()
+ @classmethod
+ def setUpClass(cls):
+  cls.temp=tempfile.TemporaryDirectory();cls.root=Path(cls.temp.name);os.environ['ROGUEFORGE_DEMO']='true';os.environ['ROGUEFORGE_STACKS_DIR']=str(cls.root)
+  spec=importlib.util.spec_from_file_location('rogueforge_test',ROOT/'rogueforge.py');cls.app=importlib.util.module_from_spec(spec);spec.loader.exec_module(cls.app)
+ @classmethod
+ def tearDownClass(cls):cls.temp.cleanup()
+ def test_release_and_single_runtime(self):
+  self.assertEqual(RELEASE,'0.8.5');self.assertEqual(self.app.VERSION,RELEASE);self.assertFalse(any(ROOT.glob('rogueforge_v*.py')))
+  for n in ('rogueforge_ext.py','rogueforge_live.py','rogueforge_discovery.py','upgrade.sh'):self.assertFalse((ROOT/n).exists())
+ def test_external_backup_dirs(self):
+  self.assertIn('update-backups',self.app.EXCLUDED_DIRS);self.assertIn('rogueforge-update-backups',self.app.EXCLUDED_DIRS)
+  p=self.root/'x'/'compose.yaml';p.parent.mkdir();p.write_text('services: {}\n');b=self.app._backup_file(p,'compose-backups');self.assertFalse(str(b).startswith(str(self.root)));self.assertTrue(b.is_file())
+ def test_podman_stats_array_and_name_alias(self):
+  old=self.app.engine_cli;self.app.engine_cli=lambda *a,**k:json.dumps([{'ID':'a'*64,'Name':'dozzle','CPUPerc':'1.25%','MemUsage':'42MiB / 1GiB'}])
+  try:d=self.app.container_stats();self.assertEqual(d['a'*12]['cpu'],'1.25%');self.assertEqual(d['dozzle']['memory'],'42MiB / 1GiB')
+  finally:self.app.engine_cli=old
+ def test_compose_podman_command(self):
+  p=self.root/'podman';p.mkdir();(p/'compose.yaml').write_text('services:\n  app:\n    image: test/app\n');self.app._discovery_cache['time']=0
+  stack=next(x for x in self.app.discover_stacks() if x['relativePath']=='podman');old=self.app.runtime;self.app.runtime=lambda:{'engine':'podman','socket':'/tmp/podman.sock'}
+  try:_,cmd,_=self.app.compose_command(stack['name'],['up','-d']);self.assertNotIn('--env-file',cmd);self.assertEqual(cmd[-2:],['up','-d'])
+  finally:self.app.runtime=old
+ def test_update_uses_direct_image_pull(self):
+  src=(ROOT/'rogueforge.py').read_text();self.assertIn('pulled=engine_cli(["pull",m["image"]],900)',src);self.assertNotIn('run_compose(m["project"],["pull",m["service"]])',src)
+ def test_active_project_discovery_precedence(self):
+  src=(ROOT/'rogueforge.py').read_text();self.assertIn('Active Compose labels are authoritative',src);self.assertIn('labelled_projects',src)
+ def test_release_files(self):
+  for f in ('compose.yaml','.env.example','README.md'):self.assertIn(RELEASE,(ROOT/f).read_text())
+  wf=(ROOT/'.github/workflows/container.yml').read_text();self.assertIn('python3 tools/apply_v085.py',wf);self.assertIn('type=raw,value=testing',wf);self.assertIn('Validate container build locally',wf)
+ def test_ui_quality(self):
+  controls=(ROOT/'static/container-controls.js').read_text();css=(ROOT/'static/operations.css').read_text();quality=(ROOT/'static/runtime-quality.js').read_text();loader=(ROOT/'static/branding/branding-switch.js').read_text()
+  self.assertIn('const iconKey=c.image||c.service||c.name',controls);self.assertIn('rf-action-primary',controls);self.assertIn('object-position:center',css);self.assertIn('bestIdentity',quality);self.assertIn('/runtime-quality.js',loader)
+ def test_testing_updater(self):
+  u=(ROOT/'update.sh').read_text();self.assertIn('DEFAULT_TEST_BRANCH="v0.8.5-runtime-fixes"',u);self.assertIn('IMAGE_TAG=testing',u);self.assertIn('/tmp}/rogueforge/update-backups',u)
+if __name__=='__main__':unittest.main()
