@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 INSTALL_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-DEFAULT_TEST_BRANCH="v0.8.5-runtime-fixes"
+DEFAULT_TEST_BRANCH="v0.8.6-testing"
 MODE=${1:-latest}
 BRANCH=""
 
@@ -24,44 +24,23 @@ for cmd in curl awk; do command -v "$cmd" >/dev/null || { echo "Missing runtime:
 cd "$INSTALL_DIR"
 [[ -f compose.yaml && -f .env && -f data/auth.json ]] || { echo "Incomplete RogueForge installation at $INSTALL_DIR" >&2; exit 2; }
 
-REF=main
-IMAGE_TAG=latest
-CHANNEL=production
-if [[ $TARGET =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  IMAGE_TAG="$TARGET"
+REF=main; IMAGE_TAG=latest; CHANNEL=production
+if [[ $TARGET =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then IMAGE_TAG="$TARGET"
 elif [[ $TARGET == testing || $TARGET == branch:* ]]; then
-  REF="$BRANCH"
-  CHANNEL=testing
-  if [[ $TARGET == testing ]]; then
-    IMAGE_TAG=testing
-  else
-    SAFE_BRANCH=$(printf '%s' "$BRANCH" | tr '/_' '--' | tr -cd '[:alnum:].-')
-    IMAGE_TAG="branch-$SAFE_BRANCH"
-  fi
+  REF="$BRANCH"; CHANNEL=testing
+  if [[ $TARGET == testing ]]; then IMAGE_TAG=testing
+  else SAFE_BRANCH=$(printf '%s' "$BRANCH" | tr '/_' '--' | tr -cd '[:alnum:].-'); IMAGE_TAG="branch-$SAFE_BRANCH"; fi
 fi
 BASE="https://raw.githubusercontent.com/RogueAssassin/RogueForge/$REF"
-
-# All RogueForge deployment backups live outside the stacks root.
-BACKUP_ROOT=${ROGUEFORGE_BACKUP_TMP:-${TMPDIR:-/tmp}/rogueforge/update-backups}
-mkdir -p "$BACKUP_ROOT"
-
-# Migrate updater backups created by older releases out of the installation tree.
+BACKUP_ROOT=${ROGUEFORGE_BACKUP_TMP:-${TMPDIR:-/tmp}/rogueforge/update-backups}; mkdir -p "$BACKUP_ROOT"
 LEGACY_BACKUPS="$INSTALL_DIR/data/update-backups"
 if [[ -d "$LEGACY_BACKUPS" ]]; then
-  LEGACY_TARGET="$BACKUP_ROOT/legacy-$(date +%Y%m%d-%H%M%S)"
-  mkdir -p "$LEGACY_TARGET"
-  shopt -s nullglob dotglob
-  legacy_items=("$LEGACY_BACKUPS"/*)
-  if ((${#legacy_items[@]})); then mv "${legacy_items[@]}" "$LEGACY_TARGET/"; fi
-  shopt -u nullglob dotglob
+  LEGACY_TARGET="$BACKUP_ROOT/legacy-$(date +%Y%m%d-%H%M%S)"; mkdir -p "$LEGACY_TARGET"
+  shopt -s nullglob dotglob; legacy_items=("$LEGACY_BACKUPS"/*); ((${#legacy_items[@]})) && mv "${legacy_items[@]}" "$LEGACY_TARGET/"; shopt -u nullglob dotglob
   rmdir "$LEGACY_BACKUPS" 2>/dev/null || true
 fi
-
-BACKUP="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)"
-mkdir -p "$BACKUP"
-cp -a compose.yaml .env "$BACKUP/"
-[[ -f update.sh ]] && cp -a update.sh "$BACKUP/"
-[[ -f update-testing.sh ]] && cp -a update-testing.sh "$BACKUP/"
+BACKUP="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)"; mkdir -p "$BACKUP"; cp -a compose.yaml .env "$BACKUP/"
+[[ -f update.sh ]] && cp -a update.sh "$BACKUP/"; [[ -f update-testing.sh ]] && cp -a update-testing.sh "$BACKUP/"
 
 deploy_engine=$(awk -F= '$1=="ROGUEFORGE_DEPLOY_ENGINE"{print $2}' .env | tail -n1 | tr -d '\r ' || true)
 if [[ $deploy_engine != podman && $deploy_engine != docker ]]; then
@@ -69,8 +48,7 @@ if [[ $deploy_engine != podman && $deploy_engine != docker ]]; then
   elif command -v docker >/dev/null && docker info >/dev/null 2>&1; then deploy_engine=docker
   else echo "Unable to detect a working Podman or Docker runtime." >&2; exit 2; fi
 fi
-compose_bin=podman-compose
-[[ $deploy_engine == docker ]] && compose_bin=docker-compose
+compose_bin=podman-compose; [[ $deploy_engine == docker ]] && compose_bin=docker-compose
 command -v "$compose_bin" >/dev/null || { echo "Missing runtime: $compose_bin" >&2; exit 2; }
 
 echo "RogueForge update target: $TARGET"
@@ -80,65 +58,41 @@ echo "Deployment runtime: $deploy_engine"
 echo "Image tag: $IMAGE_TAG"
 echo "Backup: $BACKUP"
 
-# Validate branch/source exists before replacing local deployment files.
-if ! curl -fsSL "$BASE/compose.yaml" -o "$BACKUP/compose.download"; then
-  echo "RogueForge source ref '$REF' is unavailable on GitHub." >&2
-  exit 3
-fi
-if ! curl -fsSL "$BASE/update.sh" -o "$BACKUP/update.download"; then
-  echo "RogueForge updater is unavailable on source ref '$REF'." >&2
-  exit 3
-fi
-install -m 0644 "$BACKUP/compose.download" "$INSTALL_DIR/compose.yaml"
-install -m 0755 "$BACKUP/update.download" "$INSTALL_DIR/update.sh"
+curl -fsSL "$BASE/compose.yaml" -o "$BACKUP/compose.download" || { echo "RogueForge source ref '$REF' is unavailable." >&2; exit 3; }
+curl -fsSL "$BASE/update.sh" -o "$BACKUP/update.download" || { echo "RogueForge updater is unavailable on '$REF'." >&2; exit 3; }
+install -m 0644 "$BACKUP/compose.download" "$INSTALL_DIR/compose.yaml"; install -m 0755 "$BACKUP/update.download" "$INSTALL_DIR/update.sh"
 
-# Preserve local settings while switching only image/channel metadata.
-if grep -q '^ROGUEFORGE_IMAGE=' .env; then
-  sed -i "s#^ROGUEFORGE_IMAGE=.*#ROGUEFORGE_IMAGE=ghcr.io/rogueassassin/rogueforge:$IMAGE_TAG#" .env
-else
-  printf '\nROGUEFORGE_IMAGE=ghcr.io/rogueassassin/rogueforge:%s\n' "$IMAGE_TAG" >> .env
-fi
-if grep -q '^ROGUEFORGE_CHANNEL=' .env; then
-  sed -i "s#^ROGUEFORGE_CHANNEL=.*#ROGUEFORGE_CHANNEL=$CHANNEL#" .env
-else
-  printf 'ROGUEFORGE_CHANNEL=%s\n' "$CHANNEL" >> .env
-fi
+set_env(){ local key=$1 value=$2; if grep -q "^${key}=" .env; then sed -i "s#^${key}=.*#${key}=${value}#" .env; else printf '%s=%s\n' "$key" "$value" >> .env; fi; }
+set_env ROGUEFORGE_IMAGE "ghcr.io/rogueassassin/rogueforge:$IMAGE_TAG"
+set_env ROGUEFORGE_CHANNEL "$CHANNEL"
 
-# v0.8.5: separate the full host media mount from the Compose discovery root.
-# Existing installs that still scan /opt/media-server are migrated only when the
-# standard /opt/media-server/compose layout exists. Custom layouts are untouched.
-MEDIA_ROOT=$(awk -F= '$1=="ROGUEFORGE_MEDIA_ROOT"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true)
-[[ -n $MEDIA_ROOT ]] || MEDIA_ROOT=/opt/media-server
-if ! grep -q '^ROGUEFORGE_MEDIA_ROOT=' .env; then
-  printf 'ROGUEFORGE_MEDIA_ROOT=%s\n' "$MEDIA_ROOT" >> .env
+MEDIA_ROOT=$(awk -F= '$1=="ROGUEFORGE_MEDIA_ROOT"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true); [[ -n $MEDIA_ROOT ]] || MEDIA_ROOT=/opt/media-server
+COMPOSE_ROOT=$(awk -F= '$1=="ROGUEFORGE_COMPOSE_ROOT"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true)
+LEGACY_STACKS=$(awk -F= '$1=="ROGUEFORGE_STACKS_DIR"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true)
+if [[ -z $COMPOSE_ROOT ]]; then
+  if [[ ${LEGACY_STACKS:-} == /opt/media-server && -d /opt/media-server/compose ]]; then COMPOSE_ROOT=/opt/media-server/compose
+  elif [[ -n ${LEGACY_STACKS:-} ]]; then COMPOSE_ROOT=$LEGACY_STACKS
+  elif [[ -d "$MEDIA_ROOT/compose" ]]; then COMPOSE_ROOT="$MEDIA_ROOT/compose"
+  else COMPOSE_ROOT=$MEDIA_ROOT; fi
 fi
-CURRENT_STACKS=$(awk -F= '$1=="ROGUEFORGE_STACKS_DIR"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true)
-if [[ ${CURRENT_STACKS:-} == /opt/media-server && -d /opt/media-server/compose ]]; then
-  sed -i 's#^ROGUEFORGE_STACKS_DIR=/opt/media-server$#ROGUEFORGE_STACKS_DIR=/opt/media-server/compose#' .env
-  echo "Discovery root migrated: /opt/media-server -> /opt/media-server/compose"
-fi
-if ! grep -q '^ROGUEFORGE_STACKS_DIR=' .env && [[ -d "$MEDIA_ROOT/compose" ]]; then
-  printf 'ROGUEFORGE_STACKS_DIR=%s/compose\n' "$MEDIA_ROOT" >> .env
-fi
+ENV_ROOT=$(awk -F= '$1=="ROGUEFORGE_ENV_ROOT"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true); [[ -n $ENV_ROOT ]] || ENV_ROOT=$COMPOSE_ROOT
+set_env ROGUEFORGE_MEDIA_ROOT "$MEDIA_ROOT"
+set_env ROGUEFORGE_COMPOSE_ROOT "$COMPOSE_ROOT"
+set_env ROGUEFORGE_ENV_ROOT "$ENV_ROOT"
+set_env ROGUEFORGE_STACKS_DIR "$COMPOSE_ROOT"
 
-if ! $deploy_engine pull "ghcr.io/rogueassassin/rogueforge:$IMAGE_TAG"; then
-  echo "RogueForge image tag '$IMAGE_TAG' is not published in GHCR." >&2
-  if [[ $CHANNEL == testing ]]; then
-    echo "Wait for the testing-branch GitHub Actions build to finish, then retry." >&2
-  else
-    echo "Use './update.sh latest' for current production or choose a published version." >&2
-  fi
-  exit 4
-fi
+echo "Media root:   $MEDIA_ROOT"
+echo "Compose root: $COMPOSE_ROOT"
+echo "Env root:     $ENV_ROOT"
+
+$deploy_engine pull "ghcr.io/rogueassassin/rogueforge:$IMAGE_TAG" || { echo "RogueForge image tag '$IMAGE_TAG' is not published in GHCR." >&2; exit 4; }
 $compose_bin -f compose.yaml up -d --remove-orphans
 
-HEALTH_FILE="${TMPDIR:-/tmp}/rogueforge-health.$$"
-trap 'rm -f "$HEALTH_FILE"' EXIT
+HEALTH_FILE="${TMPDIR:-/tmp}/rogueforge-health.$$"; trap 'rm -f "$HEALTH_FILE"' EXIT
 for _ in {1..30}; do
   if curl -fsS "http://127.0.0.1:${ROGUEFORGE_HOST_PORT:-17810}/health" >"$HEALTH_FILE" 2>/dev/null; then
     echo; cat "$HEALTH_FILE"; echo
     echo "RogueForge $CHANNEL update complete."
-    echo "Discovery root: $(awk -F= '$1==\"ROGUEFORGE_STACKS_DIR\"{print substr($0,index($0,\"=\")+1)}' .env | tail -n1)"
     [[ $CHANNEL == testing ]] && echo "TESTING BUILD ACTIVE: $REF ($IMAGE_TAG)"
     exit 0
   fi
@@ -146,6 +100,5 @@ for _ in {1..30}; do
 done
 
 echo "Health check failed. Deployment backup remains at $BACKUP" >&2
-$compose_bin -f compose.yaml ps >&2 || true
-$deploy_engine logs --tail 100 rogueforge >&2 || true
+$compose_bin -f compose.yaml ps >&2 || true; $deploy_engine logs --tail 100 rogueforge >&2 || true
 exit 1
