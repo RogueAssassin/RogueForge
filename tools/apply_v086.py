@@ -34,6 +34,36 @@ def stack_env(name):
     p=stack_env_path(name);return {"name":".env","path":str(p),"exists":p.is_file(),"content":p.read_text(encoding="utf-8") if p.is_file() else ""}''')
 replace('p=safe_stack(name)/".env";backup=_backup_file(p,"env-backups") if p.is_file() else None','p=stack_env_path(name);p.parent.mkdir(parents=True,exist_ok=True);backup=_backup_file(p,"env-backups") if p.is_file() else None')
 
+old_compose='''def compose_command(stack,args):
+    d=safe_stack(stack);cf=compose_file(d)
+    if not cf:raise RuntimeError("compose file not found")
+    rt=runtime();env=os.environ.copy()
+    if rt["engine"]=="podman":
+        if PODMAN_REMOTE:env=podman_remote_env()
+        cmd=[os.environ.get("ROGUEFORGE_PODMAN_COMPOSE","/usr/bin/podman-compose"),"-f",str(cf)]
+    else:
+        env["DOCKER_HOST"]=f"unix://{rt['socket']}";cmd=[os.environ.get("ROGUEFORGE_DOCKER_COMPOSE","/usr/bin/docker-compose")]
+        if (d/".env").is_file():cmd += ["--env-file",str(d/".env")]
+        cmd += ["-f",str(cf)]
+    return d,cmd+args,env'''
+new_compose='''def compose_command(stack,args):
+    d=safe_stack(stack);cf=compose_file(d)
+    if not cf:raise RuntimeError("compose file not found")
+    rt=runtime();env=os.environ.copy();ef=stack_env_path(stack)
+    if rt["engine"]=="podman":
+        if PODMAN_REMOTE:env=podman_remote_env()
+        env["PODMAN_COMPOSE_WARNING_LOGS"]="false";env["PODMAN_COMPOSE_IN_POD"]="false"
+        # Mirror the proven host media-server helper: podman compose --env-file ... -f ...
+        cmd=[os.environ.get("ROGUEFORGE_PODMAN","/usr/bin/podman"),"compose"]
+        if ef.is_file():cmd += ["--env-file",str(ef)]
+        cmd += ["-f",str(cf)]
+    else:
+        env["DOCKER_HOST"]=f"unix://{rt['socket']}";cmd=["/usr/bin/docker","compose"]
+        if ef.is_file():cmd += ["--env-file",str(ef)]
+        cmd += ["-f",str(cf)]
+    return d,cmd+args,env'''
+replace(old_compose,new_compose)
+
 replace(
 '''def diagnostics():
     rt=runtime();return {"auth":auth_diagnostics(),"runtime":{"engine":rt["engine"],"socket":rt["socket"],"socketExists":Path(rt["socket"]).exists(),"context":rt.get("context")},"stacks":{"path":str(STACKS_DIR),"exists":STACKS_DIR.is_dir(),"readable":os.access(STACKS_DIR,os.R_OK),"selfStack":SELF_STACK},"discovery":discovery_diagnostics()}''',
@@ -57,10 +87,6 @@ new='''    if action=="update":
         except Exception:expected=None
         if not m["composeManaged"]:return {"ok":True,"output":pulled,"recreated":False,"message":"Image pulled; standalone container not automatically recreated.","beforeImageId":before,"pulledImageId":expected}
         if expected and before==expected:return {"ok":True,"output":pulled,"recreated":False,"message":"Container is already using the current image.","beforeImageId":before,"pulledImageId":expected,"runningImageId":before,"verified":True}
-        # Podman Compose 1.x may try to create the replacement before removing the old
-        # named container. Preserve the old container under a temporary name, create
-        # the new service from the authoritative Compose file, verify its immutable
-        # image ID, and only then delete the preserved container.
         if runtime()["engine"]=="podman":
             old_name=m["name"];preserved=f"{old_name}-rogueforge-old-{int(time.time())}"
             engine_cli(["stop","--time","10",m["id"]],60)
