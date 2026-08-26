@@ -2,9 +2,7 @@ name: Publish container image
 
 on:
   push:
-    branches:
-      - main
-      - v0.8.5-runtime-fixes
+    branches: [main, v0.8.5-runtime-fixes]
   workflow_dispatch:
 
 permissions:
@@ -16,22 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Resolve build channel
-        id: channel
-        shell: bash
-        run: |
-          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
-            echo "channel=production" >> "$GITHUB_OUTPUT"
-          else
-            echo "channel=testing" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Apply v0.8.5 runtime fixes
+        if: github.ref_name == 'v0.8.5-runtime-fixes'
+        run: python3 tools/apply_v085.py
       - name: Stamp packaged runtime version
         shell: bash
         run: |
           VERSION=$(cat VERSION)
           sed -E -i "s/RogueForge [0-9]+\.[0-9]+\.[0-9]+/RogueForge ${VERSION}/" rogueforge.py
           sed -E -i "s/VERSION=\"[0-9]+\.[0-9]+\.[0-9]+\"/VERSION=\"${VERSION}\"/" rogueforge.py
-          sed -i 's/"backup","backups"/"backup","backups","update-backups","rogueforge-update-backups"/' rogueforge.py
           grep -q "VERSION=\"${VERSION}\"" rogueforge.py
       - name: Validate Python runtime
         run: python3 -m py_compile rogueforge.py setup-auth.py
@@ -45,8 +36,6 @@ jobs:
           test ! -e rogueforge_live.py
           test ! -e rogueforge_discovery.py
           test ! -e upgrade.sh
-          test ! -e static/v083.js
-          test ! -e static/v083.css
           test -f static/operations.js
           test -f static/operations.css
           test -x update.sh
@@ -68,26 +57,26 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Resolve RogueForge version and channel
+      - name: Apply v0.8.5 runtime fixes
+        if: github.ref_name == 'v0.8.5-runtime-fixes'
+        run: python3 tools/apply_v085.py
+      - name: Resolve version and channel
         id: version
         shell: bash
         run: |
-          VERSION=$(cat VERSION)
-          COMPACT=${VERSION//./}
+          VERSION=$(cat VERSION); COMPACT=${VERSION//./}
           SAFE_BRANCH=$(printf '%s' "$GITHUB_REF_NAME" | tr '/_' '--' | tr -cd '[:alnum:].-')
-          if [[ "$GITHUB_REF_NAME" == "main" ]]; then CHANNEL=production; else CHANNEL=testing; fi
+          [[ "$GITHUB_REF_NAME" == main ]] && CHANNEL=production || CHANNEL=testing
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "compact=$COMPACT" >> "$GITHUB_OUTPUT"
           echo "safe_branch=$SAFE_BRANCH" >> "$GITHUB_OUTPUT"
           echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
-          echo "RogueForge version: $VERSION ($CHANNEL)"
       - name: Stamp version into published runtime
         shell: bash
         run: |
           VERSION='${{ steps.version.outputs.version }}'
           sed -E -i "s/RogueForge [0-9]+\.[0-9]+\.[0-9]+/RogueForge ${VERSION}/" rogueforge.py
           sed -E -i "s/VERSION=\"[0-9]+\.[0-9]+\.[0-9]+\"/VERSION=\"${VERSION}\"/" rogueforge.py
-          sed -i 's/"backup","backups"/"backup","backups","update-backups","rogueforge-update-backups"/' rogueforge.py
           grep -q "VERSION=\"${VERSION}\"" rogueforge.py
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -97,7 +86,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Generate production image metadata
+      - name: Production metadata
         if: steps.version.outputs.channel == 'production'
         id: meta_prod
         uses: docker/metadata-action@v5
@@ -109,7 +98,7 @@ jobs:
             type=raw,value=v${{ steps.version.outputs.version }}
             type=raw,value=${{ steps.version.outputs.compact }}
             type=sha
-      - name: Generate testing image metadata
+      - name: Testing metadata
         if: steps.version.outputs.channel == 'testing'
         id: meta_test
         uses: docker/metadata-action@v5
@@ -139,21 +128,16 @@ jobs:
           push: true
           tags: ${{ steps.meta_test.outputs.tags }}
           labels: ${{ steps.meta_test.outputs.labels }}
-      - name: Create immutable Git release tag after successful production publish
+      - name: Create immutable production release tag
         if: steps.version.outputs.channel == 'production'
         shell: bash
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          TAG="v${VERSION}"
-          git fetch --tags --force
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            TAG_SHA=$(git rev-list -n 1 "$TAG")
-            echo "Git release tag $TAG already exists at $TAG_SHA"
-          else
+          TAG="v${VERSION}"; git fetch --tags --force
+          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git tag -a "$TAG" "$GITHUB_SHA" -m "RogueForge ${VERSION}"
             git push origin "$TAG"
-            echo "Created immutable Git release tag $TAG"
           fi
