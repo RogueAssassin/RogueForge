@@ -98,10 +98,33 @@ echo "Env root:     $ENV_ROOT"
 [[ -d "$COMPOSE_ROOT" ]] || { echo "Compose root does not exist: $COMPOSE_ROOT" >&2; exit 3; }
 [[ -d "$ENV_ROOT" ]] || { echo "Env root does not exist: $ENV_ROOT" >&2; exit 3; }
 
-# Pull explicitly before Compose. Do not pass Docker-style --pull policy flags to
-# podman-compose providers; Podman Compose 1.5.0 interprets the value as a service.
-$deploy_engine pull "ghcr.io/rogueassassin/rogueforge:$IMAGE_TAG" || { echo "RogueForge image tag '$IMAGE_TAG' is not published in GHCR." >&2; exit 4; }
-"${compose_cmd[@]}" up -d --remove-orphans
+IMAGE_REF="ghcr.io/rogueassassin/rogueforge:$IMAGE_TAG"
+$deploy_engine pull "$IMAGE_REF" || { echo "RogueForge image tag '$IMAGE_TAG' is not published in GHCR." >&2; exit 4; }
+EXPECTED_IMAGE=$($deploy_engine image inspect "$IMAGE_REF" --format '{{.Id}}' 2>/dev/null || true)
+RUNNING_IMAGE=$($deploy_engine inspect rogueforge --format '{{.Image}}' 2>/dev/null || true)
+
+echo "Running image: ${RUNNING_IMAGE:-none}"
+echo "Pulled image:  ${EXPECTED_IMAGE:-unknown}"
+
+if [[ -n "$EXPECTED_IMAGE" && -n "$RUNNING_IMAGE" && "$EXPECTED_IMAGE" != "$RUNNING_IMAGE" ]]; then
+  echo "RogueForge image changed; replacing existing container..."
+  $deploy_engine rm -f rogueforge >/dev/null
+fi
+
+if ! "${compose_cmd[@]}" up -d --remove-orphans; then
+  echo "Compose recreate failed. Deployment backup remains at $BACKUP" >&2
+  exit 5
+fi
+
+NEW_IMAGE=$($deploy_engine inspect rogueforge --format '{{.Image}}' 2>/dev/null || true)
+if [[ -n "$EXPECTED_IMAGE" && "$NEW_IMAGE" != "$EXPECTED_IMAGE" ]]; then
+  echo "RogueForge update verification failed." >&2
+  echo "Expected image: $EXPECTED_IMAGE" >&2
+  echo "Running image:  ${NEW_IMAGE:-missing}" >&2
+  exit 6
+fi
+
+echo "Verified running image: ${NEW_IMAGE:-unknown}"
 
 HEALTH_FILE="${TMPDIR:-/tmp}/rogueforge-health.$$"; trap 'rm -f "$HEALTH_FILE"' EXIT
 for _ in {1..30}; do
