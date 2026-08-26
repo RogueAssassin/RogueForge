@@ -32,6 +32,7 @@ elif [[ $TARGET == testing || $TARGET == branch:* ]]; then
   else SAFE_BRANCH=$(printf '%s' "$BRANCH" | tr '/_' '--' | tr -cd '[:alnum:].-'); IMAGE_TAG="branch-$SAFE_BRANCH"; fi
 fi
 BASE="https://raw.githubusercontent.com/RogueAssassin/RogueForge/$REF"
+
 BACKUP_ROOT=${ROGUEFORGE_BACKUP_TMP:-${TMPDIR:-/tmp}/rogueforge/update-backups}; mkdir -p "$BACKUP_ROOT"
 LEGACY_BACKUPS="$INSTALL_DIR/data/update-backups"
 if [[ -d "$LEGACY_BACKUPS" ]]; then
@@ -48,8 +49,17 @@ if [[ $deploy_engine != podman && $deploy_engine != docker ]]; then
   elif command -v docker >/dev/null && docker info >/dev/null 2>&1; then deploy_engine=docker
   else echo "Unable to detect a working Podman or Docker runtime." >&2; exit 2; fi
 fi
-compose_bin=podman-compose; [[ $deploy_engine == docker ]] && compose_bin=docker-compose
-command -v "$compose_bin" >/dev/null || { echo "Missing runtime: $compose_bin" >&2; exit 2; }
+
+if [[ $deploy_engine == podman ]]; then
+  command -v podman >/dev/null || { echo "Missing runtime: podman" >&2; exit 2; }
+  podman compose version >/dev/null 2>&1 || { echo "Podman Compose provider is unavailable." >&2; exit 2; }
+  compose_cmd=(podman compose --env-file "$INSTALL_DIR/.env" -f "$INSTALL_DIR/compose.yaml")
+else
+  command -v docker >/dev/null || { echo "Missing runtime: docker" >&2; exit 2; }
+  if docker compose version >/dev/null 2>&1; then compose_cmd=(docker compose --env-file "$INSTALL_DIR/.env" -f "$INSTALL_DIR/compose.yaml")
+  elif command -v docker-compose >/dev/null; then compose_cmd=(docker-compose --env-file "$INSTALL_DIR/.env" -f "$INSTALL_DIR/compose.yaml")
+  else echo "Docker Compose provider is unavailable." >&2; exit 2; fi
+fi
 
 echo "RogueForge update target: $TARGET"
 echo "Channel: $CHANNEL"
@@ -84,15 +94,21 @@ set_env ROGUEFORGE_STACKS_DIR "$COMPOSE_ROOT"
 echo "Media root:   $MEDIA_ROOT"
 echo "Compose root: $COMPOSE_ROOT"
 echo "Env root:     $ENV_ROOT"
+[[ -d "$MEDIA_ROOT" ]] || { echo "Media root does not exist: $MEDIA_ROOT" >&2; exit 3; }
+[[ -d "$COMPOSE_ROOT" ]] || { echo "Compose root does not exist: $COMPOSE_ROOT" >&2; exit 3; }
+[[ -d "$ENV_ROOT" ]] || { echo "Env root does not exist: $ENV_ROOT" >&2; exit 3; }
 
 $deploy_engine pull "ghcr.io/rogueassassin/rogueforge:$IMAGE_TAG" || { echo "RogueForge image tag '$IMAGE_TAG' is not published in GHCR." >&2; exit 4; }
-$compose_bin -f compose.yaml up -d --remove-orphans
+"${compose_cmd[@]}" up -d --remove-orphans --pull never
 
 HEALTH_FILE="${TMPDIR:-/tmp}/rogueforge-health.$$"; trap 'rm -f "$HEALTH_FILE"' EXIT
 for _ in {1..30}; do
   if curl -fsS "http://127.0.0.1:${ROGUEFORGE_HOST_PORT:-17810}/health" >"$HEALTH_FILE" 2>/dev/null; then
     echo; cat "$HEALTH_FILE"; echo
     echo "RogueForge $CHANNEL update complete."
+    echo "Media root:   $MEDIA_ROOT"
+    echo "Compose root: $COMPOSE_ROOT"
+    echo "Env root:     $ENV_ROOT"
     [[ $CHANNEL == testing ]] && echo "TESTING BUILD ACTIVE: $REF ($IMAGE_TAG)"
     exit 0
   fi
@@ -100,5 +116,5 @@ for _ in {1..30}; do
 done
 
 echo "Health check failed. Deployment backup remains at $BACKUP" >&2
-$compose_bin -f compose.yaml ps >&2 || true; $deploy_engine logs --tail 100 rogueforge >&2 || true
+"${compose_cmd[@]}" ps >&2 || true; $deploy_engine logs --tail 100 rogueforge >&2 || true
 exit 1
