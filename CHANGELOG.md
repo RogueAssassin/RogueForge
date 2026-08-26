@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.5 — Podman runtime reliability and UI consistency
+
+- Fixed Compose-managed container Update on Podman Compose 1.5.0 by pulling the actual container image with Podman and using Compose only to recreate the target service.
+- Hardened CPU/RAM statistics parsing for Podman JSON arrays, line-delimited JSON, alternate field names, container IDs and container names.
+- Made active runtime Compose labels authoritative during stack discovery and suppresses duplicate filesystem candidates for the same active project.
+- Moved Compose-editor and `.env` backups outside the stack tree under `/tmp/rogueforge/` alongside update backups.
+- Improved Nginx Proxy Manager and Cloudflared icon selection by preferring active container image/service identity over generic project names.
+- Standardized icon centering and safe-area sizing across Overview, Stacks and Runtime.
+- Reworked Runtime actions into aligned primary and secondary action grids instead of free-wrapping buttons.
+- Added a dedicated testing release channel (`:testing` and branch tags) so fixes can be validated on FEILSBEASTSERVER without touching production aliases.
+- Added pre-publish container-build validation and regression coverage for Podman updates, stats, discovery, backups, icon identity and testing-channel behavior.
+- Advanced testing metadata to v0.8.5; production aliases remain unchanged until the tested branch is promoted to `main`.
+
 ## 0.8.4 — Operations visibility, health filtering and release correctness
 
 - Added stack health filters for All, Healthy, Partial and Stopped workloads directly above the stack list.
@@ -9,38 +22,30 @@
 - Increased retained browser operation history and captured output limits while keeping completed-history cleanup.
 - Consolidated the v0.8.3 operations/icon layer into canonical non-versioned `static/operations.js` and `static/operations.css` assets; removed the unused `v083` frontend files.
 - Retained layered Dashboard Icons resolution and explicit Nginx Proxy Manager / Cloudflared aliases.
-- Fixed a release-workflow gap where validation stamped the runtime version but the publish job built from the unstamped checkout. The publish job now stamps and verifies the exact `VERSION` before the multi-architecture image build.
-- Hardened CI to reject reintroduction of the old v0.8.3 frontend assets and require the canonical operations assets.
-- Advanced release metadata and deployment defaults to v0.8.4.
+- Fixed a release-workflow gap where validation stamped the runtime version but the publish job built from the unstamped checkout.
+- Hardened CI and advanced deployment defaults to v0.8.4.
 
 ## 0.8.3 — Operations quality, icon reliability and release workflow
 
-- Moved updater deployment backups out of `/opt/media-server` and into `/tmp/rogueforge-update-backups` (or `$TMPDIR/rogueforge-update-backups`) so backup Compose snapshots are not discovered as dashboard stacks.
+- Moved updater deployment backups out of `/opt/media-server` and into `/tmp/rogueforge-update-backups` so backup Compose snapshots are not discovered as dashboard stacks.
 - Added automatic migration of legacy `data/update-backups` contents into the external temporary backup area.
-- Hardened recursive stack discovery in the packaged runtime to ignore `update-backups` and `rogueforge-update-backups` directory names.
-- Added an Operations activity drawer that records stack/container mutation operations with running/success/failure status, timestamps, duration and captured output.
-- Persisted recent Operations history in browser local storage with a clear-completed action.
-- Reworked service icon handling to use layered Dashboard Icons resolution: jsDelivr → raw GitHub → RogueForge local endpoint → generic Docker icon.
-- Added explicit icon aliases for Nginx Proxy Manager (`nginx-proxy-manager.svg`) and Cloudflared (`cloudflare.svg`) plus common alternate names/image references.
-- Ensured the service initial remains visible if every icon source is unavailable, preventing blank stack/service identity tiles.
-- Added `VERSION` release metadata and prepared v0.8.3 packaging while retaining the single `rogueforge.py` application runtime.
-- Updated GHCR publishing to support `latest`, semantic (`0.8.3`), v-prefixed (`v0.8.3`), compact (`083`) and SHA tags.
-- Updated the release workflow to create the matching immutable Git version tag when a new version is first published.
-- Kept deployment tooling sourced from `main` so updater/Compose fixes remain available when installing a pinned runtime image.
+- Hardened recursive stack discovery to ignore update backup directories.
+- Added an Operations activity drawer with status, timestamps, duration and captured output.
+- Added layered Dashboard Icons resolution and explicit Nginx Proxy Manager / Cloudflared aliases.
+- Added `VERSION` metadata and GHCR `latest`, semantic, v-prefixed, compact and SHA tags.
 
 ## 0.8.2 — Single-runtime consolidation and release cleanup
 
 - Consolidated RogueForge backend functionality into the single canonical `rogueforge.py` runtime.
-- Removed historical `rogueforge_v*.py` wrappers and the `rogueforge_ext.py`, `rogueforge_live.py`, and `rogueforge_discovery.py` extension layers.
-- Preserved flexible recursive Compose discovery, Podman/Docker compatibility, stack/service lifecycle operations, Compose and `.env` editing, update checks, bulk runtime controls, resource statistics, live logs, terminal/exec, authentication, CSRF protection, and RogueForge self-protection in the consolidated runtime.
-- Added `update.sh` as the supported update path and retired the old `upgrade.sh` workflow.
-- Updated Containerfile to copy and launch only `rogueforge.py` plus the account helper and static web assets.
-- Added CI syntax validation and an explicit guard that rejects reintroduction of legacy runtime wrapper/extension files.
+- Removed historical `rogueforge_v*.py` wrappers and backend extension layers.
+- Preserved flexible recursive Compose discovery, Podman/Docker compatibility, lifecycle operations, editing, statistics, logs, terminal, authentication and self-protection.
+- Added `update.sh` and retired `upgrade.sh`.
+- Updated Containerfile and CI for the single runtime.
 
 ## 0.8.1 — UI and centralized icon integration
 
 - Refined the stack-first dark operations interface.
-- Added Dashboard Icons CDN resolution for general stack/service artwork with local fallbacks.
+- Added Dashboard Icons CDN resolution with local fallbacks.
 - Added RogueForge branding variants and browser/sidebar branding controls.
 - Fixed installer validation for Podman Compose implementations without a `config` subcommand.
 
@@ -48,8 +53,7 @@
 
 - Made Stacks the primary Compose management surface and repositioned Containers as the advanced Runtime view.
 - Added expandable stack services with individual lifecycle, Update, Logs, and Terminal controls.
-- Added Stack Update (`pull` followed by `up -d --remove-orphans`).
-- Added stack `.env` editing with backup and validation.
+- Added Stack Update and stack `.env` editing with backup and validation.
 - Added runtime-aware Compose validation for Podman Compose 1.x.
 
 ## 0.7.1 — Flexible Compose discovery
