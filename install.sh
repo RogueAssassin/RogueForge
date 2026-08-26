@@ -91,6 +91,6 @@ fi
 if ! $ENGINE network exists "$NETWORK" >/dev/null 2>&1; then $ENGINE network create "$NETWORK" >/dev/null; fi
 if [[ ! -f data/auth.json ]]; then python3 setup-auth.py --username "$USERNAME"; fi
 $ENGINE pull "ghcr.io/rogueassassin/rogueforge:$VERSION"
-"${compose_cmd[@]}" up -d --remove-orphans --pull never
+"${compose_cmd[@]}" up -d --remove-orphans
 for _ in {1..30}; do curl -fsS "http://127.0.0.1:$HOST_PORT/health" && { echo; echo "RogueForge $VERSION installed at $INSTALL_DIR"; exit 0; }; sleep 2; done
 echo "RogueForge did not pass its health check." >&2; $ENGINE logs --tail 100 rogueforge >&2 || true; exit 1
