@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.7 — Fast dashboard snapshots and non-blocking refresh
+
+- Added a unified `/api/dashboard` endpoint so the initial web UI receives status, stacks, containers and authentication/session state in one request instead of four separate requests.
+- Added short-lived browser session snapshot hydration so the last known dashboard can render immediately while fresh runtime state is requested in the background.
+- Kept CPU/RAM statistics on their own asynchronous refresh path so expensive stats collection does not block initial page rendering or normal navigation.
+- Increased visible runtime refresh cadence to 10 seconds while avoiding refreshes in hidden browser tabs and forcing a quick refresh when a stale tab becomes visible again.
+- Reused the shared short-lived Podman inventory cache introduced in 0.8.6 so dashboard snapshot generation does not multiply engine inventory calls.
+- Advanced all testing, installer, Compose, environment, updater, README and CI metadata to `0.8.7` / `v0.8.7-testing`.
+- Testing images publish as `testing`, `branch-v0.8.7-testing`, and SHA tags without modifying production aliases until promotion.
+- Retains the deterministic media-server lifecycle contract: Start=`up -d`, Stop=`down`, Restart/Recreate=`down` then `up -d`, Stack Update=`pull` then `down` then `up -d`.
+
 ## 0.8.6 — Verified Podman replacement, fast inventory and configurable stack roots
 
 - Reworked Compose-managed Podman updates so RogueForge pulls the image, compares immutable image IDs, preserves the old container under a temporary name, recreates the service from the authoritative Compose definition, verifies the new running image ID, and removes the preserved container only after successful verification.
@@ -25,9 +36,8 @@
 - Improved Nginx Proxy Manager and Cloudflared icon selection by preferring active container image/service identity over generic project names.
 - Standardized icon centering and safe-area sizing across Overview, Stacks and Runtime.
 - Reworked Runtime actions into aligned primary and secondary action grids instead of free-wrapping buttons.
-- Added a dedicated testing release channel (`:testing` and branch tags) so fixes can be validated on FEILSBEASTSERVER without touching production aliases.
+- Added a dedicated testing release channel (`:testing` and branch tags) so fixes can be validated without touching production aliases.
 - Added pre-publish container-build validation and regression coverage for Podman updates, stats, discovery, backups, icon identity and testing-channel behavior.
-- Advanced testing metadata to v0.8.5; production aliases remain unchanged until the tested branch is promoted to `main`.
 
 ## 0.8.4 — Operations visibility, health filtering and release correctness
 
