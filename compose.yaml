@@ -1,6 +1,6 @@
 services:
   rogueforge:
-    image: ${ROGUEFORGE_IMAGE:-ghcr.io/rogueassassin/rogueforge:0.8.5}
+    image: ${ROGUEFORGE_IMAGE:-ghcr.io/rogueassassin/rogueforge:0.8.6}
     container_name: rogueforge
     hostname: rogueforge
     restart: unless-stopped
@@ -12,7 +12,10 @@ services:
       ROGUEFORGE_ENGINE: ${ROGUEFORGE_ENGINE:-podman}
       ROGUEFORGE_SOCKET: ${ROGUEFORGE_SOCKET_TARGET:-/run/podman/podman.sock}
       ROGUEFORGE_PODMAN_REMOTE: "${ROGUEFORGE_PODMAN_REMOTE:-true}"
-      ROGUEFORGE_STACKS_DIR: ${ROGUEFORGE_STACKS_DIR:-/opt/media-server/compose}
+      ROGUEFORGE_MEDIA_ROOT: ${ROGUEFORGE_MEDIA_ROOT:-/opt/media-server}
+      ROGUEFORGE_COMPOSE_ROOT: ${ROGUEFORGE_COMPOSE_ROOT:-/opt/media-server/compose}
+      ROGUEFORGE_ENV_ROOT: ${ROGUEFORGE_ENV_ROOT:-/opt/media-server/compose}
+      ROGUEFORGE_STACKS_DIR: ${ROGUEFORGE_COMPOSE_ROOT:-${ROGUEFORGE_STACKS_DIR:-/opt/media-server/compose}}
       ROGUEFORGE_SCAN_DEPTH: ${ROGUEFORGE_SCAN_DEPTH:-3}
       ROGUEFORGE_DISCOVERY_CACHE: ${ROGUEFORGE_DISCOVERY_CACHE:-10}
       ROGUEFORGE_ICONS_DIR: ${ROGUEFORGE_ICONS_DIR:-/opt/media-server/rogue-dashboard/app/static/icons}
