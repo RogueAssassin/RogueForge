@@ -52,22 +52,19 @@ new='''def discover_stacks():
     for c in containers(registry=reg):members.setdefault(c.get("project","standalone"),[]).append(c)'''
 replace(old,new)
 
-# BrokenPipeError is a normal client/proxy disconnect. Do not attempt to write a second
-# error response to an already closed socket.
-old='''    def send_json(self,payload,status=200,headers=None):
-        raw=json.dumps(payload,separators=(",",":"),default=str).encode();self.send_response(status);self.send_header("content-type","application/json");self.send_header("content-length",str(len(raw)));self.send_header("cache-control","no-store");self.send_header("x-content-type-options","nosniff")
-        for k,v in (headers or {}).items():self.send_header(k,v)
+old='''    def send_json(self,v,status=200,headers=None):
+        raw=json.dumps(v,separators=(",",":")).encode();self.send_response(status);self.send_header("content-type","application/json");self.send_header("content-length",str(len(raw)));self.send_header("cache-control","no-store");self.send_header("x-content-type-options","nosniff");
+        for n,c in (headers or {}).items():self.send_header(n,c)
         self.end_headers();self.wfile.write(raw)'''
-new='''    def send_json(self,payload,status=200,headers=None):
-        raw=json.dumps(payload,separators=(",",":"),default=str).encode()
+new='''    def send_json(self,v,status=200,headers=None):
+        raw=json.dumps(v,separators=(",",":")).encode()
         try:
             self.send_response(status);self.send_header("content-type","application/json");self.send_header("content-length",str(len(raw)));self.send_header("cache-control","no-store");self.send_header("x-content-type-options","nosniff")
-            for k,v in (headers or {}).items():self.send_header(k,v)
+            for n,c in (headers or {}).items():self.send_header(n,c)
             self.end_headers();self.wfile.write(raw)
         except (BrokenPipeError,ConnectionResetError):return'''
 replace(old,new)
 
-# Add HEAD support for proxies/monitors. Keep it deliberately lightweight.
 needle='''    def do_GET(self):
         try:'''
 replacement='''    def do_HEAD(self):
@@ -79,7 +76,6 @@ replacement='''    def do_HEAD(self):
         try:'''
 replace(needle,replacement)
 
-# Do not convert client disconnects into 500 responses from top-level handlers.
 s=s.replace('except Exception as e:self.send_json({"error":str(e)},500)','except (BrokenPipeError,ConnectionResetError):return\n        except Exception as e:self.send_json({"error":str(e)},500)')
 
 p.write_text(s,encoding='utf-8')
