@@ -2,7 +2,7 @@ name: Publish container image
 
 on:
   push:
-    branches: [main, v0.8.6-testing]
+    branches: [main, v0.8.6-testing, v0.8.7-testing]
   workflow_dispatch:
 
 permissions:
@@ -14,13 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Apply testing runtime fixes
-        if: github.ref_name == 'v0.8.6-testing'
+      - name: Apply release runtime fixes
         run: |
           python3 tools/apply_v085.py
           python3 tools/apply_v086.py
           python3 tools/apply_v086_perf.py
           python3 tools/apply_v086_ops.py
+          if [ -f tools/apply_v087.py ]; then python3 tools/apply_v087.py; fi
       - name: Stamp packaged runtime version
         shell: bash
         run: |
@@ -61,13 +61,13 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Apply testing runtime fixes
-        if: github.ref_name == 'v0.8.6-testing'
+      - name: Apply release runtime fixes
         run: |
           python3 tools/apply_v085.py
           python3 tools/apply_v086.py
           python3 tools/apply_v086_perf.py
           python3 tools/apply_v086_ops.py
+          if [ -f tools/apply_v087.py ]; then python3 tools/apply_v087.py; fi
       - name: Resolve version and channel
         id: version
         shell: bash
