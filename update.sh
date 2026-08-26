@@ -104,6 +104,23 @@ else
   printf 'ROGUEFORGE_CHANNEL=%s\n' "$CHANNEL" >> .env
 fi
 
+# v0.8.5: separate the full host media mount from the Compose discovery root.
+# Existing installs that still scan /opt/media-server are migrated only when the
+# standard /opt/media-server/compose layout exists. Custom layouts are untouched.
+MEDIA_ROOT=$(awk -F= '$1=="ROGUEFORGE_MEDIA_ROOT"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true)
+[[ -n $MEDIA_ROOT ]] || MEDIA_ROOT=/opt/media-server
+if ! grep -q '^ROGUEFORGE_MEDIA_ROOT=' .env; then
+  printf 'ROGUEFORGE_MEDIA_ROOT=%s\n' "$MEDIA_ROOT" >> .env
+fi
+CURRENT_STACKS=$(awk -F= '$1=="ROGUEFORGE_STACKS_DIR"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true)
+if [[ ${CURRENT_STACKS:-} == /opt/media-server && -d /opt/media-server/compose ]]; then
+  sed -i 's#^ROGUEFORGE_STACKS_DIR=/opt/media-server$#ROGUEFORGE_STACKS_DIR=/opt/media-server/compose#' .env
+  echo "Discovery root migrated: /opt/media-server -> /opt/media-server/compose"
+fi
+if ! grep -q '^ROGUEFORGE_STACKS_DIR=' .env && [[ -d "$MEDIA_ROOT/compose" ]]; then
+  printf 'ROGUEFORGE_STACKS_DIR=%s/compose\n' "$MEDIA_ROOT" >> .env
+fi
+
 if ! $deploy_engine pull "ghcr.io/rogueassassin/rogueforge:$IMAGE_TAG"; then
   echo "RogueForge image tag '$IMAGE_TAG' is not published in GHCR." >&2
   if [[ $CHANNEL == testing ]]; then
@@ -121,6 +138,7 @@ for _ in {1..30}; do
   if curl -fsS "http://127.0.0.1:${ROGUEFORGE_HOST_PORT:-17810}/health" >"$HEALTH_FILE" 2>/dev/null; then
     echo; cat "$HEALTH_FILE"; echo
     echo "RogueForge $CHANNEL update complete."
+    echo "Discovery root: $(awk -F= '$1==\"ROGUEFORGE_STACKS_DIR\"{print substr($0,index($0,\"=\")+1)}' .env | tail -n1)"
     [[ $CHANNEL == testing ]] && echo "TESTING BUILD ACTIVE: $REF ($IMAGE_TAG)"
     exit 0
   fi
