@@ -53,10 +53,19 @@ new_compose='''def compose_command(stack,args):
     if rt["engine"]=="podman":
         if PODMAN_REMOTE:env=podman_remote_env()
         env["PODMAN_COMPOSE_WARNING_LOGS"]="false";env["PODMAN_COMPOSE_IN_POD"]="false"
-        # Mirror the proven host media-server helper: podman compose --env-file ... -f ...
-        cmd=[os.environ.get("ROGUEFORGE_PODMAN","/usr/bin/podman"),"compose"]
-        if ef.is_file():cmd += ["--env-file",str(ef)]
-        cmd += ["-f",str(cf)]
+        # The bundled Podman client can be older than the host daemon and may reject
+        # modern `podman compose --env-file` wrapper flags. Invoke podman-compose
+        # directly and inject the stack .env values into its process environment.
+        if ef.is_file():
+            for line in ef.read_text(encoding="utf-8",errors="replace").splitlines():
+                line=line.strip()
+                if not line or line.startswith("#") or "=" not in line:continue
+                key,value=line.split("=",1);key=key.strip()
+                if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$",key):
+                    value=value.strip()
+                    if len(value)>=2 and value[0]==value[-1] and value[0] in ("'",'"'):value=value[1:-1]
+                    env[key]=value
+        cmd=[os.environ.get("ROGUEFORGE_PODMAN_COMPOSE","/usr/bin/podman-compose"),"-f",str(cf)]
     else:
         env["DOCKER_HOST"]=f"unix://{rt['socket']}";cmd=["/usr/bin/docker","compose"]
         if ef.is_file():cmd += ["--env-file",str(ef)]
