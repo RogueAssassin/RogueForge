@@ -64,7 +64,9 @@ class RogueForgeTests(unittest.TestCase):
         self.assertIn('CMD ["python3", "/opt/rogueforge/rogueforge.py"]',container)
         self.assertIn("VERSION=$(cat VERSION)",workflow)
         self.assertIn("type=raw,value=v${{ steps.version.outputs.version }}",workflow)
-        self.assertIn("compact",workflow)
+        self.assertIn("type=raw,value=testing",workflow)
+        self.assertIn("branch-${{ steps.version.outputs.safe_branch }}",workflow)
+        self.assertIn("Validate container build locally",workflow)
         self.assertIn("packages: write",workflow)
 
     def test_branding_is_clean_three_variant_set(self):
@@ -81,8 +83,16 @@ class RogueForgeTests(unittest.TestCase):
         self.assertIn("/operations.js",loader); self.assertIn("/operations.css",loader)
         self.assertFalse((ROOT/"static/v083.js").exists()); self.assertFalse((ROOT/"static/v083.css").exists())
 
-    def test_update_script_uses_external_backups_and_health_check(self):
-        update=(ROOT/"update.sh").read_text(); self.assertIn("data/auth.json",update); self.assertIn("rogueforge-update-backups",update); self.assertIn("LEGACY_BACKUPS",update); self.assertIn("/health",update); self.assertIn("latest|main|X.Y.Z",update)
+    def test_update_script_uses_external_backups_health_and_testing_channel(self):
+        update=(ROOT/"update.sh").read_text()
+        self.assertIn("data/auth.json",update)
+        self.assertIn("/tmp}/rogueforge/update-backups",update)
+        self.assertIn("LEGACY_BACKUPS",update)
+        self.assertIn("/health",update)
+        self.assertIn("latest|main|testing|X.Y.Z",update)
+        self.assertIn("DEFAULT_TEST_BRANCH=\"v0.8.5-runtime-fixes\"",update)
+        self.assertIn("IMAGE_TAG=testing",update)
+        self.assertIn("branch-$SAFE_BRANCH",update)
         self.assertNotIn('BACKUP="$INSTALL_DIR/data/update-backups/',update)
 
 if __name__=="__main__": unittest.main()
