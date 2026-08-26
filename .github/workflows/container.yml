@@ -2,7 +2,7 @@ name: Publish container image
 
 on:
   push:
-    branches: [main, v0.8.6-testing, v0.8.7-testing]
+    branches: [main, v0.8.7-testing]
   workflow_dispatch:
 
 permissions:
@@ -21,6 +21,7 @@ jobs:
           python3 tools/apply_v086_perf.py
           python3 tools/apply_v086_ops.py
           if [ -f tools/apply_v087.py ]; then python3 tools/apply_v087.py; fi
+          if [ -f tools/apply_v087_async.py ]; then python3 tools/apply_v087_async.py; fi
       - name: Stamp packaged runtime version
         shell: bash
         run: |
@@ -68,6 +69,7 @@ jobs:
           python3 tools/apply_v086_perf.py
           python3 tools/apply_v086_ops.py
           if [ -f tools/apply_v087.py ]; then python3 tools/apply_v087.py; fi
+          if [ -f tools/apply_v087_async.py ]; then python3 tools/apply_v087_async.py; fi
       - name: Resolve version and channel
         id: version
         shell: bash
