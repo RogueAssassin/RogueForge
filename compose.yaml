@@ -12,8 +12,8 @@ services:
       ROGUEFORGE_ENGINE: ${ROGUEFORGE_ENGINE:-podman}
       ROGUEFORGE_SOCKET: ${ROGUEFORGE_SOCKET_TARGET:-/run/podman/podman.sock}
       ROGUEFORGE_PODMAN_REMOTE: "${ROGUEFORGE_PODMAN_REMOTE:-true}"
-      ROGUEFORGE_STACKS_DIR: ${ROGUEFORGE_STACKS_DIR:-/opt/media-server}
-      ROGUEFORGE_SCAN_DEPTH: ${ROGUEFORGE_SCAN_DEPTH:-4}
+      ROGUEFORGE_STACKS_DIR: ${ROGUEFORGE_STACKS_DIR:-/opt/media-server/compose}
+      ROGUEFORGE_SCAN_DEPTH: ${ROGUEFORGE_SCAN_DEPTH:-3}
       ROGUEFORGE_DISCOVERY_CACHE: ${ROGUEFORGE_DISCOVERY_CACHE:-10}
       ROGUEFORGE_ICONS_DIR: ${ROGUEFORGE_ICONS_DIR:-/opt/media-server/rogue-dashboard/app/static/icons}
       ROGUEFORGE_AUTH_FILE: /opt/rogueforge/data/auth.json
@@ -23,7 +23,7 @@ services:
       DOCKER_HOST: ${ROGUEFORGE_CONTAINER_HOST:-unix:///run/podman/podman.sock}
     volumes:
       - ${ROGUEFORGE_SOCKET_SOURCE:-/run/user/1000/podman/podman.sock}:${ROGUEFORGE_SOCKET_TARGET:-/run/podman/podman.sock}
-      - ${ROGUEFORGE_STACKS_DIR:-/opt/media-server}:${ROGUEFORGE_STACKS_DIR:-/opt/media-server}
+      - ${ROGUEFORGE_MEDIA_ROOT:-/opt/media-server}:${ROGUEFORGE_MEDIA_ROOT:-/opt/media-server}
       - ./data:/opt/rogueforge/data
     security_opt:
       - label=disable
