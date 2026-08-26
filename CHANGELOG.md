@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.6 — Verified Podman replacement and configurable stack roots
+
+- Reworked Compose-managed Podman updates so RogueForge pulls the image, compares immutable image IDs, preserves the old container under a temporary name, recreates the service from the authoritative Compose definition, verifies the new running image ID, and removes the preserved container only after successful verification.
+- Added recovery logic that attempts to restore and restart the preserved previous container if recreation or image verification fails.
+- Added `ROGUEFORGE_MEDIA_ROOT`, `ROGUEFORGE_COMPOSE_ROOT`, and `ROGUEFORGE_ENV_ROOT` so administrators can separate the mounted host root from Compose discovery and `.env` locations.
+- Kept `ROGUEFORGE_STACKS_DIR` as a compatibility alias synchronized to `ROGUEFORGE_COMPOSE_ROOT` by the updater.
+- Added mirrored `.env` resolution: the relative stack path beneath `COMPOSE_ROOT` is resolved beneath `ENV_ROOT`, while the common case keeps Compose and `.env` files together.
+- Added API diagnostics/status reporting for media, Compose and environment roots.
+- Updated the testing channel to `v0.8.6-testing` and retained isolated `testing`, branch and SHA GHCR tags without touching production aliases.
+- Retained the 0.8.5 CPU/RAM parsing, active-label discovery precedence, external backups, icon identity and Runtime layout fixes.
+- Added regression checks for configurable roots, verified Podman replacement, rollback behavior and testing-channel packaging.
+
 ## 0.8.5 — Podman runtime reliability and UI consistency
 
 - Fixed Compose-managed container Update on Podman Compose 1.5.0 by pulling the actual container image with Podman and using Compose only to recreate the target service.
