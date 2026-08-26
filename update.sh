@@ -98,8 +98,10 @@ echo "Env root:     $ENV_ROOT"
 [[ -d "$COMPOSE_ROOT" ]] || { echo "Compose root does not exist: $COMPOSE_ROOT" >&2; exit 3; }
 [[ -d "$ENV_ROOT" ]] || { echo "Env root does not exist: $ENV_ROOT" >&2; exit 3; }
 
+# Pull explicitly before Compose. Do not pass Docker-style --pull policy flags to
+# podman-compose providers; Podman Compose 1.5.0 interprets the value as a service.
 $deploy_engine pull "ghcr.io/rogueassassin/rogueforge:$IMAGE_TAG" || { echo "RogueForge image tag '$IMAGE_TAG' is not published in GHCR." >&2; exit 4; }
-"${compose_cmd[@]}" up -d --remove-orphans --pull never
+"${compose_cmd[@]}" up -d --remove-orphans
 
 HEALTH_FILE="${TMPDIR:-/tmp}/rogueforge-health.$$"; trap 'rm -f "$HEALTH_FILE"' EXIT
 for _ in {1..30}; do
