@@ -26,7 +26,10 @@ class RogueForgeTests(unittest.TestCase):
  def test_media_server_compose_contract(self):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('"compose"]',src);self.assertIn('PODMAN_COMPOSE_WARNING_LOGS',src);self.assertIn('stack_env_path(stack)',src)
   patch=(ROOT/'tools/apply_v086.py').read_text();self.assertIn('podman compose --env-file',patch)
-  update=(ROOT/'update.sh').read_text();self.assertIn('podman compose --env-file',update);self.assertNotIn('compose_bin=podman-compose',update)
+  update=(ROOT/'update.sh').read_text();installer=(ROOT/'install.sh').read_text()
+  self.assertIn('podman compose --env-file',update);self.assertNotIn('compose_bin=podman-compose',update)
+  self.assertNotIn('--pull never',update);self.assertNotIn('--pull never',installer)
+  self.assertIn('"${compose_cmd[@]}" up -d --remove-orphans',update);self.assertIn('"${compose_cmd[@]}" up -d --remove-orphans',installer)
  def test_active_project_discovery_precedence(self):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('Active Compose labels are authoritative',src);self.assertIn('labelled_projects',src)
  def test_release_files(self):
