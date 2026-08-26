@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.8.6 — Verified Podman replacement and configurable stack roots
+## 0.8.6 — Verified Podman replacement, fast inventory and configurable stack roots
 
 - Reworked Compose-managed Podman updates so RogueForge pulls the image, compares immutable image IDs, preserves the old container under a temporary name, recreates the service from the authoritative Compose definition, verifies the new running image ID, and removes the preserved container only after successful verification.
 - Added recovery logic that attempts to restore and restart the preserved previous container if recreation or image verification fails.
@@ -8,9 +8,13 @@
 - Kept `ROGUEFORGE_STACKS_DIR` as a compatibility alias synchronized to `ROGUEFORGE_COMPOSE_ROOT` by the updater.
 - Added mirrored `.env` resolution: the relative stack path beneath `COMPOSE_ROOT` is resolved beneath `ENV_ROOT`, while the common case keeps Compose and `.env` files together.
 - Added API diagnostics/status reporting for media, Compose and environment roots.
+- Eliminated the container inventory N+1 query pattern and added a shared short-lived `ROGUEFORGE_INVENTORY_CACHE` (2 seconds by default) so Overview, Stacks and Runtime can reuse the same Podman snapshot during page load.
+- Stopped forcing a full Compose discovery rebuild on every `/api/stacks` request; normal UI requests now honor the discovery cache while diagnostics remains the explicit refresh path.
+- Aligned Podman stack lifecycle operations with the proven media-server `compose_for` contract: Start uses `up -d`, Stop uses `down`, Restart/Recreate use `down` then `up -d`, and Stack Update uses `pull`, `down`, then `up -d`.
+- Added proper HTTP `HEAD` support and treats client disconnects/BrokenPipe events as normal disconnects rather than cascading them into misleading HTTP 500 responses.
 - Updated the testing channel to `v0.8.6-testing` and retained isolated `testing`, branch and SHA GHCR tags without touching production aliases.
 - Retained the 0.8.5 CPU/RAM parsing, active-label discovery precedence, external backups, icon identity and Runtime layout fixes.
-- Added regression checks for configurable roots, verified Podman replacement, rollback behavior and testing-channel packaging.
+- Added regression checks for configurable roots, verified Podman replacement, shared inventory caching, media-server lifecycle behavior, HTTP hardening and testing-channel packaging.
 
 ## 0.8.5 — Podman runtime reliability and UI consistency
 
