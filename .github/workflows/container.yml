@@ -20,6 +20,7 @@ jobs:
           python3 tools/apply_v085.py
           python3 tools/apply_v086.py
           python3 tools/apply_v086_perf.py
+          python3 tools/apply_v086_ops.py
       - name: Stamp packaged runtime version
         shell: bash
         run: |
@@ -66,6 +67,7 @@ jobs:
           python3 tools/apply_v085.py
           python3 tools/apply_v086.py
           python3 tools/apply_v086_perf.py
+          python3 tools/apply_v086_ops.py
       - name: Resolve version and channel
         id: version
         shell: bash
