@@ -4,9 +4,9 @@
 
 **A local-first operations console for Docker and Podman Compose.**
 
-## Current testing release: 0.8.7
+## Current testing release: 0.8.8
 
-RogueForge 0.8.7 builds on the verified Podman lifecycle work from 0.8.6 and focuses on connection speed and dashboard responsiveness. Initial page load now uses one unified dashboard snapshot, recently rendered data is hydrated immediately from a short-lived browser session cache, runtime inventory refreshes independently, and CPU/RAM statistics continue in their own background refresh path rather than blocking the UI.
+RogueForge 0.8.8 is the next Operations quality testing milestone. It builds on the validated 0.8.7 dashboard/performance baseline and now focuses on long-running operation visibility, safer cancellation where supported, stack create/import/clone workflows, Compose templates and rollback UX, and persistent server-side operation/audit history.
 
 ### What it manages
 
@@ -66,9 +66,9 @@ Update/editor backups are stored outside `/opt/media-server` under `/tmp/roguefo
 
 ```text
 latest
-0.8.7
-v0.8.7
-087
+0.8.8
+v0.8.8
+088
 sha-<commit>
 ```
 
