@@ -2,7 +2,7 @@ name: Publish container image
 
 on:
   push:
-    branches: [main, v0.8.7-testing]
+    branches: [main, testing]
   workflow_dispatch:
 
 permissions:
@@ -75,11 +75,9 @@ jobs:
         shell: bash
         run: |
           VERSION=$(cat VERSION); COMPACT=${VERSION//./}
-          SAFE_BRANCH=$(printf '%s' "$GITHUB_REF_NAME" | tr '/_' '--' | tr -cd '[:alnum:].-')
-          [[ "$GITHUB_REF_NAME" == main ]] && CHANNEL=production || CHANNEL=testing
+          if [[ "$GITHUB_REF_NAME" == main ]]; then CHANNEL=production; else CHANNEL=testing; fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "compact=$COMPACT" >> "$GITHUB_OUTPUT"
-          echo "safe_branch=$SAFE_BRANCH" >> "$GITHUB_OUTPUT"
           echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
       - name: Stamp version into published runtime
         shell: bash
@@ -116,7 +114,6 @@ jobs:
           images: ghcr.io/rogueassassin/rogueforge
           tags: |
             type=raw,value=testing
-            type=raw,value=branch-${{ steps.version.outputs.safe_branch }}
             type=sha
       - name: Build and publish production
         if: steps.version.outputs.channel == 'production'
