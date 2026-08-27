@@ -9,7 +9,7 @@ class RogueForgeTests(unittest.TestCase):
  @classmethod
  def tearDownClass(cls):cls.temp.cleanup()
  def test_release_and_single_runtime(self):
-  self.assertEqual(RELEASE,'0.8.7');self.assertEqual(self.app.VERSION,RELEASE);self.assertFalse(any(ROOT.glob('rogueforge_v*.py')))
+  self.assertEqual(RELEASE,'0.8.8');self.assertEqual(self.app.VERSION,RELEASE);self.assertFalse(any(ROOT.glob('rogueforge_v*.py')))
   for n in ('rogueforge_ext.py','rogueforge_live.py','rogueforge_discovery.py','upgrade.sh'):self.assertFalse((ROOT/n).exists())
  def test_configurable_roots(self):
   self.assertEqual(self.app.COMPOSE_ROOT,self.app.STACKS_DIR);self.assertEqual(self.app.ENV_ROOT,self.app.COMPOSE_ROOT)
@@ -55,5 +55,5 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('DEFAULT_TEST_BRANCH="testing"',u);self.assertIn('IMAGE_TAG=testing',u);self.assertIn('REF="$BRANCH"; CHANNEL=testing',u);self.assertIn('/tmp}/rogueforge/update-backups',u)
   for key in ('ROGUEFORGE_MEDIA_ROOT','ROGUEFORGE_COMPOSE_ROOT','ROGUEFORGE_ENV_ROOT'):
    self.assertIn(key,compose);self.assertIn(key,env);self.assertIn(key,u);self.assertIn(key,installer)
-  self.assertIn('ROGUEFORGE_INVENTORY_CACHE=2',env);self.assertIn('VERSION=0.8.7',installer)
+  self.assertIn('ROGUEFORGE_INVENTORY_CACHE=2',env);self.assertIn('VERSION=0.8.8',installer)
 if __name__=='__main__':unittest.main()
