@@ -73,6 +73,61 @@ renderStacks=function renderStacksV080(){
 const rfOriginalRenderContainers=renderContainers;
 renderContainers=function renderRuntimeV080(){rfOriginalRenderContainers();const view=$('#view-containers .page-intro p');if(view)view.textContent='Advanced runtime view for standalone containers, inspection, live logs, terminal access and low-level troubleshooting.';};
 
+let rfConfigStack=null;
+let rfConfigKind='compose';
+let rfConfigFiles={compose:{name:'compose.yaml',content:''},env:{name:'.env',content:''}};
+
+function rfEnsureConfigDialog(){
+  if($('#rfConfigDialog'))return;
+  document.body.insertAdjacentHTML('beforeend',`<dialog id="rfConfigDialog"><div class="modal wide"><header><div><p class="eyebrow">Stack configuration editor</p><h2 id="rfConfigTitle">Stack config</h2></div><button class="close-button" type="button" id="rfConfigClose">×</button></header><div class="editor-toolbar"><div class="top-actions"><button class="small-button accent" type="button" data-rf-config-tab="compose">Compose</button><button class="small-button" type="button" data-rf-config-tab="env">.env</button></div><span id="rfConfigFile">compose.yaml</span><span id="rfConfigStatus">Validated before save · automatic backup</span></div><textarea id="rfConfigText" spellcheck="false" aria-label="Stack configuration editor"></textarea><footer><button class="button secondary" type="button" id="rfConfigCancel">Cancel</button><button class="button primary" type="button" id="rfConfigSave">Validate & save</button></footer></div></dialog>`);
+  $('#rfConfigClose').onclick=$('#rfConfigCancel').onclick=()=>$('#rfConfigDialog').close();
+  $('#rfConfigSave').onclick=rfSaveConfig;
+  $('#rfConfigDialog').addEventListener('click',e=>{const tab=e.target.closest('[data-rf-config-tab]');if(tab)rfSwitchConfig(tab.dataset.rfConfigTab);});
+  $('#rfConfigText').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();rfSaveConfig();}});
+}
+function rfPersistEditorBuffer(){
+  if(!rfConfigFiles[rfConfigKind])return;
+  rfConfigFiles[rfConfigKind].content=$('#rfConfigText')?.value??rfConfigFiles[rfConfigKind].content;
+}
+function rfSwitchConfig(kind){
+  if(!['compose','env'].includes(kind)||kind===rfConfigKind)return;
+  rfPersistEditorBuffer();rfConfigKind=kind;
+  $('#rfConfigText').value=rfConfigFiles[kind].content||'';
+  $('#rfConfigFile').textContent=rfConfigFiles[kind].name|| (kind==='env'?'.env':'compose.yaml');
+  $('#rfConfigStatus').textContent='Validated before save · automatic backup';
+  document.querySelectorAll('[data-rf-config-tab]').forEach(b=>b.classList.toggle('accent',b.dataset.rfConfigTab===kind));
+}
+async function rfEditConfig(name){
+  if(!ensureAuthenticated())return;rfEnsureConfigDialog();
+  try{
+    const [compose,env]=await Promise.all([
+      api(`/api/stacks/${encodeURIComponent(name)}/compose`),
+      api(`/api/stacks/${encodeURIComponent(name)}/env`)
+    ]);
+    rfConfigStack=name;rfConfigKind='compose';
+    rfConfigFiles={compose:{name:compose.name||'compose.yaml',content:compose.content||''},env:{name:env.name||'.env',content:env.content||''}};
+    $('#rfConfigTitle').textContent=`${name} · configuration`;
+    $('#rfConfigText').value=rfConfigFiles.compose.content;
+    $('#rfConfigFile').textContent=rfConfigFiles.compose.name;
+    $('#rfConfigStatus').textContent='Validated before save · automatic backup';
+    document.querySelectorAll('[data-rf-config-tab]').forEach(b=>b.classList.toggle('accent',b.dataset.rfConfigTab==='compose'));
+    $('#rfConfigDialog').showModal();
+  }catch(e){toast(e.message,'error');}
+}
+async function rfSaveConfig(){
+  if(!rfConfigStack)return;
+  const b=$('#rfConfigSave');rfPersistEditorBuffer();b.disabled=true;b.textContent='Validating…';
+  try{
+    const endpoint=rfConfigKind==='env'?'env':'compose';
+    const result=await api(`/api/stacks/${encodeURIComponent(rfConfigStack)}/${endpoint}`,protectedOptions({method:'PUT',body:JSON.stringify({content:rfConfigFiles[rfConfigKind].content})}));
+    const backup=result?.backup? ` · backup: ${result.backup}` : '';
+    $('#rfConfigStatus').textContent=`Saved and validated${backup}`;
+    toast(`${rfConfigStack}: ${rfConfigKind==='env'?'.env':'Compose'} saved and validated`);
+    await load({quiet:true});
+  }catch(e){$('#rfConfigStatus').textContent='Validation failed · original file retained/restored';toast(e.message,'error');}
+  finally{b.disabled=false;b.textContent='Validate & save';}
+}
+
 async function rfUpdateStack(name){if(!ensureAuthenticated())return;if(!await confirmAction(`Update ${name}?`,'Pull latest images and redeploy this stack with its current Compose definition.','Update stack'))return;try{toast(`${name}: update started`);const r=await api(`/api/stacks/${encodeURIComponent(name)}/update`,protectedOptions({method:'POST'}));if(r.output)console.info(r.output);toast(`${name}: update complete`);await load({quiet:true});}catch(e){toast(e.message,'error');}}
 function rfEnsureEnvDialog(){if($('#rfEnvDialog'))return;document.body.insertAdjacentHTML('beforeend',`<dialog id="rfEnvDialog"><div class="modal wide"><header><div><p class="eyebrow">Stack environment</p><h2 id="rfEnvTitle">.env</h2></div><button class="close-button" type="button" id="rfEnvClose">×</button></header><div class="editor-toolbar"><span>.env</span><span>Validated through Compose before save</span></div><textarea id="rfEnvText" spellcheck="false" aria-label="Environment file"></textarea><footer><button class="button secondary" type="button" id="rfEnvCancel">Cancel</button><button class="button primary" type="button" id="rfEnvSave">Validate & save</button></footer></div></dialog>`);$('#rfEnvClose').onclick=$('#rfEnvCancel').onclick=()=>$('#rfEnvDialog').close();$('#rfEnvSave').onclick=rfSaveEnv;}
 async function rfEditEnv(name){if(!ensureAuthenticated())return;rfEnsureEnvDialog();try{const d=await api(`/api/stacks/${encodeURIComponent(name)}/env`);rfEnvStack=name;$('#rfEnvTitle').textContent=`${name} · .env`;$('#rfEnvText').value=d.content||'';$('#rfEnvDialog').showModal();}catch(e){toast(e.message,'error');}}
@@ -83,5 +138,5 @@ function rfBranding(){const nav=[...document.querySelectorAll('.nav-item[data-vi
 
 const rfOldRenderAll=renderAll;renderAll=function renderAllV080(){rfOldRenderAll();rfBranding();renderOverview();renderStacks();renderContainers();const v=$('#rfSidebarVersion');if(v&&state.status?.appVersion)v.textContent=`v${state.status.appVersion}`;};
 
-document.addEventListener('click',e=>{const exp=e.target.closest('[data-rf-expand]');if(exp){const n=exp.dataset.rfExpand;rfExpandedStacks.has(n)?rfExpandedStacks.delete(n):rfExpandedStacks.add(n);renderStacks();}const upd=e.target.closest('[data-rf-stack-update]');if(upd)rfUpdateStack(upd.dataset.rfStackUpdate);const env=e.target.closest('[data-rf-env]');if(env)rfEditEnv(env.dataset.rfEnv);if(e.target.closest('#rfRefreshOverview'))load();if(e.target.closest('#rfUpdateAll'))updateAllContainers();if(e.target.closest('#rfDiscovery'))rfShowDiscovery();const go=e.target.closest('[data-go-stack]');if(go){setView('stacks');rfExpandedStacks.add(go.dataset.goStack);renderStacks();setTimeout(()=>document.getElementById(`rf-stack-${CSS.escape(go.dataset.goStack)}`)?.scrollIntoView({behavior:'smooth',block:'center'}),50);}});
+document.addEventListener('click',e=>{const exp=e.target.closest('[data-rf-expand]');if(exp){const n=exp.dataset.rfExpand;rfExpandedStacks.has(n)?rfExpandedStacks.delete(n):rfExpandedStacks.add(n);renderStacks();}const upd=e.target.closest('[data-rf-stack-update]');if(upd)rfUpdateStack(upd.dataset.rfStackUpdate);const cfg=e.target.closest('[data-rf-config]');if(cfg)rfEditConfig(cfg.dataset.rfConfig);const env=e.target.closest('[data-rf-env]');if(env)rfEditEnv(env.dataset.rfEnv);if(e.target.closest('#rfRefreshOverview'))load();if(e.target.closest('#rfUpdateAll'))updateAllContainers();if(e.target.closest('#rfDiscovery'))rfShowDiscovery();const go=e.target.closest('[data-go-stack]');if(go){setView('stacks');rfExpandedStacks.add(go.dataset.goStack);renderStacks();setTimeout(()=>document.getElementById(`rf-stack-${CSS.escape(go.dataset.goStack)}`)?.scrollIntoView({behavior:'smooth',block:'center'}),50);}});
 rfBranding();
