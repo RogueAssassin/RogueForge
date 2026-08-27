@@ -50,7 +50,33 @@ def _op_append(oid,text):
         x=_operations.get(oid)
         if x:x["output"]=(x.get("output","")+str(text))[-100000:];_save_operations()
 def _op_compose(oid,stack,args,timeout=900):
-    d,cmd,env=compose_command(stack,args);p=subprocess.Popen(cmd,cwd=d,env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,bufsize=1)
+    with _operation_lock:op=dict(_operations.get(oid) or {})
+    # Pin operations to the exact Compose path captured when the operation starts.
+    # This prevents a compose down from making subsequent start/restart/update
+    # dependent on live container-label discovery.
+    d=Path(op.get("directory") or safe_stack(stack)).resolve();cf=Path(op.get("composePath") or compose_file(d)).resolve()
+    if not cf.is_file():raise RuntimeError("compose file not found")
+    rt=runtime();env=os.environ.copy()
+    try:ef=stack_env_path(stack)
+    except Exception:ef=d/".env"
+    if rt["engine"]=="podman":
+        if PODMAN_REMOTE:env=podman_remote_env()
+        env["PODMAN_COMPOSE_WARNING_LOGS"]="false";env["PODMAN_COMPOSE_IN_POD"]="false"
+        if ef.is_file():
+            for line in ef.read_text(encoding="utf-8",errors="replace").splitlines():
+                line=line.strip()
+                if not line or line.startswith("#") or "=" not in line:continue
+                key,value=line.split("=",1);key=key.strip()
+                if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$",key):
+                    value=value.strip()
+                    if len(value)>=2 and value[0]==value[-1] and value[0] in ("'",'"'):value=value[1:-1]
+                    env[key]=value
+        cmd=[os.environ.get("ROGUEFORGE_PODMAN_COMPOSE","/usr/bin/podman-compose"),"-f",str(cf)]+args
+    else:
+        env["DOCKER_HOST"]=f"unix://{rt['socket']}";cmd=["/usr/bin/docker","compose"]
+        if ef.is_file():cmd += ["--env-file",str(ef)]
+        cmd += ["-f",str(cf)]+args
+    p=subprocess.Popen(cmd,cwd=d,env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,bufsize=1)
     with _operation_lock:
         x=_operations.get(oid)
         if x:x["process"]=p
@@ -85,7 +111,8 @@ def _operation_worker(oid):
         if x:x["status"]=status;x["ended"]=time.time();x.pop("process",None);_save_operations()
 def start_operation(scope,target,action):
     if scope!="stack" or action not in ("start","stop","restart","pull","recreate","update"):raise ValueError("unsupported operation")
-    safe_stack(target);oid=secrets.token_urlsafe(12);x={"id":oid,"scope":scope,"target":target,"action":action,"status":"running","started":time.time(),"ended":None,"output":"","cancelRequested":False}
+    rec=resolve_stack(target);safe_stack(target);d=rec["directory"].resolve();cf=rec["compose"].resolve()
+    oid=secrets.token_urlsafe(12);x={"id":oid,"scope":scope,"target":target,"action":action,"directory":str(d),"composePath":str(cf),"status":"running","started":time.time(),"ended":None,"output":"","cancelRequested":False}
     with _operation_lock:_operations[oid]=x;_save_operations()
     threading.Thread(target=_operation_worker,args=(oid,),daemon=True).start();return _op_public(x)
 def cancel_operation(oid):
