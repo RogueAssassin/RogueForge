@@ -7,6 +7,7 @@
 - Targets incremental output streaming for long-running Pull/Update/Recreate operations.
 - Targets safe cancellation for supported long-running operations.
 - Targets stack clone/import/create workflows.
+- Adds a unified Dockge-style stack configuration editor with Compose and `.env` tabs, validation-before-save, automatic backups, save feedback and Ctrl/Cmd+S support.
 - Targets Compose templates and rollback UI.
 - Targets persistent server-side operation/audit history shared across browsers.
 - Keeps `main` production-only; 0.8.8 remains on the permanent `testing` channel until regression-tested and promoted.
