@@ -22,6 +22,7 @@ Status: **current testing milestone**
 - [ ] Cancel supported long-running operations safely.
 - [ ] Stack clone/import/create workflows.
 - [ ] Compose templates and rollback UI.
+- [x] Unified Dockge-style stack configuration editor with Compose / `.env` tabs, validation, automatic backups and save feedback.
 - [x] Better service health visualization and stack health filtering.
 - [ ] Server-side persistent operation/audit history shared across browsers.
 - [ ] Preserve immediate/incremental UI state refresh after stack operations.
