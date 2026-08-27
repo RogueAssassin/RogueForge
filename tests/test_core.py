@@ -61,4 +61,5 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def start_operation(',src);self.assertIn('def cancel_operation(',src);self.assertIn('def _op_compose(',src);self.assertIn('subprocess.Popen(cmd',src);self.assertIn('/api/operations',src)
   self.assertIn("nativeFetch('/api/operations'",ops);self.assertIn('waitOperation',ops);self.assertIn('data-rf-cancel-op',ops);self.assertNotIn('localStorage.getItem(HISTORY_KEY)',ops)
   self.assertIn('async function refreshRuntimeInventory()',app);self.assertIn('await refreshRuntimeInventory()',app)
+  self.assertIn('composePath',src);self.assertIn('directory',src);self.assertIn('Pin operations to the exact Compose path',src)
 if __name__=='__main__':unittest.main()
