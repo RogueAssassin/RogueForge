@@ -7,8 +7,9 @@
 - Kept CPU/RAM statistics on their own asynchronous refresh path so expensive stats collection does not block initial page rendering or normal navigation.
 - Increased visible runtime refresh cadence to 10 seconds while avoiding refreshes in hidden browser tabs and forcing a quick refresh when a stale tab becomes visible again.
 - Reused the shared short-lived Podman inventory cache introduced in 0.8.6 so dashboard snapshot generation does not multiply engine inventory calls.
-- Advanced all testing, installer, Compose, environment, updater, README and CI metadata to `0.8.7` / `v0.8.7-testing`.
-- Testing images publish as `testing`, `branch-v0.8.7-testing`, and SHA tags without modifying production aliases until promotion.
+- Established the permanent two-branch development model: `testing` for active development and `main` for production-only promotion.
+- Testing images publish only as `testing` plus immutable SHA tags; testing never updates `latest`, semantic version aliases, or production release tags.
+- Updated the updater so `./update.sh testing` resolves the permanent `testing` branch instead of a version-specific testing branch.
 - Retains the deterministic media-server lifecycle contract: Start=`up -d`, Stop=`down`, Restart/Recreate=`down` then `up -d`, Stack Update=`pull` then `down` then `up -d`.
 
 ## 0.8.6 — Verified Podman replacement, fast inventory and configurable stack roots
