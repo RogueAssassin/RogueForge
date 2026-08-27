@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 INSTALL_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-DEFAULT_TEST_BRANCH="v0.8.7-testing"
+DEFAULT_TEST_BRANCH="testing"
 MODE=${1:-latest}
 BRANCH=""
 
