@@ -46,13 +46,13 @@ class RogueForgeTests(unittest.TestCase):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('Active Compose labels are authoritative',src);self.assertIn('labelled_projects',src)
  def test_release_files(self):
   for f in ('compose.yaml','.env.example','README.md'):self.assertIn(RELEASE,(ROOT/f).read_text())
-  wf=(ROOT/'.github/workflows/container.yml').read_text();self.assertIn('python3 tools/apply_v086_ops.py',wf);self.assertIn('tools/apply_v087.py',wf);self.assertIn('tools/apply_v087_async.py',wf);self.assertIn('v0.8.7-testing',wf);self.assertNotIn('v0.8.6-testing, v0.8.7-testing',wf);self.assertIn('type=raw,value=testing',wf)
+  wf=(ROOT/'.github/workflows/container.yml').read_text();self.assertIn('python3 tools/apply_v086_ops.py',wf);self.assertIn('tools/apply_v087.py',wf);self.assertIn('tools/apply_v087_async.py',wf);self.assertIn('branches: [main, testing]',wf);self.assertNotIn('v0.8.7-testing',wf);self.assertIn('type=raw,value=testing',wf);self.assertNotIn('branch-${{ steps.version.outputs.safe_branch }}',wf)
  def test_ui_quality(self):
   controls=(ROOT/'static/container-controls.js').read_text();css=(ROOT/'static/operations.css').read_text();quality=(ROOT/'static/runtime-quality.js').read_text();loader=(ROOT/'static/branding/branding-switch.js').read_text()
   self.assertIn('const iconKey=c.image||c.service||c.name',controls);self.assertIn('rf-action-primary',controls);self.assertIn('object-position:center',css);self.assertIn('bestIdentity',quality);self.assertIn('/runtime-quality.js',loader)
  def test_testing_updater_and_roots(self):
   u=(ROOT/'update.sh').read_text();compose=(ROOT/'compose.yaml').read_text();env=(ROOT/'.env.example').read_text();installer=(ROOT/'install.sh').read_text()
-  self.assertIn('DEFAULT_TEST_BRANCH="v0.8.7-testing"',u);self.assertIn('IMAGE_TAG=testing',u);self.assertIn('/tmp}/rogueforge/update-backups',u)
+  self.assertIn('DEFAULT_TEST_BRANCH="testing"',u);self.assertIn('IMAGE_TAG=testing',u);self.assertIn('REF="$BRANCH"; CHANNEL=testing',u);self.assertIn('/tmp}/rogueforge/update-backups',u)
   for key in ('ROGUEFORGE_MEDIA_ROOT','ROGUEFORGE_COMPOSE_ROOT','ROGUEFORGE_ENV_ROOT'):
    self.assertIn(key,compose);self.assertIn(key,env);self.assertIn(key,u);self.assertIn(key,installer)
   self.assertIn('ROGUEFORGE_INVENTORY_CACHE=2',env);self.assertIn('VERSION=0.8.7',installer)
