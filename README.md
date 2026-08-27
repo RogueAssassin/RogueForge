@@ -51,13 +51,13 @@ cd /opt/media-server/rogueforge
 ./update.sh latest
 ```
 
-## Test v0.8.7 before promotion
+## Testing channel
 
 ```bash
 cd /opt/media-server/rogueforge
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/v0.8.7-testing/update.sh -o update-testing.sh
-chmod +x update-testing.sh
-./update-testing.sh testing
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/update.sh -o update.sh
+chmod +x update.sh
+./update.sh testing
 ```
 
 Update/editor backups are stored outside `/opt/media-server` under `/tmp/rogueforge/`.
@@ -72,7 +72,7 @@ v0.8.7
 sha-<commit>
 ```
 
-Testing builds publish `testing`, `branch-v0.8.7-testing`, and a SHA tag without changing production aliases.
+RogueForge uses two persistent branches: `main` for production and `testing` for active development. Testing builds publish `testing` and a SHA tag only; they never update `latest`, semantic version tags, or production release tags.
 
 ## Repository layout
 
