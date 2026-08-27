@@ -20,6 +20,85 @@ COMPOSE_NAMES=("podman-compose.yaml","compose.podman.yaml","docker-compose.yaml"
 EXCLUDED_DIRS={".git",".cache","node_modules","__pycache__","backup","backups"}; MAX_BODY=2_000_000; LOGIN_WINDOW=300; LOGIN_LIMIT=8
 _sessions={}; _login_attempts={}; _login_lock=threading.Lock(); _runtime=None; _discovery_cache={"time":0.0,"records":[],"aliases":{},"by_dir":{}}
 _terminal_sessions={}; _terminal_lock=threading.Lock(); TERMINAL_TTL=1800; TERMINAL_CLOSED_GRACE=60; MAX_TERMINAL_CHUNKS=2500
+OPERATIONS_FILE=Path(os.environ.get("ROGUEFORGE_OPERATIONS_FILE",Path(__file__).with_name("data")/"operations.json")).resolve()
+_operation_lock=threading.Lock(); _operations={}; MAX_OPERATIONS=120
+def _load_operations():
+    global _operations
+    try:
+        rows=json.loads(OPERATIONS_FILE.read_text(encoding="utf-8"));_operations={str(x["id"]):x for x in rows if isinstance(x,dict) and x.get("id")}
+        for x in _operations.values():
+            if x.get("status")=="running":x["status"]="interrupted";x["ended"]=time.time()
+    except Exception:_operations={}
+def _save_operations():
+    try:
+        OPERATIONS_FILE.parent.mkdir(parents=True,exist_ok=True)
+        rows=sorted(_operations.values(),key=lambda x:x.get("started",0),reverse=True)[:MAX_OPERATIONS]
+        tmp=OPERATIONS_FILE.with_suffix(".tmp");tmp.write_text(json.dumps(rows,indent=2),encoding="utf-8");tmp.replace(OPERATIONS_FILE)
+    except Exception:pass
+def _op_public(x):
+    return {k:v for k,v in x.items() if k!="process"}
+def operation_list():
+    with _operation_lock:return [_op_public(x) for x in sorted(_operations.values(),key=lambda x:x.get("started",0),reverse=True)[:MAX_OPERATIONS]]
+def operation_get(oid):
+    with _operation_lock:
+        x=_operations.get(oid)
+        if not x:raise FileNotFoundError("operation")
+        return _op_public(x)
+def _op_append(oid,text):
+    if not text:return
+    with _operation_lock:
+        x=_operations.get(oid)
+        if x:x["output"]=(x.get("output","")+str(text))[-100000:];_save_operations()
+def _op_compose(oid,stack,args,timeout=900):
+    d,cmd,env=compose_command(stack,args);p=subprocess.Popen(cmd,cwd=d,env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,bufsize=1)
+    with _operation_lock:
+        x=_operations.get(oid)
+        if x:x["process"]=p
+    started=time.time()
+    try:
+        for line in iter(p.stdout.readline,""):
+            _op_append(oid,line)
+            with _operation_lock:cancel=bool(_operations.get(oid,{}).get("cancelRequested"))
+            if cancel and p.poll() is None:p.terminate()
+            if time.time()-started>timeout and p.poll() is None:p.terminate();raise TimeoutError("operation timed out")
+        rc=p.wait(timeout=10)
+        if rc:raise RuntimeError(f"Compose command failed ({rc})")
+    finally:
+        with _operation_lock:
+            if oid in _operations:_operations[oid].pop("process",None)
+def _operation_worker(oid):
+    with _operation_lock:x=_operations[oid];scope=x["scope"];target=x["target"];action=x["action"]
+    try:
+        if scope!="stack":raise ValueError("unsupported operation scope")
+        steps={"start":[["up","-d"]],"stop":[["down"]],"restart":[["down"],["up","-d"]],"pull":[["pull"]],"recreate":[["up","-d","--force-recreate"]],"update":[["pull"],["down"],["up","-d"]]}[action]
+        safe_stack(target)
+        for args in steps:
+            with _operation_lock:
+                if _operations[oid].get("cancelRequested"):raise InterruptedError("operation cancelled")
+            _op_append(oid,"$ compose "+" ".join(args)+"\n");_op_compose(oid,target,args)
+        invalidate_inventory();_build_registry(force=True)
+        status="success"
+    except InterruptedError as e:_op_append(oid,str(e)+"\n");status="cancelled"
+    except Exception as e:_op_append(oid,"ERROR: "+str(e)+"\n");status="failed"
+    with _operation_lock:
+        x=_operations.get(oid)
+        if x:x["status"]=status;x["ended"]=time.time();x.pop("process",None);_save_operations()
+def start_operation(scope,target,action):
+    if scope!="stack" or action not in ("start","stop","restart","pull","recreate","update"):raise ValueError("unsupported operation")
+    safe_stack(target);oid=secrets.token_urlsafe(12);x={"id":oid,"scope":scope,"target":target,"action":action,"status":"running","started":time.time(),"ended":None,"output":"","cancelRequested":False}
+    with _operation_lock:_operations[oid]=x;_save_operations()
+    threading.Thread(target=_operation_worker,args=(oid,),daemon=True).start();return _op_public(x)
+def cancel_operation(oid):
+    with _operation_lock:
+        x=_operations.get(oid)
+        if not x:raise FileNotFoundError("operation")
+        if x.get("status")!="running":return _op_public(x)
+        x["cancelRequested"]=True;p=x.get("process");_save_operations()
+    if p and p.poll() is None:
+        try:p.terminate()
+        except Exception:pass
+    return operation_get(oid)
+_load_operations()
 
 def _unb64(v): return base64.urlsafe_b64decode(v+"="*(-len(v)%4))
 def load_auth():
@@ -396,6 +475,13 @@ class Handler(BaseHTTPRequestHandler):
             if path=="/api/status":rt=runtime();s=self.session_payload();self.send_json({"appVersion":VERSION,"engine":rt["engine"],"version":rt["version"],"apiVersion":rt["apiVersion"],"context":rt.get("context"),"demo":DEMO_MODE,"publicUrl":PUBLIC_URL,"authConfigured":bool(load_auth()),"socket":rt["socket"] if s else "Protected","stacksDir":str(STACKS_DIR) if s else "Protected","iconsDir":str(ICONS_DIR) if s else "Protected"});return
             if path=="/api/stacks":self.send_json(discover_stacks());return
             if path=="/api/containers":self.send_json(containers());return
+            if path=="/api/operations":
+                if not self.require_auth():return
+                self.send_json(operation_list());return
+            m=re.fullmatch(r"/api/operations/([A-Za-z0-9_-]+)",path)
+            if m:
+                if not self.require_auth():return
+                self.send_json(operation_get(m.group(1)));return
             if path=="/health":runtime();self.send_json({"ok":True,"version":VERSION});return
             if path in ("/api/diagnostics","/api/discovery"):
                 if not self.require_auth():return
@@ -437,6 +523,9 @@ class Handler(BaseHTTPRequestHandler):
             if path=="/api/auth/logout":
                 if not self.require_auth(csrf=True):return
                 self.send_json({"ok":True},headers={"set-cookie":self.session_cookie("",True)});return
+            if path=="/api/operations":
+                if not self.require_auth(csrf=True):return
+                p=self.read_json();self.send_json(start_operation(str(p.get("scope") or ""),str(p.get("target") or ""),str(p.get("action") or "")),202);return
             m=re.fullmatch(r"/api/stacks/([^/]+)/(start|stop|restart|pull|recreate|update)",path)
             if m:
                 if not self.require_auth(csrf=True):return
@@ -479,7 +568,12 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:self.send_json({"error":str(e)},500)
     def do_DELETE(self):
         try:
-            m=re.fullmatch(r"/api/terminal/([A-Za-z0-9_-]+)",urlparse(self.path).path)
+            path=urlparse(self.path).path
+            m=re.fullmatch(r"/api/operations/([A-Za-z0-9_-]+)",path)
+            if m:
+                if not self.require_auth(csrf=True):return
+                self.send_json(cancel_operation(m.group(1)));return
+            m=re.fullmatch(r"/api/terminal/([A-Za-z0-9_-]+)",path)
             if not m:self.send_json({"error":"not found"},404);return
             if not self.require_auth(csrf=True):return
             self.send_json(close_terminal(m.group(1)))
