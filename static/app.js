@@ -179,6 +179,11 @@ async function load({ quiet = false } = {}) {
   }
 }
 
+async function refreshRuntimeInventory(){
+  try{[state.stacks,state.containers]=await Promise.all([api("/api/stacks"),api("/api/containers")]);renderOverview();renderStacks();renderContainers();}
+  catch(error){toast(error.message,"error");}
+}
+
 function confirmAction(title, message, button = "Continue") {
   $("#confirmTitle").textContent = title;
   $("#confirmMessage").textContent = message;
@@ -201,7 +206,7 @@ async function stackAction(name, action) {
     const result = await api(`/api/stacks/${encodeURIComponent(name)}/${action}`, protectedOptions({ method: "POST" }));
     if (result.output) console.info(result.output);
     toast(`${name}: ${action} completed`);
-    await load({ quiet: true });
+    await refreshRuntimeInventory();
   } catch (error) { toast(error.message, "error"); }
 }
 
