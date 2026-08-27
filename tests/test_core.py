@@ -56,4 +56,9 @@ class RogueForgeTests(unittest.TestCase):
   for key in ('ROGUEFORGE_MEDIA_ROOT','ROGUEFORGE_COMPOSE_ROOT','ROGUEFORGE_ENV_ROOT'):
    self.assertIn(key,compose);self.assertIn(key,env);self.assertIn(key,u);self.assertIn(key,installer)
   self.assertIn('ROGUEFORGE_INVENTORY_CACHE=2',env);self.assertIn('VERSION=0.8.8',installer)
+ def test_server_backed_operations_closeout(self):
+  src=(ROOT/'rogueforge.py').read_text();ops=(ROOT/'static/operations.js').read_text();app=(ROOT/'static/app.js').read_text()
+  self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def start_operation(',src);self.assertIn('def cancel_operation(',src);self.assertIn('def _op_compose(',src);self.assertIn('subprocess.Popen(cmd',src);self.assertIn('/api/operations',src)
+  self.assertIn("nativeFetch('/api/operations'",ops);self.assertIn('waitOperation',ops);self.assertIn('data-rf-cancel-op',ops);self.assertNotIn('localStorage.getItem(HISTORY_KEY)',ops)
+  self.assertIn('async function refreshRuntimeInventory()',app);self.assertIn('await refreshRuntimeInventory()',app)
 if __name__=='__main__':unittest.main()
