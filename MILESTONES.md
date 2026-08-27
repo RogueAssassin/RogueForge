@@ -1,19 +1,22 @@
 # RogueForge Roadmap
 
-## 0.8.4 — Operations visibility and health
+## 0.8.7 — Dashboard performance and verified lifecycle
 
-Status: **current testing/release line**
+Status: **validated testing baseline**
 
-- [x] Canonical non-versioned `operations.js` / `operations.css` frontend quality layer.
-- [x] Stack health filters for All, Healthy, Partial and Stopped workloads.
-- [x] Stronger stack/service visual fault highlighting.
-- [x] Operations history filtering by running/success/failed state.
-- [x] Export Operations history as JSON for troubleshooting/support.
-- [x] Resilient Dashboard Icons resolver retained with Nginx Proxy Manager and Cloudflared aliases.
-- [x] Fix release workflow so the actual published container runtime is stamped with the `VERSION` value before the image build.
-- [x] Keep semantic, v-prefixed, compact, latest and SHA GHCR aliases.
+- [x] Unified initial dashboard snapshot.
+- [x] Immediate browser session snapshot hydration with background refresh.
+- [x] CPU/RAM refresh isolated from initial dashboard rendering.
+- [x] Shared short-lived Podman inventory cache and reduced redundant engine calls.
+- [x] Configurable media, Compose and environment roots.
+- [x] Deterministic Podman Compose Start/Stop/Restart/Recreate/Update lifecycle.
+- [x] Immutable image verification for update/replacement flows.
+- [x] Permanent `main` / `testing` branch model and isolated GHCR testing channel.
+- [x] CI validation, unit tests, local container build and GHCR `:testing` publish.
 
-## 0.8.x — Operations quality
+## 0.8.8 — Operations quality
+
+Status: **current testing milestone**
 
 - [ ] Stream long-running Pull/Update/Recreate output incrementally into the Operations drawer.
 - [ ] Cancel supported long-running operations safely.
@@ -21,6 +24,8 @@ Status: **current testing/release line**
 - [ ] Compose templates and rollback UI.
 - [x] Better service health visualization and stack health filtering.
 - [ ] Server-side persistent operation/audit history shared across browsers.
+- [ ] Preserve immediate/incremental UI state refresh after stack operations.
+- [ ] Keep operation execution responsive and avoid full dashboard reloads where unnecessary.
 
 ## 0.9.0 — Runtime resources
 
