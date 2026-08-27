@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.8 — Operations quality milestone
+
+- Advanced the permanent `testing` branch to the next 0.8.x milestone after successful 0.8.7 validation.
+- Uses the validated 0.8.7 dashboard snapshot, Podman lifecycle, updater verification, configurable roots, inventory caching and non-blocking runtime refresh work as the baseline.
+- Targets incremental output streaming for long-running Pull/Update/Recreate operations.
+- Targets safe cancellation for supported long-running operations.
+- Targets stack clone/import/create workflows.
+- Targets Compose templates and rollback UI.
+- Targets persistent server-side operation/audit history shared across browsers.
+- Keeps `main` production-only; 0.8.8 remains on the permanent `testing` channel until regression-tested and promoted.
+
 ## 0.8.7 — Fast dashboard snapshots and non-blocking refresh
 
 - Added a unified `/api/dashboard` endpoint so the initial web UI receives status, stacks, containers and authentication/session state in one request instead of four separate requests.
