@@ -22,6 +22,8 @@ _sessions={}; _login_attempts={}; _login_lock=threading.Lock(); _runtime=None; _
 _terminal_sessions={}; _terminal_lock=threading.Lock(); TERMINAL_TTL=1800; TERMINAL_CLOSED_GRACE=60; MAX_TERMINAL_CHUNKS=2500
 OPERATIONS_FILE=Path(os.environ.get("ROGUEFORGE_OPERATIONS_FILE",Path(__file__).with_name("data")/"operations.json")).resolve()
 _operation_lock=threading.Lock(); _operations={}; MAX_OPERATIONS=120
+OPERATION_TIMEOUT=max(60,min(7200,int(os.environ.get("ROGUEFORGE_OPERATION_TIMEOUT","900"))))
+OPERATION_TERMINATE_GRACE=max(2,min(60,int(os.environ.get("ROGUEFORGE_OPERATION_TERMINATE_GRACE","10"))))
 def _load_operations():
     global _operations
     try:
@@ -49,7 +51,8 @@ def _op_append(oid,text):
     with _operation_lock:
         x=_operations.get(oid)
         if x:x["output"]=(x.get("output","")+str(text))[-100000:];_save_operations()
-def _op_compose(oid,stack,args,timeout=900):
+def _op_compose(oid,stack,args,timeout=None):
+    timeout=OPERATION_TIMEOUT if timeout is None else max(1,int(timeout))
     with _operation_lock:op=dict(_operations.get(oid) or {})
     # Pin operations to the exact Compose path captured when the operation starts.
     # This prevents a compose down from making subsequent start/restart/update
@@ -79,40 +82,66 @@ def _op_compose(oid,stack,args,timeout=900):
     p=subprocess.Popen(cmd,cwd=d,env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,bufsize=1)
     with _operation_lock:
         x=_operations.get(oid)
-        if x:x["process"]=p
-    started=time.time()
+        if x:x["process"]=p;x["timeoutSeconds"]=timeout;_save_operations()
+    timed_out=threading.Event()
+    def expire():
+        if p.poll() is not None:return
+        timed_out.set()
+        with _operation_lock:
+            x=_operations.get(oid)
+            if x:x["timedOut"]=True;_save_operations()
+        _op_append(oid,f"\nTIMEOUT: command exceeded {timeout}s; terminating process.\n")
+        try:p.terminate()
+        except Exception:pass
+    timer=threading.Timer(timeout,expire);timer.daemon=True;timer.start()
     try:
         for line in iter(p.stdout.readline,""):
             _op_append(oid,line)
             with _operation_lock:cancel=bool(_operations.get(oid,{}).get("cancelRequested"))
-            if cancel and p.poll() is None:p.terminate()
-            if time.time()-started>timeout and p.poll() is None:p.terminate();raise TimeoutError("operation timed out")
-        rc=p.wait(timeout=10)
+            if cancel and p.poll() is None:
+                try:p.terminate()
+                except Exception:pass
+        try:rc=p.wait(timeout=OPERATION_TERMINATE_GRACE)
+        except subprocess.TimeoutExpired:
+            try:p.kill()
+            except Exception:pass
+            rc=p.wait(timeout=OPERATION_TERMINATE_GRACE)
+        with _operation_lock:cancel=bool(_operations.get(oid,{}).get("cancelRequested"))
+        if timed_out.is_set():raise TimeoutError(f"operation timed out after {timeout}s")
+        if cancel:raise InterruptedError("operation cancelled")
         if rc:raise RuntimeError(f"Compose command failed ({rc})")
     finally:
+        timer.cancel()
         with _operation_lock:
-            if oid in _operations:_operations[oid].pop("process",None)
+            if oid in _operations:_operations[oid].pop("process",None);_save_operations()
 def _operation_worker(oid):
     with _operation_lock:x=_operations[oid];scope=x["scope"];target=x["target"];action=x["action"]
+    status="failed";failure=None
     try:
         if scope!="stack":raise ValueError("unsupported operation scope")
         steps={"start":[["up","-d"]],"stop":[["down"]],"restart":[["down"],["up","-d"]],"pull":[["pull"]],"recreate":[["up","-d","--force-recreate"]],"update":[["pull"],["down"],["up","-d"]]}[action]
         safe_stack(target)
-        for args in steps:
+        with _operation_lock:
+            x=_operations[oid];x["stepCount"]=len(steps);_save_operations()
+        for index,args in enumerate(steps,1):
             with _operation_lock:
-                if _operations[oid].get("cancelRequested"):raise InterruptedError("operation cancelled")
-            _op_append(oid,"$ compose "+" ".join(args)+"\n");_op_compose(oid,target,args)
+                x=_operations[oid]
+                if x.get("cancelRequested"):raise InterruptedError("operation cancelled")
+                x["stepIndex"]=index;x["currentStep"]=" ".join(args);x["stepStarted"]=time.time();_save_operations()
+            _op_append(oid,f"$ compose {' '.join(args)}\n");_op_compose(oid,target,args)
         invalidate_inventory();_build_registry(force=True)
         status="success"
-    except InterruptedError as e:_op_append(oid,str(e)+"\n");status="cancelled"
-    except Exception as e:_op_append(oid,"ERROR: "+str(e)+"\n");status="failed"
+    except TimeoutError as e:failure=str(e);_op_append(oid,"ERROR: "+failure+"\n");status="timed_out"
+    except InterruptedError as e:failure=str(e);_op_append(oid,failure+"\n");status="cancelled"
+    except Exception as e:failure=str(e);_op_append(oid,"ERROR: "+failure+"\n");status="failed"
     with _operation_lock:
         x=_operations.get(oid)
-        if x:x["status"]=status;x["ended"]=time.time();x.pop("process",None);_save_operations()
+        if x:
+            x["status"]=status;x["ended"]=time.time();x["failureReason"]=failure;x["currentStep"]=None;x["stepStarted"]=None;x.pop("process",None);_save_operations()
 def start_operation(scope,target,action):
     if scope!="stack" or action not in ("start","stop","restart","pull","recreate","update"):raise ValueError("unsupported operation")
     rec=resolve_stack(target);safe_stack(target);d=rec["directory"].resolve();cf=rec["compose"].resolve()
-    oid=secrets.token_urlsafe(12);x={"id":oid,"scope":scope,"target":target,"action":action,"directory":str(d),"composePath":str(cf),"status":"running","started":time.time(),"ended":None,"output":"","cancelRequested":False}
+    oid=secrets.token_urlsafe(12);x={"id":oid,"scope":scope,"target":target,"action":action,"directory":str(d),"composePath":str(cf),"status":"running","started":time.time(),"ended":None,"output":"","cancelRequested":False,"timedOut":False,"timeoutSeconds":OPERATION_TIMEOUT,"stepIndex":0,"stepCount":0,"currentStep":None,"stepStarted":None,"failureReason":None}
     with _operation_lock:_operations[oid]=x;_save_operations()
     threading.Thread(target=_operation_worker,args=(oid,),daemon=True).start();return _op_public(x)
 def cancel_operation(oid):
