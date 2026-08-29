@@ -151,7 +151,7 @@ compose.yaml           # deployment
 Containerfile          # image build
 static/                # web interface and branding
 tests/                 # regression tests
-tools/                 # build-time release preparation
+tools/prepare_runtime.py # single build-time runtime preparation pipeline
 docs/                  # deployment documentation
 ```
 

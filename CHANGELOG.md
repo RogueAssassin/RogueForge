@@ -2,6 +2,9 @@
 
 ## 0.8.8 — Operations quality and production-readiness milestone
 
+- Consolidated the historical versioned runtime patch tools into one canonical `tools/prepare_runtime.py` pipeline and updated CI/tests to reject future version-named patch-tool sprawl.
+- Rewrote stale installation and container-deployment documentation for the current `main`/`testing`, configurable-root and deterministic Podman lifecycle model.
+
 - Refreshed the repository presentation to match the RogueDashboard family: product header, release/GHCR/build/runtime/engine/platform badges and clearer Rogue ecosystem cross-linking.
 - Added a direct RogueDashboard download/repository link and clarified the split between RogueForge management and RogueDashboard visibility.
 - Expanded the 0.8.8 roadmap around operation timeouts/recovery, persistent audit history, transactional configuration saves, coalesced refreshes, targeted cache invalidation, batched stats, endpoint timing diagnostics, security hardening and compatibility testing.
