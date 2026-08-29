@@ -1,15 +1,11 @@
 # Changelog
 
-## 0.8.8 — Operations quality milestone
+## 0.8.8 — Operations quality and production-readiness milestone
 
-- Advanced the permanent `testing` branch to the next 0.8.x milestone after successful 0.8.7 validation.
-- Uses the validated 0.8.7 dashboard snapshot, Podman lifecycle, updater verification, configurable roots, inventory caching and non-blocking runtime refresh work as the baseline.
-- Targets incremental output streaming for long-running Pull/Update/Recreate operations.
-- Targets safe cancellation for supported long-running operations.
-- Targets stack clone/import/create workflows.
-- Adds a unified Dockge-style stack configuration editor with Compose and `.env` tabs, validation-before-save, automatic backups, save feedback and Ctrl/Cmd+S support.
-- Targets Compose templates and rollback UI.
-- Targets persistent server-side operation/audit history shared across browsers.
+- Refreshed the repository presentation to match the RogueDashboard family: product header, release/GHCR/build/runtime/engine/platform badges and clearer Rogue ecosystem cross-linking.
+- Added a direct RogueDashboard download/repository link and clarified the split between RogueForge management and RogueDashboard visibility.
+- Expanded the 0.8.8 roadmap around operation timeouts/recovery, persistent audit history, transactional configuration saves, coalesced refreshes, targeted cache invalidation, batched stats, endpoint timing diagnostics, security hardening and compatibility testing.
+- Keeps the validated 0.8.7 dashboard snapshot, Podman lifecycle, updater verification, configurable roots, inventory caching and non-blocking runtime refresh work as the baseline.
 - Keeps `main` production-only; 0.8.8 remains on the permanent `testing` channel until regression-tested and promoted.
 
 ## 0.8.7 — Fast dashboard snapshots and non-blocking refresh
