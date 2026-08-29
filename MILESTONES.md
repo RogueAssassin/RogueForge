@@ -20,8 +20,8 @@ Status: **current testing milestone**
 
 ### Operations and recovery
 - [ ] Stream Pull/Update/Recreate output incrementally into the Operations drawer.
-- [ ] Add bounded operation timeouts and explicit timeout/recovery states.
-- [ ] Cancel supported long-running operations safely.
+- [x] Add bounded operation timeouts and explicit timeout/recovery states.
+- [x] Cancel supported long-running operations safely.
 - [ ] Persist operation/audit history server-side so it survives browser/container restarts.
 - [ ] Record target, operation type, start/end time, duration, result and concise failure reason.
 - [ ] Add verified rollback/recovery UX when an update or recreate fails.

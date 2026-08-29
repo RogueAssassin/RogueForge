@@ -2,6 +2,9 @@
 
 ## 0.8.8 — Operations quality and production-readiness milestone
 
+- Added watchdog-backed operation timeouts that also terminate silent/hung Compose processes, plus configurable terminate-to-kill grace handling.
+- Added explicit `timed_out`, cancellation and failure-reason operation states with persisted step/progress metadata for the Operations drawer.
+
 - Consolidated the historical versioned runtime patch tools into one canonical `tools/prepare_runtime.py` pipeline and updated CI/tests to reject future version-named patch-tool sprawl.
 - Rewrote stale installation and container-deployment documentation for the current `main`/`testing`, configurable-root and deterministic Podman lifecycle model.
 

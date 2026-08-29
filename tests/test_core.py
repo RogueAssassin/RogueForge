@@ -57,6 +57,11 @@ class RogueForgeTests(unittest.TestCase):
   for key in ('ROGUEFORGE_MEDIA_ROOT','ROGUEFORGE_COMPOSE_ROOT','ROGUEFORGE_ENV_ROOT'):
    self.assertIn(key,compose);self.assertIn(key,env);self.assertIn(key,u);self.assertIn(key,installer)
   self.assertIn('ROGUEFORGE_INVENTORY_CACHE=2',env);self.assertIn('VERSION=0.8.8',installer)
+ def test_operation_timeout_and_progress_metadata(self):
+  src=(ROOT/'rogueforge.py').read_text();ops=(ROOT/'static/operations.js').read_text();env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text()
+  self.assertIn('ROGUEFORGE_OPERATION_TIMEOUT',src);self.assertIn('threading.Timer(timeout,expire)',src);self.assertIn('status="timed_out"',src);self.assertIn('"stepCount"',src);self.assertIn('"currentStep"',src);self.assertIn('"failureReason"',src)
+  self.assertIn('option value="timed_out"',ops);self.assertIn('Step ${Number(o.stepIndex||0)}/${Number(o.stepCount)}',ops)
+  self.assertIn('ROGUEFORGE_OPERATION_TIMEOUT=900',env);self.assertIn('ROGUEFORGE_OPERATION_TIMEOUT:',compose)
  def test_server_backed_operations_closeout(self):
   src=(ROOT/'rogueforge.py').read_text();ops=(ROOT/'static/operations.js').read_text();app=(ROOT/'static/app.js').read_text()
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def start_operation(',src);self.assertIn('def cancel_operation(',src);self.assertIn('def _op_compose(',src);self.assertIn('subprocess.Popen(cmd',src);self.assertIn('/api/operations',src)
