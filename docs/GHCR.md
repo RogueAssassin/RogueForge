@@ -17,7 +17,7 @@ ghcr.io/rogueassassin/rogueforge:<compact-version>
 ghcr.io/rogueassassin/rogueforge:sha-<commit>
 ```
 
-For 0.8.8 the compact tag is `088`. Production CI may create the immutable Git tag `v<VERSION>` after a successful publish.
+For 0.9.0 the compact tag is `090`. Production CI may create the immutable Git tag `v<VERSION>` after a successful publish.
 
 ## Testing channel
 
@@ -53,7 +53,7 @@ cd /opt/media-server/rogueforge
 Pinned semantic production release:
 
 ```bash
-./update.sh 0.8.8
+./update.sh 0.9.0
 ```
 
 The updater verifies the immutable pulled image ID against the image ID of the newly running RogueForge container before reporting success.
@@ -62,7 +62,7 @@ The updater verifies the immutable pulled image ID against the image ID of the n
 
 ```bash
 podman pull ghcr.io/rogueassassin/rogueforge:testing
-podman pull ghcr.io/rogueassassin/rogueforge:0.8.8
+podman pull ghcr.io/rogueassassin/rogueforge:0.9.0
 ```
 
 ## Package authentication

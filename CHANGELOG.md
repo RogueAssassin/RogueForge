@@ -2,6 +2,8 @@
 
 ## 0.9.0 — Runtime resources, operations quality and production-readiness milestone
 
+- Fixed release tests and installer metadata for the 0.9.0 testing rollover so CI derives version expectations from the canonical `VERSION` file instead of a stale hard-coded 0.8.8 value.
+
 - Added watchdog-backed operation timeouts that also terminate silent/hung Compose processes, plus configurable terminate-to-kill grace handling.
 - Added explicit `timed_out`, cancellation and failure-reason operation states with persisted step/progress metadata for the Operations drawer.
 
