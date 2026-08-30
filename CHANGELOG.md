@@ -2,6 +2,8 @@
 
 ## 0.9.0 — Runtime resources, operations quality and production-readiness milestone
 
+- Canonical-source consolidation pass: testing CI now folds the deterministic runtime preparation pipeline into the real source once, removes the preparer, and subsequent builds validate/package the repository directly.
+
 - Added container usage relationships to Images, Volumes and Networks so each resource shows whether it is in use plus the containers that reference it.
 - Added a dedicated short resource cache (15 seconds by default) built on the shared container snapshot; tab refresh explicitly bypasses it and runtime lifecycle invalidation clears it.
 

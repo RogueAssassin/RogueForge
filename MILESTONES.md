@@ -14,7 +14,9 @@ Status: **validated testing baseline**
 - [x] Permanent `main` / `testing` branch model and isolated GHCR testing channel.
 - [x] CI validation, unit tests, local container build and GHCR `:testing` publish.
 
-## 0.9.0 — Operations quality, performance and production readiness
+## 0.9.0
+
+- [x] Canonical runtime source consolidation initiated; testing CI performs the one-time fold and removes build-time source patching. — Operations quality, performance and production readiness
 
 Status: **current testing milestone**
 
