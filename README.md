@@ -149,11 +149,13 @@ install.sh             # first installation
 update.sh              # production/testing updater
 compose.yaml           # deployment
 Containerfile          # image build
-static/                # web interface and branding
+static/                # canonical web interface and branding
 tests/                 # regression tests
 tools/prepare_runtime.py # single build-time runtime preparation pipeline
 docs/                  # deployment documentation
 ```
+
+The frontend is intentionally kept version-agnostic: active UI code lives in the canonical `app.js` / `styles.css` assets rather than release-specific compatibility files.
 
 ## Documentation
 

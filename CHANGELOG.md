@@ -2,6 +2,9 @@
 
 ## 0.9.0 — Runtime resources, operations quality and production-readiness milestone
 
+- Consolidated the remaining version-named v0.8 frontend assets into canonical `static/app.js` and `static/styles.css`, removed the compatibility files from runtime loading, and added CI/test guards against future version-named frontend assets.
+- Removed obsolete 0.8.2 release notes and unused 0.4.x banner assets from the active repository tree.
+
 - Stopped the updater from overwriting its own executable while Bash is still reading it; the downloaded updater is now installed only after a verified healthy deployment, preventing mixed-script syntax failures during channel upgrades.
 - Added CI shell syntax validation for `update.sh` and `install.sh` plus a regression test that enforces safe updater replacement ordering.
 

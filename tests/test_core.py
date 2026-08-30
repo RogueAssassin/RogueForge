@@ -52,7 +52,11 @@ class RogueForgeTests(unittest.TestCase):
   tools_py=list((ROOT/'tools').glob('*.py'));self.assertEqual([p.name for p in tools_py],['prepare_runtime.py'])
  def test_ui_quality(self):
   controls=(ROOT/'static/container-controls.js').read_text();css=(ROOT/'static/operations.css').read_text();quality=(ROOT/'static/runtime-quality.js').read_text();loader=(ROOT/'static/branding/branding-switch.js').read_text()
-  self.assertIn('const iconKey=c.image||c.service||c.name',controls);self.assertIn('rf-action-primary',controls);self.assertIn('object-position:center',css);self.assertIn('bestIdentity',quality);self.assertIn('/runtime-quality.js',loader);v080=(ROOT/'static/v080.js').read_text();self.assertIn('data-rf-config=',v080);self.assertIn('data-rf-config-tab="compose"',v080);self.assertIn('data-rf-config-tab="env"',v080);self.assertNotIn('data-edit-stack="${attr(stack.name)}">Compose</button><button class="small-button" data-rf-env=',v080)
+  self.assertIn('const iconKey=c.image||c.service||c.name',controls);self.assertIn('rf-action-primary',controls);self.assertIn('object-position:center',css);self.assertIn('bestIdentity',quality);self.assertIn('/runtime-quality.js',loader);app=(ROOT/'static/app.js').read_text();self.assertIn('data-rf-config=',app);self.assertIn('data-rf-config-tab="compose"',app);self.assertIn('data-rf-config-tab="env"',app);self.assertNotIn('data-edit-stack="${attr(stack.name)}">Compose</button><button class="small-button" data-rf-env=',app)
+ def test_no_version_named_frontend_assets(self):
+  names=[p.name for p in (ROOT/'static').iterdir() if p.is_file()]
+  self.assertFalse(any(n.startswith('v0') for n in names))
+  html=(ROOT/'static/index.html').read_text();self.assertNotIn('/v080',html)
  def test_testing_updater_and_roots(self):
   u=(ROOT/'update.sh').read_text();compose=(ROOT/'compose.yaml').read_text();env=(ROOT/'.env.example').read_text();installer=(ROOT/'install.sh').read_text()
   self.assertIn('DEFAULT_TEST_BRANCH="testing"',u);self.assertIn('IMAGE_TAG=testing',u);self.assertIn('REF="$BRANCH"; CHANNEL=testing',u);self.assertIn('/tmp}/rogueforge/update-backups',u)

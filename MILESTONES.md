@@ -34,6 +34,11 @@ Status: **current testing milestone**
 - [ ] Compose templates with preview before creation.
 - [ ] Backup/rollback browser for recent stack configuration revisions.
 
+### Repository and runtime consolidation
+- [x] Consolidate version-named frontend assets into canonical `app.js` / `styles.css`.
+- [x] Remove obsolete release-note/banner artifacts from the active repository tree.
+- [ ] Fold the remaining build-time runtime preparation transformations into canonical source and retire `tools/prepare_runtime.py`.
+
 ### Performance and reliability
 - [ ] Coalesce simultaneous dashboard refreshes so only one engine inventory refresh is in flight.
 - [ ] Add stale-while-revalidate server snapshots for Overview/Stacks/Runtime.
