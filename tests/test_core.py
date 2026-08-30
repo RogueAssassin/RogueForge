@@ -9,7 +9,9 @@ class RogueForgeTests(unittest.TestCase):
  @classmethod
  def tearDownClass(cls):cls.temp.cleanup()
  def test_release_and_single_runtime(self):
-  self.assertRegex(RELEASE,r'^\d+\.\d+\.\d+self.assertFalse(any(ROOT.glob('rogueforge_v*.py')))
+  self.assertRegex(RELEASE,r'^\d+\.\d+\.\d+$')
+  self.assertEqual(self.app.VERSION,RELEASE)
+  self.assertFalse(any(ROOT.glob('rogueforge_v*.py')))
   for n in ('rogueforge_ext.py','rogueforge_live.py','rogueforge_discovery.py','upgrade.sh'):self.assertFalse((ROOT/n).exists())
  def test_configurable_roots(self):
   self.assertEqual(self.app.COMPOSE_ROOT,self.app.STACKS_DIR);self.assertEqual(self.app.ENV_ROOT,self.app.COMPOSE_ROOT)
