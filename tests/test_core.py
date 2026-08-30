@@ -53,6 +53,12 @@ class RogueForgeTests(unittest.TestCase):
  def test_ui_quality(self):
   controls=(ROOT/'static/container-controls.js').read_text();css=(ROOT/'static/operations.css').read_text();quality=(ROOT/'static/runtime-quality.js').read_text();loader=(ROOT/'static/branding/branding-switch.js').read_text()
   self.assertIn('const iconKey=c.image||c.service||c.name',controls);self.assertIn('rf-action-primary',controls);self.assertIn('object-position:center',css);self.assertIn('bestIdentity',quality);self.assertIn('/runtime-quality.js',loader);app=(ROOT/'static/app.js').read_text();self.assertIn('data-rf-config=',app);self.assertIn('data-rf-config-tab="compose"',app);self.assertIn('data-rf-config-tab="env"',app);self.assertNotIn('data-edit-stack="${attr(stack.name)}">Compose</button><button class="small-button" data-rf-env=',app)
+ def test_frontend_optional_dom_nodes_are_safe(self):
+  app=(ROOT/'static/app.js').read_text()
+  self.assertIn('const setText =',app);self.assertIn('const setHtml =',app)
+  for selector in ('#stackCount','#containerCount','#engineRuntime','#engineInitial','#engineVersion','#apiVersion'):
+   self.assertNotIn(f'$("'+selector+'").textContent',app)
+  self.assertIn('setText("#engineName", "Connection error")',app)
  def test_no_version_named_frontend_assets(self):
   names=[p.name for p in (ROOT/'static').iterdir() if p.is_file()]
   self.assertFalse(any(n.startswith('v0') for n in names))

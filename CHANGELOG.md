@@ -2,6 +2,8 @@
 
 ## 0.9.0 — Runtime resources, operations quality and production-readiness milestone
 
+- Hardened canonical frontend rendering against optional/removed DOM nodes after the v0.8 asset consolidation, fixing `Cannot set properties of null (setting 'textContent')` failures on the current testing UI.
+
 - Consolidated the remaining version-named v0.8 frontend assets into canonical `static/app.js` and `static/styles.css`, removed the compatibility files from runtime loading, and added CI/test guards against future version-named frontend assets.
 - Removed obsolete 0.8.2 release notes and unused 0.4.x banner assets from the active repository tree.
 

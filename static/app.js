@@ -1,4 +1,6 @@
 const $ = selector => document.querySelector(selector);
+const setText = (selector, value) => { const node=$(selector); if(node) node.textContent=value == null ? "—" : String(value); return node; };
+const setHtml = (selector, value) => { const node=$(selector); if(node) node.innerHTML=value == null ? "" : String(value); return node; };
 const $$ = selector => [...document.querySelectorAll(selector)];
 const state = { status: null, stacks: [], containers: [], currentStack: null, loading: false, auth: { configured: false, authenticated: false, user: null, csrf: null } };
 const pageMeta = {
@@ -96,12 +98,12 @@ function stackActions(stack, compact = false) {
 
 function renderOverview() {
   const running = state.containers.filter(item => item.state === "running").length;
-  $("#stackCount").textContent = state.stacks.length;
-  $("#containerCount").textContent = state.containers.length;
-  $("#runningCount").textContent = running;
-  $("#attentionCount").textContent = state.containers.length - running;
-  $("#stackCaption").textContent = `${state.stacks.filter(item => item.state === "running").length} fully active`;
-  $("#containerCaption").textContent = `Across ${state.status.engine}`;
+  setText("#stackCount", state.stacks.length);
+  setText("#containerCount", state.containers.length);
+  setText("#runningCount", running);
+  setText("#attentionCount", state.containers.length - running);
+  setText("#stackCaption", `${state.stacks.filter(item => item.state === "running").length} fully active`);
+  setText("#containerCaption", `Across ${state.status?.engine || "runtime"}`);
   const rows = state.stacks.slice(0, 5).map(stack => `
     <div class="stack-row">
       <div class="stack-identity">${serviceLogo(stack.name)}<div><strong>${escapeHtml(stack.name)}</strong><small>${escapeHtml(stack.composeFile)}</small></div></div>
@@ -109,7 +111,7 @@ function renderOverview() {
       <span class="service-count">${stack.running}/${stack.services} running</span>
       <div class="row-actions">${stackActions(stack, true)}</div>
     </div>`).join("");
-  $("#overviewStacks").innerHTML = rows || '<div class="empty-state">No Compose stacks found in the configured directory.</div>';
+  setHtml("#overviewStacks", rows || '<div class="empty-state">No Compose stacks found in the configured directory.</div>');
 }
 
 function renderStacks() {
@@ -142,20 +144,21 @@ function renderContainers() {
 }
 
 function renderStatus() {
-  const engine = state.status.engine;
-  $("#engineName").textContent = `${engine} connected`;
-  $("#engineDetail").textContent = state.status.socket;
-  $("#engineRuntime").textContent = engine;
-  $("#engineInitial").textContent = engine.charAt(0).toUpperCase();
-  $("#engineVersion").textContent = state.status.version;
-  $("#apiVersion").textContent = state.status.apiVersion;
-  $("#socketPath").textContent = state.status.socket;
-  $("#engineContext").textContent = state.status.context || "default";
-  $("#stacksPath").textContent = state.status.stacksDir;
-  $("#publicUrl").textContent = state.status.publicUrl || "Not configured";
-  $("#appVersion").textContent = state.status.appVersion ? `v${state.status.appVersion}` : "—";
-  $("#stackNavCount").textContent = state.stacks.length;
-  $("#containerNavCount").textContent = state.containers.length;
+  if (!state.status) return;
+  const engine = state.status.engine || "unknown";
+  setText("#engineName", `${engine} connected`);
+  setText("#engineDetail", state.status.socket || "Protected");
+  setText("#engineRuntime", engine);
+  setText("#engineInitial", engine.charAt(0).toUpperCase());
+  setText("#engineVersion", state.status.version);
+  setText("#apiVersion", state.status.apiVersion);
+  setText("#socketPath", state.status.socket);
+  setText("#engineContext", state.status.context || "default");
+  setText("#stacksPath", state.status.stacksDir);
+  setText("#publicUrl", state.status.publicUrl || "Not configured");
+  setText("#appVersion", state.status.appVersion ? `v${state.status.appVersion}` : "—");
+  setText("#stackNavCount", state.stacks.length);
+  setText("#containerNavCount", state.containers.length);
 }
 
 function renderAll() { renderStatus(); renderOverview(); renderStacks(); renderContainers(); }
@@ -170,8 +173,8 @@ async function load({ quiet = false } = {}) {
     renderAuth();
     if (!quiet) toast("Infrastructure refreshed");
   } catch (error) {
-    $("#engineName").textContent = "Connection error";
-    $("#engineDetail").textContent = error.message;
+    setText("#engineName", "Connection error");
+    setText("#engineDetail", error.message);
     toast(error.message, "error");
   } finally {
     state.loading = false;
