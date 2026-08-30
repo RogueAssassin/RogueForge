@@ -2,6 +2,10 @@
 
 ## 0.9.1 — Safety, recovery and observability
 
+- Made Compose and `.env` editor saves transactional: RogueForge now writes through a same-directory temporary file, flushes it to disk, atomically replaces the target, validates the resulting stack, and automatically restores the exact previous bytes when validation fails.
+- Unified Compose and environment saves behind one backend transaction path while preserving external backups and invalidating stack discovery after successful saves or restores.
+- Added CI regression coverage for atomic writes, validation, restore behavior and removal of the previous direct Compose write path.
+
 - Removed the temporary canonicalization CI job after materializing the 0.9.1 runtime/frontend, leaving a direct validation/test/build/publish pipeline with no historical runtime patch dependency.
 
 - Materialized the formerly prepared runtime/frontend into canonical checked-in source and retired the historical build-time patch pipeline.

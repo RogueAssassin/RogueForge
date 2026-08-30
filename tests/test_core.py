@@ -114,4 +114,12 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def _load_containers_uncached()',src);self.assertIn('/api/dashboard',src)
   self.assertIn('## 0.9.1 — Safety, recovery and observability',road)
 
+ def test_transactional_stack_editor_writes(self):
+  src=(ROOT/'rogueforge.py').read_text()
+  self.assertIn('def _atomic_write(path,content):',src);self.assertIn('os.fsync(f.fileno())',src);self.assertIn('os.replace(tmp,path)',src)
+  self.assertIn('def _transactional_stack_save(name,kind,content):',src);self.assertIn('validate_stack(name)',src);self.assertIn('rogueforge-restore-',src)
+  self.assertIn('def save_stack_compose(name,content):return _transactional_stack_save(name,"compose",content)',src)
+  self.assertIn('def save_stack_env(name,content):return _transactional_stack_save(name,"env",content)',src)
+  self.assertNotIn('backup=_backup_file(p,"compose-backups");p.write_text(content,encoding="utf-8")',src)
+
 if __name__=='__main__':unittest.main()
