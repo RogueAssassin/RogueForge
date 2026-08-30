@@ -28,35 +28,17 @@ jobs:
             exit 0
           fi
           python3 tools/prepare_runtime.py
-          rm -f tools/prepare_runtime.py
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('.github/workflows/container.yml')
-          s=p.read_text()
-          s=s.replace("      - name: Apply release runtime fixes\n        run: |\n          python3 tools/prepare_runtime.py\n","")
-          s=s.replace("          test -f tools/prepare_runtime.py\n          test \"$(find tools -maxdepth 1 -type f -name '*.py' | wc -l)\" -eq 1\n","          test \"$(find tools -maxdepth 1 -type f -name '*.py' 2>/dev/null | wc -l)\" -eq 0\n")
-          p.write_text(s)
-          p=Path('tests/test_core.py');s=p.read_text()
-          s=s.replace("pipeline=(ROOT/'tools/prepare_runtime.py').read_text()","pipeline=(ROOT/'rogueforge.py').read_text()")
-          s=s.replace("self.assertIn('python3 tools/prepare_runtime.py',wf);self.assertNotIn('tools/apply_v0',wf)","self.assertNotIn('prepare_runtime.py',wf);self.assertNotIn('tools/apply_v0',wf)")
-          s=s.replace("tools_py=list((ROOT/'tools').glob('*.py'));self.assertEqual([p.name for p in tools_py],['prepare_runtime.py'])","tools_py=list((ROOT/'tools').glob('*.py'));self.assertEqual(tools_py,[])")
-          s=s.replace("prep=(ROOT/'tools/prepare_runtime.py').read_text();env=(ROOT/'.env.example').read_text()","prep=(ROOT/'rogueforge.py').read_text();env=(ROOT/'.env.example').read_text()")
-          p.write_text(s)
-          PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add rogueforge.py static tests .github/workflows/container.yml tools
-          if git diff --cached --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            git commit -m "refactor: fold runtime preparation into canonical source"
-            git push origin HEAD:testing
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
+          python3 -m py_compile rogueforge.py setup-auth.py
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      - name: Upload canonical runtime
+        if: steps.canonical.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-runtime
+          path: rogueforge.py
 
   validate:
     needs: canonicalize
-    if: needs.canonicalize.outputs.changed != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
