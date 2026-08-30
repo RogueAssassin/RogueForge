@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RogueForge 0.8.2 — single-file Docker/Podman Compose operations runtime."""
+"""RogueForge 0.9.1 — single-file Docker/Podman Compose operations runtime."""
 from __future__ import annotations
 
 import base64, hashlib, hmac, json, mimetypes, os, re, secrets, socket, subprocess, sys, threading, time
@@ -38,7 +38,11 @@ def _save_operations():
         tmp=OPERATIONS_FILE.with_suffix(".tmp");tmp.write_text(json.dumps(rows,indent=2),encoding="utf-8");tmp.replace(OPERATIONS_FILE)
     except Exception:pass
 def _op_public(x):
-    return {k:v for k,v in x.items() if k!="process"}
+    y={k:v for k,v in x.items() if k!="process"}
+    started=float(y.get("started") or 0);ended=float(y.get("ended") or time.time()) if started else 0
+    y["durationSeconds"]=round(max(0,ended-started),3) if started else None
+    y["result"]="success" if y.get("status")=="success" else ("running" if y.get("status")=="running" else "failed")
+    return y
 def operation_list():
     with _operation_lock:return [_op_public(x) for x in sorted(_operations.values(),key=lambda x:x.get("started",0),reverse=True)[:MAX_OPERATIONS]]
 def operation_get(oid):
@@ -600,8 +604,17 @@ def stream_logs(h,cid):
     finally:
         if p.poll() is None:p.terminate()
 
+_timing_lock=threading.Lock();_timings={}
+def record_timing(name,seconds):
+    ms=round(max(0,float(seconds))*1000,2)
+    with _timing_lock:
+        row=_timings.setdefault(name,{"count":0,"lastMs":0.0,"maxMs":0.0,"totalMs":0.0})
+        row["count"]+=1;row["lastMs"]=ms;row["maxMs"]=max(row["maxMs"],ms);row["totalMs"]+=ms
+def timing_snapshot():
+    with _timing_lock:
+        return {k:{"count":v["count"],"lastMs":v["lastMs"],"maxMs":v["maxMs"],"avgMs":round(v["totalMs"]/max(1,v["count"]),2)} for k,v in _timings.items()}
 def diagnostics():
-    rt=runtime();return {"auth":auth_diagnostics(),"runtime":{"engine":rt["engine"],"socket":rt["socket"],"socketExists":Path(rt["socket"]).exists(),"context":rt.get("context")},"stacks":{"path":str(STACKS_DIR),"exists":STACKS_DIR.is_dir(),"readable":os.access(STACKS_DIR,os.R_OK),"selfStack":SELF_STACK},"discovery":discovery_diagnostics()}
+    rt=runtime();return {"timings":timing_snapshot(),"auth":auth_diagnostics(),"runtime":{"engine":rt["engine"],"socket":rt["socket"],"socketExists":Path(rt["socket"]).exists(),"context":rt.get("context")},"stacks":{"path":str(STACKS_DIR),"exists":STACKS_DIR.is_dir(),"readable":os.access(STACKS_DIR,os.R_OK),"selfStack":SELF_STACK},"discovery":discovery_diagnostics()}
 class Handler(BaseHTTPRequestHandler):
     server_version=f"RogueForge/{VERSION}"
     def log_message(self,fmt,*args):sys.stderr.write("%s - %s\n"%(self.log_date_time_string(),fmt%args))
@@ -635,8 +648,10 @@ class Handler(BaseHTTPRequestHandler):
             u=urlparse(self.path);path=u.path
             if path=="/api/auth/session":a=load_auth();s=self.session_payload();self.send_json({"configured":bool(a),"authenticated":bool(s),"user":s.get("user") if s else None,"csrf":s.get("csrf") if s else None,"auth":auth_diagnostics()});return
             if path=="/api/status":rt=runtime();s=self.session_payload();self.send_json({"appVersion":VERSION,"engine":rt["engine"],"version":rt["version"],"apiVersion":rt["apiVersion"],"context":rt.get("context"),"demo":DEMO_MODE,"publicUrl":PUBLIC_URL,"authConfigured":bool(load_auth()),"socket":rt["socket"] if s else "Protected","stacksDir":str(STACKS_DIR) if s else "Protected","iconsDir":str(ICONS_DIR) if s else "Protected"});return
-            if path=="/api/stacks":self.send_json(discover_stacks());return
-            if path=="/api/containers":self.send_json(containers());return
+            if path=="/api/stacks":
+                t=time.monotonic();data=discover_stacks();record_timing("stacks",time.monotonic()-t);self.send_json(data);return
+            if path=="/api/containers":
+                t=time.monotonic();data=containers();record_timing("containers",time.monotonic()-t);self.send_json(data);return
             if path=="/api/images":
                 if not self.require_auth():return
                 self.send_json(resource_images(force=parse_qs(u.query).get("refresh")==["1"]));return

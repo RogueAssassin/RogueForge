@@ -108,4 +108,10 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn("nativeFetch('/api/operations'",ops);self.assertIn('waitOperation',ops);self.assertIn('data-rf-cancel-op',ops);self.assertNotIn('localStorage.getItem(HISTORY_KEY)',ops)
   self.assertIn('async function refreshRuntimeInventory()',app);self.assertIn('await refreshRuntimeInventory()',app)
   self.assertIn('composePath',src);self.assertIn('directory',src);self.assertIn('Pin operations to the exact Compose path',src)
+ def test_v091_audit_and_timing_foundation(self):
+  self.assertEqual((ROOT/'VERSION').read_text().strip(),'0.9.1')
+  src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
+  self.assertIn('durationSeconds',src);self.assertIn('def timing_snapshot()',src);self.assertIn('record_timing("stacks"',src);self.assertIn('record_timing("containers"',src)
+  self.assertIn('## 0.9.1 — Safety, recovery and observability',road)
+
 if __name__=='__main__':unittest.main()

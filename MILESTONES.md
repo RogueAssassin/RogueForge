@@ -14,9 +14,7 @@ Status: **validated testing baseline**
 - [x] Permanent `main` / `testing` branch model and isolated GHCR testing channel.
 - [x] CI validation, unit tests, local container build and GHCR `:testing` publish.
 
-## 0.9.0
-
-- [x] Canonical runtime source consolidation initiated; testing CI performs the one-time fold and removes build-time source patching. — Operations quality, performance and production readiness
+## 0.9.0 — Operations quality, performance and production readiness
 
 Status: **current testing milestone**
 
@@ -24,8 +22,8 @@ Status: **current testing milestone**
 - [ ] Stream Pull/Update/Recreate output incrementally into the Operations drawer.
 - [x] Add bounded operation timeouts and explicit timeout/recovery states.
 - [x] Cancel supported long-running operations safely.
-- [ ] Persist operation/audit history server-side so it survives browser/container restarts.
-- [ ] Record target, operation type, start/end time, duration, result and concise failure reason.
+- [x] Persist operation/audit history server-side so it survives browser/container restarts.
+- [x] Record target, operation type, start/end time, duration, result and concise failure reason.
 - [ ] Add verified rollback/recovery UX when an update or recreate fails.
 - [ ] Keep immediate targeted UI refresh after stack operations without a full dashboard reload.
 
@@ -46,7 +44,7 @@ Status: **current testing milestone**
 - [ ] Add stale-while-revalidate server snapshots for Overview/Stacks/Runtime.
 - [ ] Invalidate only affected stack/container cache entries after operations.
 - [ ] Batch runtime stats and cap concurrent inspect/stats work.
-- [ ] Add endpoint timing diagnostics for dashboard, stacks, containers and stats.
+- [x] Add endpoint timing diagnostics foundation for stacks/containers with rolling last/average/max latency.
 - [ ] Add graceful degradation when one engine/stack query is slow rather than blocking the full dashboard.
 
 ### Security and production hardening
@@ -58,13 +56,29 @@ Status: **current testing milestone**
 
 ### Runtime resources
 
-- [x] Image inventory foundation with container usage relationships.\n- [ ] Image update awareness and guarded prune tools.
-- [x] Volume inventory foundation with container mount relationships.\n- [ ] Volume usage, backup/export and guarded deletion.
-- [x] Network inventory foundation with container membership relationships.\n- [ ] Network membership management and guarded lifecycle controls.
+- [x] Image inventory foundation with container usage relationships.
+- [ ] Image update awareness and guarded prune tools.
+- [x] Volume inventory foundation with container mount relationships.
+- [ ] Volume usage, backup/export and guarded deletion.
+- [x] Network inventory foundation with container membership relationships.
+- [ ] Network membership management and guarded lifecycle controls.
 - [ ] Disk/storage visibility and cleanup recommendations.
 - [x] Resource pages reuse cached engine snapshots and explicit refresh bypasses the resource cache.
 
-## 0.9.1 — Automation and observability
+## 0.9.1 — Safety, recovery and observability
+
+Status: **current testing milestone**
+
+- [x] Roll testing version to 0.9.1.
+- [x] Persist server-backed Operations history with explicit duration/result/failure metadata.
+- [x] Add rolling endpoint timing diagnostics foundation.
+- [ ] Transactional Compose/.env save + automatic restore on validation/write failure.
+- [ ] Verified update/recreate rollback UX.
+- [ ] Coalesced dashboard refresh and stale-while-revalidate snapshots.
+- [ ] Security header/session hardening and destructive-action guardrails.
+- [ ] Guarded Images/Volumes/Networks lifecycle actions.
+
+### Automation and observability
 
 - [ ] Optional maintenance windows and scheduled stack update policies.
 - [ ] Notification hooks for failed operations and unhealthy stacks.

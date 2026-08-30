@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.1 — Safety, recovery and observability
+
+- Rolled the permanent testing channel forward to 0.9.1 after the validated 0.9.0 resource-inventory baseline.
+- Promoted the existing server-backed Operations store into the 0.9.1 audit foundation and exposed explicit duration/result metadata alongside persisted target, timestamps and failure reason.
+- Added rolling endpoint timing diagnostics for stack/container inventory calls so slow engine paths can be identified without enabling verbose logging.
+- Kept resource lifecycle actions non-destructive while transactional editor/rollback safeguards are completed.
+
+
 ## 0.9.0 — Runtime resources, operations quality and production-readiness milestone
 
 - Canonical-source consolidation pass: testing CI now folds the deterministic runtime preparation pipeline into the real source once, removes the preparer, and subsequent builds validate/package the repository directly.
