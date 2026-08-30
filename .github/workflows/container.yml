@@ -10,52 +10,7 @@ permissions:
   packages: write
 
 jobs:
-  canonicalize:
-    if: github.ref_name == 'testing'
-    runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.canonical.outputs.changed }}
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Ensure canonical 0.9 runtime source
-        id: canonical
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          if grep -q 'def _load_containers_uncached()' rogueforge.py              && grep -q 'if path=="/api/dashboard"' rogueforge.py              && grep -q 'DASHBOARD_CACHE_KEY' static/app.js; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # One-time migration from the last validated pre-consolidation source.
-          BASE=c68230e7d484be2cffa63c55af6088e8d954074b
-          git show "$BASE:rogueforge.py" > rogueforge.py
-          git show "$BASE:static/app.js" > static/app.js
-          git show "$BASE:tools/prepare_runtime.py" > /tmp/prepare_runtime.py
-          python3 /tmp/prepare_runtime.py
-
-          VERSION=$(cat VERSION)
-          sed -E -i "s/RogueForge [0-9]+\.[0-9]+\.[0-9]+/RogueForge ${VERSION}/" rogueforge.py
-          sed -E -i "s/VERSION=\"[0-9]+\.[0-9]+\.[0-9]+\"/VERSION=\"${VERSION}\"/" rogueforge.py
-
-          python3 -m py_compile rogueforge.py setup-auth.py
-          grep -q 'def _load_containers_uncached()' rogueforge.py
-          grep -q 'if path=="/api/dashboard"' rogueforge.py
-          grep -q 'DASHBOARD_CACHE_KEY' static/app.js
-          grep -q 'invalidate_resource_cache()' rogueforge.py
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add rogueforge.py static/app.js
-          git commit -m "refactor: materialize canonical 0.9.1 runtime source"
-          git push origin HEAD:testing
-          echo "changed=true" >> "$GITHUB_OUTPUT"
-
   validate:
-    needs: canonicalize
-    if: needs.canonicalize.outputs.changed != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

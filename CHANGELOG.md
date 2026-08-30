@@ -2,6 +2,8 @@
 
 ## 0.9.1 — Safety, recovery and observability
 
+- Removed the temporary canonicalization CI job after materializing the 0.9.1 runtime/frontend, leaving a direct validation/test/build/publish pipeline with no historical runtime patch dependency.
+
 - Materialized the formerly prepared runtime/frontend into canonical checked-in source and retired the historical build-time patch pipeline.
 - Reworked CI so the one-time migration commits only generated runtime/frontend source; subsequent runs validate, test and publish directly from the repository.
 - Removed stale CI/test assumptions that required `tools/prepare_runtime.py`, and synchronized installer, Compose, environment example and documentation version metadata to 0.9.1.
