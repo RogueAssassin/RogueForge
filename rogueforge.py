@@ -420,6 +420,50 @@ def bulk_container_action(ids,action):
         try:m=_container_meta(str(cid));r=container_action(str(cid),action);results.append({"id":str(cid),"name":m["name"],"ok":True,"message":r.get("message"),"output":r.get("output","")[-4000:]})
         except Exception as e:results.append({"id":str(cid),"ok":False,"error":str(e)})
     return {"ok":all(x["ok"] for x in results),"action":action,"results":results}
+RESOURCE_CACHE_SECONDS=max(2,min(300,int(os.environ.get("ROGUEFORGE_RESOURCE_CACHE","15"))))
+_resource_cache={"images":(0.0,[]),"volumes":(0.0,[]),"networks":(0.0,[])}; _resource_lock=threading.Lock()
+def invalidate_resource_cache(kind=None):
+    with _resource_lock:
+        if kind in _resource_cache:_resource_cache[kind]=(0.0,[])
+        elif kind is None:
+            for key in _resource_cache:_resource_cache[key]=(0.0,[])
+def _resource_cached(kind,force,builder):
+    now=time.monotonic()
+    with _resource_lock:
+        stamp,items=_resource_cache[kind]
+        if not force and items and now-stamp<RESOURCE_CACHE_SECONDS:return [dict(x) for x in items]
+    items=list(builder())
+    with _resource_lock:_resource_cache[kind]=(now,items)
+    return [dict(x) for x in items]
+def _container_resource_snapshot():
+    out=[]
+    for x in load_containers() or []:
+        fid=str(x.get("Id") or x.get("ID") or x.get("id") or "")
+        names=x.get("Names") or x.get("names") or [];names=[names] if isinstance(names,str) else names
+        name=(names[0].lstrip("/") if names else str(x.get("Name") or x.get("name") or fid[:12] or "unknown"))
+        image=str(x.get("Image") or x.get("ImageName") or x.get("image") or "")
+        image_id=str(x.get("ImageID") or x.get("ImageId") or x.get("image_id") or x.get("Image") if str(x.get("Image") or "").startswith("sha256:") else "")
+        mounts=[]
+        raw_mounts=x.get("Mounts") or x.get("mounts") or []
+        if isinstance(raw_mounts,dict):raw_mounts=[raw_mounts]
+        if isinstance(raw_mounts,str):raw_mounts=[raw_mounts]
+        for m in raw_mounts:
+            if isinstance(m,dict):
+                src=str(m.get("Name") or m.get("Source") or m.get("source") or "")
+                typ=str(m.get("Type") or m.get("type") or "")
+                dst=str(m.get("Destination") or m.get("destination") or "")
+                mounts.append({"source":src,"type":typ,"destination":dst})
+            elif isinstance(m,str):mounts.append({"source":m,"type":"","destination":""})
+        nets=[]
+        raw_nets=x.get("Networks") or x.get("networks") or x.get("NetworkNames") or x.get("networkNames") or []
+        if isinstance(raw_nets,str):raw_nets=[n.strip() for n in re.split(r"[,\s]+",raw_nets) if n.strip()]
+        if isinstance(raw_nets,dict):raw_nets=list(raw_nets.keys())
+        if isinstance(raw_nets,list):nets=[str(n.get("Name") or n.get("name") or "") if isinstance(n,dict) else str(n) for n in raw_nets]
+        ns=x.get("NetworkSettings") or x.get("networkSettings") or {}
+        if isinstance(ns,dict) and isinstance(ns.get("Networks"),dict):nets.extend(str(n) for n in ns["Networks"].keys())
+        out.append({"id":fid[:12],"name":name,"image":image,"imageId":image_id,"mounts":mounts,"networks":sorted(set(n for n in nets if n))})
+    return out
+
 def _json_rows(raw):
     raw=(raw or "").strip()
     if not raw:return []
@@ -435,34 +479,52 @@ def _json_rows(raw):
             rows.extend(parsed if isinstance(parsed,list) else [parsed])
         except Exception:pass
     return [r for r in rows if isinstance(r,dict)]
-def resource_images():
-    rows=_json_rows(engine_cli(["images","--format","json"],60));out=[]
-    for r in rows:
-        repo=str(r.get("Repository") or r.get("repository") or r.get("Repo") or "<none>")
-        tag=str(r.get("Tag") or r.get("tag") or "<none>")
-        rid=str(r.get("Id") or r.get("ID") or r.get("id") or r.get("ImageID") or "")
-        names=r.get("Names") or r.get("RepoTags") or []
-        if (repo=="<none>" or tag=="<none>") and isinstance(names,list) and names:
-            first=str(names[0])
-            if ":" in first:repo,tag=first.rsplit(":",1)
-            else:repo=first
-        out.append({"id":rid,"shortId":rid.replace("sha256:","")[:12],"repository":repo,"tag":tag,"created":r.get("Created") or r.get("CreatedAt") or r.get("created"),"size":r.get("Size") or r.get("size") or r.get("VirtualSize"),"digest":r.get("Digest") or r.get("digest")})
-    return sorted(out,key=lambda x:(x["repository"].lower(),x["tag"].lower()))
-def resource_volumes():
-    rows=_json_rows(engine_cli(["volume","ls","--format","json"],60));out=[]
-    for r in rows:
-        name=str(r.get("Name") or r.get("name") or r.get("VolumeName") or "")
-        if not name:continue
-        out.append({"name":name,"driver":r.get("Driver") or r.get("driver") or "local","scope":r.get("Scope") or r.get("scope") or "local","mountpoint":r.get("Mountpoint") or r.get("mountpoint"),"created":r.get("CreatedAt") or r.get("Created") or r.get("created"),"labels":r.get("Labels") or r.get("labels") or {}})
-    return sorted(out,key=lambda x:x["name"].lower())
-def resource_networks():
-    rows=_json_rows(engine_cli(["network","ls","--format","json"],60));out=[]
-    for r in rows:
-        name=str(r.get("Name") or r.get("name") or "")
-        if not name:continue
-        rid=str(r.get("Id") or r.get("ID") or r.get("id") or "")
-        out.append({"id":rid,"shortId":rid[:12],"name":name,"driver":r.get("Driver") or r.get("driver") or "bridge","scope":r.get("Scope") or r.get("scope") or "local","ipv6":bool(r.get("IPv6") or r.get("ipv6")),"internal":bool(r.get("Internal") or r.get("internal")),"created":r.get("Created") or r.get("CreatedAt") or r.get("created")})
-    return sorted(out,key=lambda x:x["name"].lower())
+def resource_images(force=False):
+    def build():
+        consumers=_container_resource_snapshot();rows=_json_rows(engine_cli(["images","--format","json"],60));out=[]
+        for r in rows:
+            repo=str(r.get("Repository") or r.get("repository") or r.get("Repo") or "<none>")
+            tag=str(r.get("Tag") or r.get("tag") or "<none>")
+            rid=str(r.get("Id") or r.get("ID") or r.get("id") or r.get("ImageID") or "")
+            names=r.get("Names") or r.get("RepoTags") or []
+            if (repo=="<none>" or tag=="<none>") and isinstance(names,list) and names:
+                first=str(names[0])
+                if ":" in first:repo,tag=first.rsplit(":",1)
+                else:repo=first
+            ref=f"{repo}:{tag}" if repo!="<none>" and tag!="<none>" else repo
+            norm=rid.replace("sha256:","")
+            used=[]
+            for c in consumers:
+                cid=str(c.get("imageId") or "").replace("sha256:","")
+                if (norm and cid and (cid==norm or cid.startswith(norm) or norm.startswith(cid))) or (ref and c.get("image")==ref) or (repo!="<none>" and c.get("image")==repo):
+                    used.append({"id":c["id"],"name":c["name"]})
+            out.append({"id":rid,"shortId":norm[:12],"repository":repo,"tag":tag,"created":r.get("Created") or r.get("CreatedAt") or r.get("created"),"size":r.get("Size") or r.get("size") or r.get("VirtualSize"),"digest":r.get("Digest") or r.get("digest"),"inUse":bool(used),"containerCount":len(used),"containers":used})
+        return sorted(out,key=lambda x:(not x["inUse"],x["repository"].lower(),x["tag"].lower()))
+    return _resource_cached("images",force,build)
+def resource_volumes(force=False):
+    def build():
+        consumers=_container_resource_snapshot();rows=_json_rows(engine_cli(["volume","ls","--format","json"],60));out=[]
+        for r in rows:
+            name=str(r.get("Name") or r.get("name") or r.get("VolumeName") or "")
+            if not name:continue
+            used=[]
+            for c in consumers:
+                matches=[m for m in c["mounts"] if m.get("source")==name or str(m.get("source") or "").endswith("/"+name)]
+                if matches:used.append({"id":c["id"],"name":c["name"],"destinations":sorted(set(m.get("destination") for m in matches if m.get("destination")))})
+            out.append({"name":name,"driver":r.get("Driver") or r.get("driver") or "local","scope":r.get("Scope") or r.get("scope") or "local","mountpoint":r.get("Mountpoint") or r.get("mountpoint"),"created":r.get("CreatedAt") or r.get("Created") or r.get("created"),"labels":r.get("Labels") or r.get("labels") or {},"inUse":bool(used),"containerCount":len(used),"containers":used})
+        return sorted(out,key=lambda x:(not x["inUse"],x["name"].lower()))
+    return _resource_cached("volumes",force,build)
+def resource_networks(force=False):
+    def build():
+        consumers=_container_resource_snapshot();rows=_json_rows(engine_cli(["network","ls","--format","json"],60));out=[]
+        for r in rows:
+            name=str(r.get("Name") or r.get("name") or "")
+            if not name:continue
+            rid=str(r.get("Id") or r.get("ID") or r.get("id") or "")
+            used=[{"id":c["id"],"name":c["name"]} for c in consumers if name in c["networks"]]
+            out.append({"id":rid,"shortId":rid[:12],"name":name,"driver":r.get("Driver") or r.get("driver") or "bridge","scope":r.get("Scope") or r.get("scope") or "local","ipv6":bool(r.get("IPv6") or r.get("ipv6")),"internal":bool(r.get("Internal") or r.get("internal")),"created":r.get("Created") or r.get("CreatedAt") or r.get("created"),"inUse":bool(used),"containerCount":len(used),"containers":used})
+        return sorted(out,key=lambda x:(not x["inUse"],x["name"].lower()))
+    return _resource_cached("networks",force,build)
 
 def container_logs(cid):return engine_cli(["logs","--tail","250","--timestamps",_container_meta(cid)["id"]],30)
 
@@ -577,13 +639,13 @@ class Handler(BaseHTTPRequestHandler):
             if path=="/api/containers":self.send_json(containers());return
             if path=="/api/images":
                 if not self.require_auth():return
-                self.send_json(resource_images());return
+                self.send_json(resource_images(force=parse_qs(u.query).get("refresh")==["1"]));return
             if path=="/api/volumes":
                 if not self.require_auth():return
-                self.send_json(resource_volumes());return
+                self.send_json(resource_volumes(force=parse_qs(u.query).get("refresh")==["1"]));return
             if path=="/api/networks":
                 if not self.require_auth():return
-                self.send_json(resource_networks());return
+                self.send_json(resource_networks(force=parse_qs(u.query).get("refresh")==["1"]));return
             if path=="/api/operations":
                 if not self.require_auth():return
                 self.send_json(operation_list());return

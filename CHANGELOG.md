@@ -2,6 +2,9 @@
 
 ## 0.9.0 — Runtime resources, operations quality and production-readiness milestone
 
+- Added container usage relationships to Images, Volumes and Networks so each resource shows whether it is in use plus the containers that reference it.
+- Added a dedicated short resource cache (15 seconds by default) built on the shared container snapshot; tab refresh explicitly bypasses it and runtime lifecycle invalidation clears it.
+
 - Disabled stale caching for RogueForge static HTML/JS/CSS so testing updates cannot render new markup with old JavaScript/styles, which caused the previous mixed-version Overview appearance.
 - Removed the unnecessary application footer/GitHub links and strengthened Quick Actions layout rules so all five tiles remain equal, centered and readable across desktop/responsive breakpoints.
 

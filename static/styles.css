@@ -152,3 +152,10 @@ html,body{background:radial-gradient(circle at 64% -15%,rgba(37,99,235,.07),tran
 @media(max-width:1280px){.rf-panel .rf-quick-actions{grid-template-columns:repeat(5,minmax(0,1fr))!important}}
 @media(max-width:900px){.rf-panel .rf-quick-actions{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
 @media(max-width:620px){.rf-panel .rf-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+
+/* Resource relationship badges */
+.resource-users{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px}
+.resource-users>span{max-width:150px;padding:3px 7px;border:1px solid #20394e;border-radius:999px;background:#0b1a29;color:#a9bed0;font-size:.62rem;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.resource-users .resource-use{font-weight:800}
+.resource-users .resource-use.in-use{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.08);color:#54e885}
+.resource-users .resource-use.unused{border-color:rgba(245,158,11,.32);background:rgba(245,158,11,.07);color:#fbbf24}

@@ -289,6 +289,7 @@ replace(
     return list(items)
 def invalidate_inventory():
     with _inventory_lock:_inventory_cache["time"]=0.0;_inventory_cache["items"]=[]
+    invalidate_resource_cache()
 def _raw_container(cid):''')
 
 # The registry already has its own cache. Do not force a filesystem/label rebuild on

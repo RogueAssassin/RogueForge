@@ -56,11 +56,11 @@ Status: **current testing milestone**
 
 ### Runtime resources
 
-- [x] Image inventory foundation (read-only).\n- [ ] Image update awareness and guarded prune tools.
-- [x] Volume inventory foundation (read-only).\n- [ ] Volume usage, backup/export and guarded deletion.
-- [x] Network inventory foundation (read-only).\n- [ ] Network membership management and guarded lifecycle controls.
+- [x] Image inventory foundation with container usage relationships.\n- [ ] Image update awareness and guarded prune tools.
+- [x] Volume inventory foundation with container mount relationships.\n- [ ] Volume usage, backup/export and guarded deletion.
+- [x] Network inventory foundation with container membership relationships.\n- [ ] Network membership management and guarded lifecycle controls.
 - [ ] Disk/storage visibility and cleanup recommendations.
-- [ ] Resource pages reuse cached engine snapshots rather than creating new polling loops.
+- [x] Resource pages reuse cached engine snapshots and explicit refresh bypasses the resource cache.
 
 ## 0.9.1 — Automation and observability
 

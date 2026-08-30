@@ -64,6 +64,10 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('/branding/rogueforge.svg',html);self.assertIn('rf-brand-crop',html)
   self.assertIn('rf-summary-icon',app);self.assertIn('rf-quick-icon',app);self.assertNotIn('rf-app-footer',html)
   self.assertIn('RogueForge 0.9 production-candidate visual system',css)
+ def test_resource_relationships_and_cache(self):
+  src=(ROOT/'rogueforge.py').read_text();app=(ROOT/'static/app.js').read_text();prep=(ROOT/'tools/prepare_runtime.py').read_text();env=(ROOT/'.env.example').read_text()
+  self.assertIn('ROGUEFORGE_RESOURCE_CACHE',src);self.assertIn('def _container_resource_snapshot()',src);self.assertIn('"containerCount"',src);self.assertIn('"containers":used',src)
+  self.assertIn('?refresh=1',app);self.assertIn('resource-users',app);self.assertIn('invalidate_resource_cache()',prep);self.assertIn('ROGUEFORGE_RESOURCE_CACHE=15',env)
  def test_read_only_runtime_resource_inventory(self):
   src=(ROOT/'rogueforge.py').read_text();html=(ROOT/'static/index.html').read_text();app=(ROOT/'static/app.js').read_text()
   for route in ('/api/images','/api/volumes','/api/networks'):self.assertIn(route,src)
