@@ -420,6 +420,50 @@ def bulk_container_action(ids,action):
         try:m=_container_meta(str(cid));r=container_action(str(cid),action);results.append({"id":str(cid),"name":m["name"],"ok":True,"message":r.get("message"),"output":r.get("output","")[-4000:]})
         except Exception as e:results.append({"id":str(cid),"ok":False,"error":str(e)})
     return {"ok":all(x["ok"] for x in results),"action":action,"results":results}
+def _json_rows(raw):
+    raw=(raw or "").strip()
+    if not raw:return []
+    try:
+        parsed=json.loads(raw)
+        if isinstance(parsed,list):return parsed
+        if isinstance(parsed,dict):return [parsed]
+    except Exception:pass
+    rows=[]
+    for line in raw.splitlines():
+        try:
+            parsed=json.loads(line)
+            rows.extend(parsed if isinstance(parsed,list) else [parsed])
+        except Exception:pass
+    return [r for r in rows if isinstance(r,dict)]
+def resource_images():
+    rows=_json_rows(engine_cli(["images","--format","json"],60));out=[]
+    for r in rows:
+        repo=str(r.get("Repository") or r.get("repository") or r.get("Repo") or "<none>")
+        tag=str(r.get("Tag") or r.get("tag") or "<none>")
+        rid=str(r.get("Id") or r.get("ID") or r.get("id") or r.get("ImageID") or "")
+        names=r.get("Names") or r.get("RepoTags") or []
+        if (repo=="<none>" or tag=="<none>") and isinstance(names,list) and names:
+            first=str(names[0])
+            if ":" in first:repo,tag=first.rsplit(":",1)
+            else:repo=first
+        out.append({"id":rid,"shortId":rid.replace("sha256:","")[:12],"repository":repo,"tag":tag,"created":r.get("Created") or r.get("CreatedAt") or r.get("created"),"size":r.get("Size") or r.get("size") or r.get("VirtualSize"),"digest":r.get("Digest") or r.get("digest")})
+    return sorted(out,key=lambda x:(x["repository"].lower(),x["tag"].lower()))
+def resource_volumes():
+    rows=_json_rows(engine_cli(["volume","ls","--format","json"],60));out=[]
+    for r in rows:
+        name=str(r.get("Name") or r.get("name") or r.get("VolumeName") or "")
+        if not name:continue
+        out.append({"name":name,"driver":r.get("Driver") or r.get("driver") or "local","scope":r.get("Scope") or r.get("scope") or "local","mountpoint":r.get("Mountpoint") or r.get("mountpoint"),"created":r.get("CreatedAt") or r.get("Created") or r.get("created"),"labels":r.get("Labels") or r.get("labels") or {}})
+    return sorted(out,key=lambda x:x["name"].lower())
+def resource_networks():
+    rows=_json_rows(engine_cli(["network","ls","--format","json"],60));out=[]
+    for r in rows:
+        name=str(r.get("Name") or r.get("name") or "")
+        if not name:continue
+        rid=str(r.get("Id") or r.get("ID") or r.get("id") or "")
+        out.append({"id":rid,"shortId":rid[:12],"name":name,"driver":r.get("Driver") or r.get("driver") or "bridge","scope":r.get("Scope") or r.get("scope") or "local","ipv6":bool(r.get("IPv6") or r.get("ipv6")),"internal":bool(r.get("Internal") or r.get("internal")),"created":r.get("Created") or r.get("CreatedAt") or r.get("created")})
+    return sorted(out,key=lambda x:x["name"].lower())
+
 def container_logs(cid):return engine_cli(["logs","--tail","250","--timestamps",_container_meta(cid)["id"]],30)
 
 def _engine_prefix():
@@ -531,6 +575,15 @@ class Handler(BaseHTTPRequestHandler):
             if path=="/api/status":rt=runtime();s=self.session_payload();self.send_json({"appVersion":VERSION,"engine":rt["engine"],"version":rt["version"],"apiVersion":rt["apiVersion"],"context":rt.get("context"),"demo":DEMO_MODE,"publicUrl":PUBLIC_URL,"authConfigured":bool(load_auth()),"socket":rt["socket"] if s else "Protected","stacksDir":str(STACKS_DIR) if s else "Protected","iconsDir":str(ICONS_DIR) if s else "Protected"});return
             if path=="/api/stacks":self.send_json(discover_stacks());return
             if path=="/api/containers":self.send_json(containers());return
+            if path=="/api/images":
+                if not self.require_auth():return
+                self.send_json(resource_images());return
+            if path=="/api/volumes":
+                if not self.require_auth():return
+                self.send_json(resource_volumes());return
+            if path=="/api/networks":
+                if not self.require_auth():return
+                self.send_json(resource_networks());return
             if path=="/api/operations":
                 if not self.require_auth():return
                 self.send_json(operation_list());return

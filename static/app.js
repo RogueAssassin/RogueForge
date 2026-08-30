@@ -3,10 +3,14 @@ const setText = (selector, value) => { const node=$(selector); if(node) node.tex
 const setHtml = (selector, value) => { const node=$(selector); if(node) node.innerHTML=value == null ? "" : String(value); return node; };
 const $$ = selector => [...document.querySelectorAll(selector)];
 const state = { status: null, stacks: [], containers: [], currentStack: null, loading: false, auth: { configured: false, authenticated: false, user: null, csrf: null } };
+state.images=[];state.volumes=[];state.networks=[];state.resourceLoaded={images:false,volumes:false,networks:false};
 const pageMeta = {
   overview: ["Command centre", "Overview"],
   stacks: ["Compose workloads", "Stacks"],
   containers: ["Runtime inventory", "Containers"],
+  images: ["Runtime resources", "Images"],
+  volumes: ["Runtime resources", "Volumes"],
+  networks: ["Runtime resources", "Networks"],
   settings: ["RogueForge", "Settings"]
 };
 
@@ -63,6 +67,31 @@ function setView(name) {
   $("#pageTitle").textContent = pageMeta[name][1];
   $("#sidebar").classList.remove("open");
   history.replaceState(null, "", `#${name}`);
+  if(["images","volumes","networks"].includes(name)) loadResource(name);
+}
+
+
+function resourceValue(value){return value==null||value===""?"—":String(value);}
+function renderImages(){
+  const rows=state.images||[];setText("#imageNavCount",rows.length);setHtml("#imageSummary",`<article><span>Total images</span><strong>${rows.length}</strong><small>Local engine inventory</small></article><article><span>Tagged</span><strong>${rows.filter(x=>x.repository!=="<none>"&&x.tag!=="<none>").length}</strong><small>Named image references</small></article>`);
+  setHtml("#imageGrid",rows.map(x=>`<article class="resource-card"><div class="resource-icon">⇩</div><div class="resource-main"><strong>${escapeHtml(x.repository)}<span class="resource-tag">:${escapeHtml(x.tag)}</span></strong><small>${escapeHtml(x.shortId||"unknown")}</small></div><div class="resource-meta"><span>Size <b>${escapeHtml(resourceValue(x.size))}</b></span><span>Created <b>${escapeHtml(resourceValue(x.created))}</b></span></div></article>`).join("")||'<div class="empty-state">No local images found.</div>');
+}
+function renderVolumes(){
+  const rows=state.volumes||[];setText("#volumeNavCount",rows.length);setHtml("#volumeSummary",`<article><span>Total volumes</span><strong>${rows.length}</strong><small>Persistent storage objects</small></article><article><span>Local driver</span><strong>${rows.filter(x=>x.driver==="local").length}</strong><small>Engine-managed volumes</small></article>`);
+  setHtml("#volumeGrid",rows.map(x=>`<article class="resource-card"><div class="resource-icon">◉</div><div class="resource-main"><strong>${escapeHtml(x.name)}</strong><small>${escapeHtml(resourceValue(x.mountpoint))}</small></div><div class="resource-meta"><span>Driver <b>${escapeHtml(resourceValue(x.driver))}</b></span><span>Scope <b>${escapeHtml(resourceValue(x.scope))}</b></span></div></article>`).join("")||'<div class="empty-state">No volumes found.</div>');
+}
+function renderNetworks(){
+  const rows=state.networks||[];setText("#networkNavCount",rows.length);setHtml("#networkSummary",`<article><span>Total networks</span><strong>${rows.length}</strong><small>Engine network inventory</small></article><article><span>Bridge</span><strong>${rows.filter(x=>x.driver==="bridge").length}</strong><small>Bridge-driver networks</small></article>`);
+  setHtml("#networkGrid",rows.map(x=>`<article class="resource-card"><div class="resource-icon">⌘</div><div class="resource-main"><strong>${escapeHtml(x.name)}</strong><small>${escapeHtml(x.shortId||"engine network")}</small></div><div class="resource-meta"><span>Driver <b>${escapeHtml(resourceValue(x.driver))}</b></span><span>Scope <b>${escapeHtml(resourceValue(x.scope))}</b></span></div></article>`).join("")||'<div class="empty-state">No networks found.</div>');
+}
+async function loadResource(kind,{force=false}={}){
+  if(!["images","volumes","networks"].includes(kind))return;
+  if(state.resourceLoaded[kind]&&!force)return;
+  const grid=$("#"+kind.slice(0,-1)+"Grid");if(grid)grid.innerHTML='<div class="empty-state">Loading engine inventory…</div>';
+  try{
+    state[kind]=await api("/api/"+kind);state.resourceLoaded[kind]=true;
+    ({images:renderImages,volumes:renderVolumes,networks:renderNetworks})[kind]();
+  }catch(error){if(grid)grid.innerHTML=`<div class="empty-state">Unable to load ${escapeHtml(kind)}: ${escapeHtml(error.message)}</div>`;toast(error.message,"error");}
 }
 
 function formatPorts(ports) {
@@ -285,6 +314,7 @@ async function accountAction() {
 }
 
 document.addEventListener("click", event => {
+  const resourceRefresh=event.target.closest("[data-resource-refresh]");if(resourceRefresh)loadResource(resourceRefresh.dataset.resourceRefresh,{force:true});
   const nav = event.target.closest("[data-view]"); if (nav && !nav.classList.contains("disabled")) setView(nav.dataset.view);
   const go = event.target.closest("[data-go]"); if (go) setView(go.dataset.go);
   const stack = event.target.closest("[data-stack-action]"); if (stack) stackAction(stack.dataset.stack, stack.dataset.stackAction);

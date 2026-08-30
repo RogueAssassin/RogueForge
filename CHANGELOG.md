@@ -2,6 +2,9 @@
 
 ## 0.9.0 — Runtime resources, operations quality and production-readiness milestone
 
+- Added first-class read-only Images, Volumes and Networks inventory pages that load on demand so resource discovery does not slow Overview/Stacks/Runtime.
+- Refined Overview summary cards, System Information rows and Quick Actions into centered, consistent layouts based on the cleaner 0.9 visual baseline.
+
 - Hardened canonical frontend rendering against optional/removed DOM nodes after the v0.8 asset consolidation, fixing `Cannot set properties of null (setting 'textContent')` failures on the current testing UI.
 
 - Consolidated the remaining version-named v0.8 frontend assets into canonical `static/app.js` and `static/styles.css`, removed the compatibility files from runtime loading, and added CI/test guards against future version-named frontend assets.

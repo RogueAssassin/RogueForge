@@ -56,9 +56,9 @@ Status: **current testing milestone**
 
 ### Runtime resources
 
-- [ ] Image inventory, update awareness and guarded prune tools.
-- [ ] Volume inventory, usage, backup/export and guarded deletion.
-- [ ] Network inventory and membership management.
+- [x] Image inventory foundation (read-only).\n- [ ] Image update awareness and guarded prune tools.
+- [x] Volume inventory foundation (read-only).\n- [ ] Volume usage, backup/export and guarded deletion.
+- [x] Network inventory foundation (read-only).\n- [ ] Network membership management and guarded lifecycle controls.
 - [ ] Disk/storage visibility and cleanup recommendations.
 - [ ] Resource pages reuse cached engine snapshots rather than creating new polling loops.
 
