@@ -2,6 +2,9 @@
 
 ## 0.9.0 — Runtime resources, operations quality and production-readiness milestone
 
+- Applied the cleaner 0.9 production-candidate visual system directly to the app: icon-led metric cards, centered Quick Actions, tighter sidebar/topbar spacing, cleaner stack rows, aligned System Information, matching resource cards and a lightweight application footer.
+- Preserved the existing RogueForge branding/icon assets unchanged while modernizing the surrounding UI.
+
 - Added first-class read-only Images, Volumes and Networks inventory pages that load on demand so resource discovery does not slow Overview/Stacks/Runtime.
 - Refined Overview summary cards, System Information rows and Quick Actions into centered, consistent layouts based on the cleaner 0.9 visual baseline.
 
