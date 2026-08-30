@@ -78,7 +78,7 @@ RogueForge uses:
 - asynchronous CPU/RAM refresh,
 - targeted refresh after lifecycle operations.
 
-The 0.9.0 testing milestone continues this with coalesced in-flight refreshes, targeted cache invalidation, bounded stats work and endpoint timing diagnostics.
+The 0.9.1 testing milestone continues this with coalesced in-flight refreshes, targeted cache invalidation, bounded stats work and endpoint timing diagnostics.
 
 ## Network model
 

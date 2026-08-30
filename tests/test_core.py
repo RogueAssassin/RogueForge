@@ -35,10 +35,10 @@ class RogueForgeTests(unittest.TestCase):
  def test_http_disconnect_and_head_support(self):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('def do_HEAD(self):',src);self.assertIn('except (BrokenPipeError,ConnectionResetError)',src)
  def test_v087_dashboard_snapshot(self):
-  pipeline=(ROOT/'tools/prepare_runtime.py').read_text()
-  self.assertIn('/api/dashboard',pipeline);self.assertIn('const snapshot = await api("/api/dashboard")',pipeline)
-  self.assertIn('DASHBOARD_CACHE_KEY',pipeline);self.assertIn('hydrateDashboardSnapshot()',pipeline);self.assertIn('sessionStorage.setItem',pipeline)
-  self.assertIn('if(!document.hidden) load({ quiet: true })',pipeline);self.assertIn('visibilitychange',pipeline)
+  backend=(ROOT/'rogueforge.py').read_text();frontend=(ROOT/'static/app.js').read_text()
+  self.assertIn('/api/dashboard',backend);self.assertIn('const snapshot = await api("/api/dashboard")',frontend)
+  self.assertIn('DASHBOARD_CACHE_KEY',frontend);self.assertIn('hydrateDashboardSnapshot()',frontend);self.assertIn('sessionStorage.setItem',frontend)
+  self.assertIn('if(!document.hidden) load({ quiet: true })',frontend);self.assertIn('visibilitychange',frontend)
   controls=(ROOT/'static/container-controls.js').read_text();self.assertIn('setTimeout(refreshContainerStats,1200)',controls);self.assertIn('setInterval(refreshContainerStats,15000)',controls)
  def test_media_server_compose_contract(self):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('PODMAN_COMPOSE_WARNING_LOGS',src);self.assertIn('stack_env_path(stack)',src)
@@ -48,8 +48,8 @@ class RogueForgeTests(unittest.TestCase):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('Active Compose labels are authoritative',src);self.assertIn('labelled_projects',src)
  def test_release_files(self):
   for f in ('compose.yaml','.env.example','README.md'):self.assertIn(RELEASE,(ROOT/f).read_text())
-  wf=(ROOT/'.github/workflows/container.yml').read_text();self.assertIn('python3 tools/prepare_runtime.py',wf);self.assertNotIn('tools/apply_v0',wf);self.assertIn('branches: [main, testing]',wf);self.assertNotIn('v0.8.7-testing',wf);self.assertIn('type=raw,value=testing',wf);self.assertNotIn('branch-${{ steps.version.outputs.safe_branch }}',wf)
-  tools_py=list((ROOT/'tools').glob('*.py'));self.assertEqual([p.name for p in tools_py],['prepare_runtime.py'])
+  wf=(ROOT/'.github/workflows/container.yml').read_text();self.assertNotIn('python3 tools/prepare_runtime.py',wf);self.assertNotIn('tools/apply_v0',wf);self.assertIn('branches: [main, testing]',wf);self.assertNotIn('v0.8.7-testing',wf);self.assertIn('type=raw,value=testing',wf);self.assertNotIn('branch-${{ steps.version.outputs.safe_branch }}',wf)
+  tools_py=list((ROOT/'tools').glob('*.py'));self.assertEqual(tools_py,[])
  def test_ui_quality(self):
   controls=(ROOT/'static/container-controls.js').read_text();css=(ROOT/'static/operations.css').read_text();quality=(ROOT/'static/runtime-quality.js').read_text();loader=(ROOT/'static/branding/branding-switch.js').read_text()
   self.assertIn('const iconKey=c.image||c.service||c.name',controls);self.assertIn('rf-action-primary',controls);self.assertIn('object-position:center',css);self.assertIn('bestIdentity',quality);self.assertIn('/runtime-quality.js',loader);app=(ROOT/'static/app.js').read_text();self.assertIn('data-rf-config=',app);self.assertIn('data-rf-config-tab="compose"',app);self.assertIn('data-rf-config-tab="env"',app);self.assertNotIn('data-edit-stack="${attr(stack.name)}">Compose</button><button class="small-button" data-rf-env=',app)
@@ -65,9 +65,9 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('rf-summary-icon',app);self.assertIn('rf-quick-icon',app);self.assertNotIn('rf-app-footer',html)
   self.assertIn('RogueForge 0.9 production-candidate visual system',css)
  def test_resource_relationships_and_cache(self):
-  src=(ROOT/'rogueforge.py').read_text();app=(ROOT/'static/app.js').read_text();prep=(ROOT/'tools/prepare_runtime.py').read_text();env=(ROOT/'.env.example').read_text()
+  src=(ROOT/'rogueforge.py').read_text();app=(ROOT/'static/app.js').read_text();env=(ROOT/'.env.example').read_text()
   self.assertIn('ROGUEFORGE_RESOURCE_CACHE',src);self.assertIn('def _container_resource_snapshot()',src);self.assertIn('"containerCount"',src);self.assertIn('"containers":used',src)
-  self.assertIn('?refresh=1',app);self.assertIn('resource-users',app);self.assertIn('invalidate_resource_cache()',prep);self.assertIn('ROGUEFORGE_RESOURCE_CACHE=15',env)
+  self.assertIn('?refresh=1',app);self.assertIn('resource-users',app);self.assertIn('invalidate_resource_cache()',src);self.assertIn('ROGUEFORGE_RESOURCE_CACHE=15',env)
  def test_read_only_runtime_resource_inventory(self):
   src=(ROOT/'rogueforge.py').read_text();html=(ROOT/'static/index.html').read_text();app=(ROOT/'static/app.js').read_text()
   for route in ('/api/images','/api/volumes','/api/networks'):self.assertIn(route,src)
@@ -108,10 +108,10 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn("nativeFetch('/api/operations'",ops);self.assertIn('waitOperation',ops);self.assertIn('data-rf-cancel-op',ops);self.assertNotIn('localStorage.getItem(HISTORY_KEY)',ops)
   self.assertIn('async function refreshRuntimeInventory()',app);self.assertIn('await refreshRuntimeInventory()',app)
   self.assertIn('composePath',src);self.assertIn('directory',src);self.assertIn('Pin operations to the exact Compose path',src)
- def test_v091_audit_and_timing_foundation(self):
+ def test_v091_canonical_baseline(self):
   self.assertEqual((ROOT/'VERSION').read_text().strip(),'0.9.1')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
-  self.assertIn('durationSeconds',src);self.assertIn('def timing_snapshot()',src);self.assertIn('record_timing("stacks"',src);self.assertIn('record_timing("containers"',src)
+  self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def _load_containers_uncached()',src);self.assertIn('/api/dashboard',src)
   self.assertIn('## 0.9.1 — Safety, recovery and observability',road)
 
 if __name__=='__main__':unittest.main()

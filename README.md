@@ -13,7 +13,7 @@
   </tr>
 </table>
 
-[![Testing](https://img.shields.io/badge/TESTING-0.9.0-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
+[![Testing](https://img.shields.io/badge/TESTING-0.9.1-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
 [![GHCR](https://img.shields.io/badge/GHCR-PACKAGE-5c6ac4?style=for-the-badge&logo=github&logoColor=white&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/pkgs/container/rogueforge)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueForge/container.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/actions/workflows/container.yml?query=branch%3Atesting)
 ![Runtime](https://img.shields.io/badge/RUNTIME-PYTHON%203.11-ff4fc8?style=for-the-badge&labelColor=45464d)
@@ -111,9 +111,9 @@ chmod +x update.sh
 
 Update/editor backups are kept outside the stack discovery tree under `/tmp/rogueforge/`.
 
-## 0.9.0 testing milestone
+## 0.9.1 testing milestone
 
-0.9.0 carries the validated operations/recovery work forward and begins the runtime-resources and production-performance milestone:
+0.9.1 carries the validated 0.9.0 runtime-resource baseline forward and focuses on safety, recovery, observability and production hardening:
 
 - incremental output streaming for long-running Pull/Update/Recreate operations,
 - safe cancellation where the underlying operation supports it,
@@ -151,7 +151,7 @@ compose.yaml           # deployment
 Containerfile          # image build
 static/                # canonical web interface and branding
 tests/                 # regression tests
-tools/prepare_runtime.py # single build-time runtime preparation pipeline
+rogueforge.py          # canonical application runtime (built directly; no source patch pipeline)
 docs/                  # deployment documentation
 ```
 

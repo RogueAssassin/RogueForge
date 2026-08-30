@@ -16,7 +16,7 @@ Status: **validated testing baseline**
 
 ## 0.9.0 — Operations quality, performance and production readiness
 
-Status: **current testing milestone**
+Status: **validated 0.9.0 baseline**
 
 ### Operations and recovery
 - [ ] Stream Pull/Update/Recreate output incrementally into the Operations drawer.
@@ -37,14 +37,14 @@ Status: **current testing milestone**
 ### Repository and runtime consolidation
 - [x] Consolidate version-named frontend assets into canonical `app.js` / `styles.css`.
 - [x] Remove obsolete release-note/banner artifacts from the active repository tree.
-- [ ] Fold the remaining build-time runtime preparation transformations into canonical source and retire `tools/prepare_runtime.py`.
+- [x] Fold the remaining build-time runtime preparation transformations into canonical source and retire `tools/prepare_runtime.py`.
 
 ### Performance and reliability
 - [ ] Coalesce simultaneous dashboard refreshes so only one engine inventory refresh is in flight.
 - [ ] Add stale-while-revalidate server snapshots for Overview/Stacks/Runtime.
 - [ ] Invalidate only affected stack/container cache entries after operations.
 - [ ] Batch runtime stats and cap concurrent inspect/stats work.
-- [x] Add endpoint timing diagnostics foundation for stacks/containers with rolling last/average/max latency.
+- [ ] Add endpoint timing diagnostics for dashboard, stacks, containers and stats.
 - [ ] Add graceful degradation when one engine/stack query is slow rather than blocking the full dashboard.
 
 ### Security and production hardening
@@ -71,7 +71,6 @@ Status: **current testing milestone**
 
 - [x] Roll testing version to 0.9.1.
 - [x] Persist server-backed Operations history with explicit duration/result/failure metadata.
-- [x] Add rolling endpoint timing diagnostics foundation.
 - [ ] Transactional Compose/.env save + automatic restore on validation/write failure.
 - [ ] Verified update/recreate rollback UX.
 - [ ] Coalesced dashboard refresh and stale-while-revalidate snapshots.

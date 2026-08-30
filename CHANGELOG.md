@@ -2,9 +2,12 @@
 
 ## 0.9.1 — Safety, recovery and observability
 
+- Materialized the formerly prepared runtime/frontend into canonical checked-in source and retired the historical build-time patch pipeline.
+- Reworked CI so the one-time migration commits only generated runtime/frontend source; subsequent runs validate, test and publish directly from the repository.
+- Removed stale CI/test assumptions that required `tools/prepare_runtime.py`, and synchronized installer, Compose, environment example and documentation version metadata to 0.9.1.
+
 - Rolled the permanent testing channel forward to 0.9.1 after the validated 0.9.0 resource-inventory baseline.
 - Promoted the existing server-backed Operations store into the 0.9.1 audit foundation and exposed explicit duration/result metadata alongside persisted target, timestamps and failure reason.
-- Added rolling endpoint timing diagnostics for stack/container inventory calls so slow engine paths can be identified without enabling verbose logging.
 - Kept resource lifecycle actions non-destructive while transactional editor/rollback safeguards are completed.
 
 
