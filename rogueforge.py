@@ -454,16 +454,37 @@ def _backup_file(source,kind):
     root.mkdir(parents=True,exist_ok=True)
     target=root/f"{_norm(source.parent.name)}-{int(time.time()*1000)}-{source.name}.bak"
     target.write_bytes(source.read_bytes());return target
-def save_stack_env(name,content):
-    if not isinstance(content,str) or len(content.encode())>1_000_000:raise ValueError("invalid environment content")
-    p=stack_env_path(name);p.parent.mkdir(parents=True,exist_ok=True);backup=_backup_file(p,"env-backups") if p.is_file() else None
-    p.write_text(content,encoding="utf-8")
-    try:validate_stack(name)
+def _atomic_write(path,content):
+    path.parent.mkdir(parents=True,exist_ok=True)
+    tmp=path.with_name(f".{path.name}.rogueforge-{os.getpid()}-{int(time.time()*1000)}.tmp")
+    try:
+        with open(tmp,"w",encoding="utf-8",newline="") as f:
+            f.write(content);f.flush();os.fsync(f.fileno())
+        os.replace(tmp,path)
+    finally:
+        tmp.unlink(missing_ok=True)
+def _transactional_stack_save(name,kind,content):
+    if not isinstance(content,str) or len(content.encode())>1_000_000:raise ValueError(f"invalid {kind} content")
+    d=safe_stack(name);p=stack_env_path(name) if kind=="env" else compose_file(d)
+    if not p:raise FileNotFoundError("compose")
+    existed=p.is_file();original=p.read_bytes() if existed else None
+    backup=_backup_file(p,f"{kind}-backups") if existed else None
+    try:
+        _atomic_write(p,content)
+        validate_stack(name)
     except Exception:
-        if backup and backup.is_file():p.write_bytes(backup.read_bytes())
+        if original is not None:
+            restore=p.with_name(f".{p.name}.rogueforge-restore-{os.getpid()}-{int(time.time()*1000)}.tmp")
+            try:
+                restore.write_bytes(original);os.replace(restore,p)
+            finally:restore.unlink(missing_ok=True)
         else:p.unlink(missing_ok=True)
+        _discovery_cache["time"]=0.0
         raise
-    return {"ok":True,"backup":str(backup) if backup else None}
+    _discovery_cache["time"]=0.0
+    return {"ok":True,"backup":str(backup) if backup else None,"validated":True,"atomic":True}
+def save_stack_env(name,content):return _transactional_stack_save(name,"env",content)
+def save_stack_compose(name,content):return _transactional_stack_save(name,"compose",content)
 
 def inspect_container(cid):
     m=_container_meta(cid);d=json.loads(engine_cli(["inspect",m["id"]],60) or "[]");x=d[0] if isinstance(d,list) and d else d;s=x.get("State") or {};cfg=x.get("Config") or {};hc=x.get("HostConfig") or {};net=x.get("NetworkSettings") or {};rp=hc.get("RestartPolicy") or {};rp={"Name":rp} if isinstance(rp,str) else rp
@@ -870,13 +891,7 @@ class Handler(BaseHTTPRequestHandler):
             if not m:self.send_json({"error":"not found"},404);return
             name,kind=m.groups();content=self.read_json().get("content")
             if kind=="env":self.send_json(save_stack_env(name,content));return
-            p=compose_file(safe_stack(name))
-            if not p:raise FileNotFoundError("compose")
-            if not isinstance(content,str) or len(content.encode())>1_000_000:raise ValueError("invalid compose content")
-            backup=_backup_file(p,"compose-backups");p.write_text(content,encoding="utf-8")
-            try:validate_stack(name)
-            except Exception:p.write_bytes(backup.read_bytes());raise
-            self.send_json({"ok":True,"backup":str(backup)})
+            self.send_json(save_stack_compose(name,content))
         except (BrokenPipeError,ConnectionResetError):return
         except Exception as e:self.send_json({"error":str(e)},500)
     def do_DELETE(self):

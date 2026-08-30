@@ -29,7 +29,7 @@ Status: **validated 0.9.0 baseline**
 
 ### Stack authoring
 - [x] Unified Dockge-style Compose / `.env` editor with validation, automatic backups and save feedback.
-- [ ] Make Compose + `.env` saves transactional: validate first, write atomically, restore on failure.
+- [x] Make Compose + `.env` saves transactional: validate, write atomically, and restore the previous file on failure.
 - [ ] Stack create/import/clone workflows.
 - [ ] Compose templates with preview before creation.
 - [ ] Backup/rollback browser for recent stack configuration revisions.
@@ -71,7 +71,7 @@ Status: **current testing milestone**
 
 - [x] Roll testing version to 0.9.1.
 - [x] Persist server-backed Operations history with explicit duration/result/failure metadata.
-- [ ] Transactional Compose/.env save + automatic restore on validation/write failure.
+- [x] Transactional Compose/.env save + automatic restore on validation/write failure.
 - [ ] Verified update/recreate rollback UX.
 - [ ] Coalesced dashboard refresh and stale-while-revalidate snapshots.
 - [ ] Security header/session hardening and destructive-action guardrails.
