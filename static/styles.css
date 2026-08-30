@@ -102,8 +102,53 @@ html,body{background:radial-gradient(circle at 64% -15%,rgba(37,99,235,.07),tran
 .resource-summary article{min-height:100px;background:linear-gradient(145deg,#0a1523,#08121e);border-color:#1b3347}.resource-grid{grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:10px}
 .resource-card{min-height:82px;border-color:#1a3347;background:#081522}.resource-card:hover{border-color:#3b5d78;background:#0a1a29}.resource-icon{background:#0d1b2b;border-color:#2e4b65}
 .table-card,.section-card{background:#081522;border-color:#1a3044}.rf-stack-card{background:#081522!important;border-color:#1a3044!important}
-.rf-app-footer{height:54px;display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;padding:0 28px;border-top:1px solid #14283a;color:#8ea4b7;font-size:.68rem;background:#050c14}
-.rf-app-footer>span:nth-child(2){text-align:center}.rf-app-footer nav{display:flex;justify-content:flex-end;gap:22px}.rf-app-footer a{color:#b7c7d6;text-decoration:none}.rf-app-footer a:hover{color:#fff}
 @media(max-width:1280px){.rf-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.rf-dashboard{grid-template-columns:1fr}.rf-quick-actions{grid-template-columns:repeat(5,minmax(0,1fr))}}
-@media(max-width:900px){.app{grid-template-columns:1fr}.sidebar{width:244px}.rf-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.rf-stack-row{grid-template-columns:1fr 80px 130px auto}.rf-stack-row .rf-healthy{display:none}.rf-quick-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.rf-app-footer{grid-template-columns:1fr;gap:5px;height:auto;padding:14px 22px}.rf-app-footer>*{text-align:center!important}.rf-app-footer nav{justify-content:center}}
-@media(max-width:620px){.rf-summary{grid-template-columns:1fr}.rf-summary-card{grid-template-columns:44px 1fr}.rf-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.resource-summary{grid-template-columns:1fr}.rf-app-footer nav{flex-wrap:wrap;gap:12px}}
+@media(max-width:900px){.app{grid-template-columns:1fr}.sidebar{width:244px}.rf-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.rf-stack-row{grid-template-columns:1fr 80px 130px auto}.rf-stack-row .rf-healthy{display:none}.rf-quick-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.rf-app-footer>*{text-align:center!important}.rf-app-footer nav{justify-content:center}}
+@media(max-width:620px){.rf-summary{grid-template-columns:1fr}.rf-summary-card{grid-template-columns:44px 1fr}.rf-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.resource-summary{grid-template-columns:1fr}}
+
+
+/* Quick Actions final alignment fix */
+.rf-panel .rf-quick-actions{
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:8px!important;
+  padding:12px!important;
+  align-items:stretch!important;
+}
+.rf-panel .rf-quick{
+  width:100%!important;
+  min-width:0!important;
+  min-height:132px!important;
+  margin:0!important;
+  padding:12px 8px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  text-align:center!important;
+  gap:7px!important;
+  border:1px solid #1c3549!important;
+  border-radius:9px!important;
+  background:#091725!important;
+}
+.rf-panel .rf-quick .rf-quick-icon{
+  display:grid!important;
+  place-items:center!important;
+  width:38px!important;
+  height:38px!important;
+  margin:0 auto 2px!important;
+  text-align:center!important;
+}
+.rf-panel .rf-quick b,
+.rf-panel .rf-quick small{
+  width:100%!important;
+  margin:0!important;
+  display:block!important;
+  text-align:center!important;
+  overflow-wrap:anywhere!important;
+}
+.rf-panel .rf-quick b{font-size:.77rem!important;line-height:1.2!important}
+.rf-panel .rf-quick small{font-size:.66rem!important;line-height:1.35!important;color:#a8bdd0!important}
+@media(max-width:1280px){.rf-panel .rf-quick-actions{grid-template-columns:repeat(5,minmax(0,1fr))!important}}
+@media(max-width:900px){.rf-panel .rf-quick-actions{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+@media(max-width:620px){.rf-panel .rf-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}}

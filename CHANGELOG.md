@@ -2,6 +2,9 @@
 
 ## 0.9.0 — Runtime resources, operations quality and production-readiness milestone
 
+- Disabled stale caching for RogueForge static HTML/JS/CSS so testing updates cannot render new markup with old JavaScript/styles, which caused the previous mixed-version Overview appearance.
+- Removed the unnecessary application footer/GitHub links and strengthened Quick Actions layout rules so all five tiles remain equal, centered and readable across desktop/responsive breakpoints.
+
 - Applied the cleaner 0.9 production-candidate visual system directly to the app: icon-led metric cards, centered Quick Actions, tighter sidebar/topbar spacing, cleaner stack rows, aligned System Information, matching resource cards and a lightweight application footer.
 - Preserved the existing RogueForge branding/icon assets unchanged while modernizing the surrounding UI.
 

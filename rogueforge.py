@@ -567,7 +567,7 @@ class Handler(BaseHTTPRequestHandler):
         rel="index.html" if rel in ("","/") else rel.lstrip("/");p=(STATIC_DIR/rel).resolve()
         if STATIC_DIR not in p.parents and p!=STATIC_DIR:self.send_error(404);return
         if not p.is_file():p=STATIC_DIR/"index.html"
-        d=p.read_bytes();self.send_response(200);self.send_header("content-type",mimetypes.guess_type(str(p))[0] or "application/octet-stream");self.send_header("content-length",str(len(d)));self.end_headers();self.wfile.write(d)
+        d=p.read_bytes();self.send_response(200);self.send_header("content-type",mimetypes.guess_type(str(p))[0] or "application/octet-stream");self.send_header("content-length",str(len(d)));self.send_header("cache-control","no-store, max-age=0");self.send_header("pragma","no-cache");self.send_header("x-content-type-options","nosniff");self.end_headers();self.wfile.write(d)
     def do_GET(self):
         try:
             u=urlparse(self.path);path=u.path

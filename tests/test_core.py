@@ -53,10 +53,16 @@ class RogueForgeTests(unittest.TestCase):
  def test_ui_quality(self):
   controls=(ROOT/'static/container-controls.js').read_text();css=(ROOT/'static/operations.css').read_text();quality=(ROOT/'static/runtime-quality.js').read_text();loader=(ROOT/'static/branding/branding-switch.js').read_text()
   self.assertIn('const iconKey=c.image||c.service||c.name',controls);self.assertIn('rf-action-primary',controls);self.assertIn('object-position:center',css);self.assertIn('bestIdentity',quality);self.assertIn('/runtime-quality.js',loader);app=(ROOT/'static/app.js').read_text();self.assertIn('data-rf-config=',app);self.assertIn('data-rf-config-tab="compose"',app);self.assertIn('data-rf-config-tab="env"',app);self.assertNotIn('data-edit-stack="${attr(stack.name)}">Compose</button><button class="small-button" data-rf-env=',app)
+ def test_static_assets_are_never_stale(self):
+  src=(ROOT/'rogueforge.py').read_text();html=(ROOT/'static/index.html').read_text();css=(ROOT/'static/styles.css').read_text();app=(ROOT/'static/app.js').read_text()
+  self.assertIn('cache-control","no-store, max-age=0"',src)
+  self.assertNotIn('rf-app-footer',html);self.assertNotIn('rfFooterVersion',app)
+  self.assertIn('Quick Actions final alignment fix',css)
+  self.assertIn('display:grid!important',css);self.assertIn('text-align:center!important',css)
  def test_production_candidate_theme_preserves_branding(self):
   html=(ROOT/'static/index.html').read_text();app=(ROOT/'static/app.js').read_text();css=(ROOT/'static/styles.css').read_text()
   self.assertIn('/branding/rogueforge.svg',html);self.assertIn('rf-brand-crop',html)
-  self.assertIn('rf-summary-icon',app);self.assertIn('rf-quick-icon',app);self.assertIn('rf-app-footer',html)
+  self.assertIn('rf-summary-icon',app);self.assertIn('rf-quick-icon',app);self.assertNotIn('rf-app-footer',html)
   self.assertIn('RogueForge 0.9 production-candidate visual system',css)
  def test_read_only_runtime_resource_inventory(self):
   src=(ROOT/'rogueforge.py').read_text();html=(ROOT/'static/index.html').read_text();app=(ROOT/'static/app.js').read_text()
