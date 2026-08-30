@@ -9,17 +9,24 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-VERSION="0.8.2"
+VERSION="0.9.1"
 PORT=int(os.environ.get("ROGUEFORGE_PORT","7810")); BIND=os.environ.get("ROGUEFORGE_BIND","127.0.0.1")
-STACKS_DIR=Path(os.environ.get("ROGUEFORGE_STACKS_DIR","/opt/media-server")).resolve(); STATIC_DIR=Path(os.environ.get("ROGUEFORGE_STATIC_DIR",Path(__file__).with_name("static"))).resolve()
+MEDIA_ROOT=Path(os.environ.get("ROGUEFORGE_MEDIA_ROOT","/opt/media-server")).resolve()
+COMPOSE_ROOT=Path(os.environ.get("ROGUEFORGE_COMPOSE_ROOT",os.environ.get("ROGUEFORGE_STACKS_DIR",str(MEDIA_ROOT)))).resolve()
+ENV_ROOT=Path(os.environ.get("ROGUEFORGE_ENV_ROOT",str(COMPOSE_ROOT))).resolve()
+# STACKS_DIR remains as a compatibility alias for older UI/API code.
+STACKS_DIR=COMPOSE_ROOT
+STATIC_DIR=Path(os.environ.get("ROGUEFORGE_STATIC_DIR",Path(__file__).with_name("static"))).resolve()
 ENGINE=os.environ.get("ROGUEFORGE_ENGINE","auto").strip().lower(); SOCKET_PATH=os.environ.get("ROGUEFORGE_SOCKET","").strip(); PODMAN_REMOTE=os.environ.get("ROGUEFORGE_PODMAN_REMOTE","").strip().lower() in ("1","true","yes")
 PUBLIC_URL=os.environ.get("ROGUEFORGE_PUBLIC_URL","").strip(); ICONS_DIR=Path(os.environ.get("ROGUEFORGE_ICONS_DIR","/opt/media-server/rogue-dashboard/app/static/icons")).resolve(); AUTH_FILE=Path(os.environ.get("ROGUEFORGE_AUTH_FILE",Path(__file__).with_name("data")/"auth.json")).resolve()
 SELF_STACK=os.environ.get("ROGUEFORGE_SELF_STACK","rogueforge").strip(); SESSION_TTL=int(os.environ.get("ROGUEFORGE_SESSION_TTL","43200")); DEMO_MODE=os.environ.get("ROGUEFORGE_DEMO","").strip().lower() in ("1","true","yes")
 SCAN_DEPTH=max(1,min(12,int(os.environ.get("ROGUEFORGE_SCAN_DEPTH","4")))); CACHE_SECONDS=max(2,min(300,int(os.environ.get("ROGUEFORGE_DISCOVERY_CACHE","10"))))
 COMPOSE_NAMES=("podman-compose.yaml","compose.podman.yaml","docker-compose.yaml","docker-compose.yml","compose.yaml","compose.yml")
-EXCLUDED_DIRS={".git",".cache","node_modules","__pycache__","backup","backups"}; MAX_BODY=2_000_000; LOGIN_WINDOW=300; LOGIN_LIMIT=8
+EXCLUDED_DIRS={".git",".cache","node_modules","__pycache__","backup","backups","update-backups","rogueforge-update-backups"}; MAX_BODY=2_000_000; LOGIN_WINDOW=300; LOGIN_LIMIT=8
 _sessions={}; _login_attempts={}; _login_lock=threading.Lock(); _runtime=None; _discovery_cache={"time":0.0,"records":[],"aliases":{},"by_dir":{}}
 _terminal_sessions={}; _terminal_lock=threading.Lock(); TERMINAL_TTL=1800; TERMINAL_CLOSED_GRACE=60; MAX_TERMINAL_CHUNKS=2500
+INVENTORY_CACHE_SECONDS=max(1,min(30,int(os.environ.get("ROGUEFORGE_INVENTORY_CACHE","2"))))
+_inventory_cache={"time":0.0,"items":[]}; _inventory_lock=threading.Lock()
 OPERATIONS_FILE=Path(os.environ.get("ROGUEFORGE_OPERATIONS_FILE",Path(__file__).with_name("data")/"operations.json")).resolve()
 _operation_lock=threading.Lock(); _operations={}; MAX_OPERATIONS=120
 OPERATION_TIMEOUT=max(60,min(7200,int(os.environ.get("ROGUEFORGE_OPERATION_TIMEOUT","900"))))
@@ -38,11 +45,7 @@ def _save_operations():
         tmp=OPERATIONS_FILE.with_suffix(".tmp");tmp.write_text(json.dumps(rows,indent=2),encoding="utf-8");tmp.replace(OPERATIONS_FILE)
     except Exception:pass
 def _op_public(x):
-    y={k:v for k,v in x.items() if k!="process"}
-    started=float(y.get("started") or 0);ended=float(y.get("ended") or time.time()) if started else 0
-    y["durationSeconds"]=round(max(0,ended-started),3) if started else None
-    y["result"]="success" if y.get("status")=="success" else ("running" if y.get("status")=="running" else "failed")
-    return y
+    return {k:v for k,v in x.items() if k!="process"}
 def operation_list():
     with _operation_lock:return [_op_public(x) for x in sorted(_operations.values(),key=lambda x:x.get("started",0),reverse=True)[:MAX_OPERATIONS]]
 def operation_get(oid):
@@ -221,7 +224,7 @@ def engine_cli(args,timeout=900):
     if p.returncode:raise RuntimeError(o or "Docker command failed")
     return o
 
-def load_containers():
+def _load_containers_uncached():
     if DEMO_MODE:return []
     if runtime()["engine"]=="podman" and PODMAN_REMOTE:
         try:
@@ -238,6 +241,18 @@ def load_containers():
             if d is not None:return d
         except Exception as e:errors.append(str(e))
     raise RuntimeError("Unable to list containers: "+"; ".join(errors))
+def load_containers(force=False):
+    now=time.monotonic()
+    with _inventory_lock:
+        if not force and _inventory_cache["items"] and now-_inventory_cache["time"]<INVENTORY_CACHE_SECONDS:
+            return list(_inventory_cache["items"])
+    items=list(_load_containers_uncached() or [])
+    with _inventory_lock:
+        _inventory_cache["time"]=now;_inventory_cache["items"]=items
+    return list(items)
+def invalidate_inventory():
+    with _inventory_lock:_inventory_cache["time"]=0.0;_inventory_cache["items"]=[]
+    invalidate_resource_cache()
 def _raw_container(cid):
     for x in load_containers() or []:
         actual=str(x.get("Id") or x.get("ID") or x.get("id") or "")
@@ -252,12 +267,28 @@ def _container_meta(cid):
         if rec:meta.update(project=rec["key"],projectDisplay=rec.get("project") or rec["directory"].name,composePath=str(rec["compose"]),composeManaged=bool(service),discoverySource=rec["source"])
     except Exception:pass
     return meta
-def containers():
+def containers(inventory=None,registry=None):
+    # Use one immutable runtime inventory snapshot for the whole response. The older
+    # implementation called load_containers() again from _container_meta() for every
+    # container, producing N+1 remote Podman calls and proxy/browser timeouts.
+    inventory=list(inventory if inventory is not None else (load_containers() or []))
+    registry=registry or _build_registry()
     result=[]
-    for x in load_containers() or []:
-        fid=str(x.get("Id") or x.get("ID") or x.get("id") or "")
-        try:m=_container_meta(fid[:12]); state=str(x.get("State") or x.get("state") or "unknown").lower();result.append({"id":fid[:12],"name":m["name"],"image":m["image"],"state":state,"status":x.get("Status") or x.get("status") or state,"ports":x.get("Ports") or x.get("ports") or [],"project":m["project"],"service":m["service"] or None,"composeManaged":m["composeManaged"],"selfProtected":m["selfProtected"]})
-        except Exception:pass
+    for x in inventory:
+        try:
+            fid=str(x.get("Id") or x.get("ID") or x.get("id") or "")
+            labels=x.get("Labels") or x.get("labels") or {}; labels=labels if isinstance(labels,dict) else {}
+            names=x.get("Names") or x.get("names") or []; names=[names] if isinstance(names,str) else names
+            name=names[0].lstrip("/") if names else str(x.get("Name") or x.get("name") or "unnamed")
+            project=str(labels.get("com.docker.compose.project") or labels.get("io.podman.compose.project") or "standalone")
+            service=str(labels.get("com.docker.compose.service") or labels.get("io.podman.compose.service") or "")
+            image=x.get("Image") or x.get("ImageName") or x.get("image") or "unknown"
+            rec=None
+            if project!="standalone":rec=registry["aliases"].get(project) or registry["aliases"].get(_norm(project))
+            project_key=rec["key"] if rec else project
+            state=str(x.get("State") or x.get("state") or "unknown").lower()
+            result.append({"id":fid[:12],"name":name,"image":image,"state":state,"status":x.get("Status") or x.get("status") or state,"ports":x.get("Ports") or x.get("ports") or [],"project":project_key,"service":service or None,"composeManaged":bool(service and project!="standalone"),"selfProtected":name==SELF_STACK or project==SELF_STACK})
+        except Exception as e:sys.stderr.write(f"container inventory row skipped: {e}\n")
     return sorted(result,key=lambda i:(i["state"]!="running",i["name"].lower()))
 
 def _inside_root(p):
@@ -309,7 +340,21 @@ def _build_registry(force=False):
             if depth>=SCAN_DEPTH:dirs[:]=[]
             for n in COMPOSE_NAMES:
                 if n in files:add(p,p/n);break
-    items=list(records.values()); used=set()
+    # Active Compose labels are authoritative. A recursive scan may discover old,
+    # alternate or backup Compose definitions for the same project; suppress those
+    # duplicates while retaining genuinely stopped projects that have no active label.
+    labelled_projects={str(r.get("project")) for r in records.values() if r.get("source")=="labels" and r.get("project")}
+    labelled_dirs={str(r["directory"]) for r in records.values() if r.get("source")=="labels"}
+    items=[]
+    seen_scan_projects=set()
+    for r in records.values():
+        if r.get("source")=="labels":items.append(r);continue
+        inferred=_norm(r["directory"].name)
+        if inferred in {_norm(x) for x in labelled_projects}:continue
+        if str(r["directory"]) in labelled_dirs:continue
+        if inferred in seen_scan_projects:continue
+        seen_scan_projects.add(inferred);items.append(r)
+    used=set()
     for r in items:
         base=_norm(r.get("project") or r["key"]); key=base; i=2
         while key in used:key=f"{base}-{i}"[:127];i+=1
@@ -330,8 +375,10 @@ def safe_stack(value,allow_self=False):
     return r["directory"]
 def compose_file(directory):return _build_registry()["by_dir"].get(str(directory.resolve()),{}).get("compose") or _compose_basic(directory)
 def discover_stacks():
-    reg=_build_registry(force=True); members={}
-    for c in containers():members.setdefault(c.get("project","standalone"),[]).append(c)
+    reg=_build_registry(); members={}
+    # Registry construction performs one inventory request. containers() then performs
+    # one additional snapshot only, rather than one request per container.
+    for c in containers(registry=reg):members.setdefault(c.get("project","standalone"),[]).append(c)
     out=[]
     for r in sorted(reg["records"],key=lambda x:x["key"].lower()):
         g=members.get(r["key"],[]); running=sum(x["state"]=="running" for x in g); ids={r["key"],r.get("project"),r["directory"].name}
@@ -343,13 +390,26 @@ def discovery_diagnostics():
 def compose_command(stack,args):
     d=safe_stack(stack);cf=compose_file(d)
     if not cf:raise RuntimeError("compose file not found")
-    rt=runtime();env=os.environ.copy()
+    rt=runtime();env=os.environ.copy();ef=stack_env_path(stack)
     if rt["engine"]=="podman":
         if PODMAN_REMOTE:env=podman_remote_env()
+        env["PODMAN_COMPOSE_WARNING_LOGS"]="false";env["PODMAN_COMPOSE_IN_POD"]="false"
+        # The bundled Podman client can be older than the host daemon and may reject
+        # modern `podman compose --env-file` wrapper flags. Invoke podman-compose
+        # directly and inject the stack .env values into its process environment.
+        if ef.is_file():
+            for line in ef.read_text(encoding="utf-8",errors="replace").splitlines():
+                line=line.strip()
+                if not line or line.startswith("#") or "=" not in line:continue
+                key,value=line.split("=",1);key=key.strip()
+                if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$",key):
+                    value=value.strip()
+                    if len(value)>=2 and value[0]==value[-1] and value[0] in ("'",'"'):value=value[1:-1]
+                    env[key]=value
         cmd=[os.environ.get("ROGUEFORGE_PODMAN_COMPOSE","/usr/bin/podman-compose"),"-f",str(cf)]
     else:
-        env["DOCKER_HOST"]=f"unix://{rt['socket']}";cmd=[os.environ.get("ROGUEFORGE_DOCKER_COMPOSE","/usr/bin/docker-compose")]
-        if (d/".env").is_file():cmd += ["--env-file",str(d/".env")]
+        env["DOCKER_HOST"]=f"unix://{rt['socket']}";cmd=["/usr/bin/docker","compose"]
+        if ef.is_file():cmd += ["--env-file",str(ef)]
         cmd += ["-f",str(cf)]
     return d,cmd+args,env
 def run_compose(stack,args,timeout=900):
@@ -366,36 +426,70 @@ def validate_stack(name,timeout=60):
     if p.returncode:raise RuntimeError(o or f"Compose validation failed ({p.returncode})")
     return o
 def run_stack_action(stack,action):
-    m={"start":["up","-d"],"stop":["stop"],"restart":["restart"],"pull":["pull"],"recreate":["up","-d","--force-recreate"]}
-    if action not in m:raise ValueError("unsupported action")
-    safe_stack(stack);return {"ok":True,"output":run_compose(stack,m[action])}
-def update_stack(name):return {"ok":True,"output":(run_compose(name,["pull"])+"\n"+run_compose(name,["up","-d","--remove-orphans"]))[-100000:]}
+    safe_stack(stack)
+    if action=="start":out=run_compose(stack,["up","-d"])
+    elif action=="stop":out=run_compose(stack,["down"])
+    elif action=="restart":out=run_compose(stack,["down"])+"\n"+run_compose(stack,["up","-d"])
+    elif action=="pull":out=run_compose(stack,["pull"])
+    elif action=="recreate":out=run_compose(stack,["down"])+"\n"+run_compose(stack,["up","-d"])
+    else:raise ValueError("unsupported action")
+    invalidate_inventory();_discovery_cache["time"]=0.0
+    return {"ok":True,"output":out[-100000:]}
+def update_stack(name):
+    safe_stack(name)
+    # Pull the whole stack, then use the same deterministic down/up sequence as the
+    # host media-server compose_for helper. This favors correctness over zero downtime.
+    out=run_compose(name,["pull"])+"\n"+run_compose(name,["down"])+"\n"+run_compose(name,["up","-d"])
+    invalidate_inventory();_discovery_cache["time"]=0.0
+    return {"ok":True,"output":out[-100000:]}
+def stack_env_path(name):
+    d=safe_stack(name)
+    try:rel=d.resolve().relative_to(COMPOSE_ROOT)
+    except ValueError:rel=Path(d.name)
+    return (ENV_ROOT/rel/".env").resolve()
 def stack_env(name):
-    p=safe_stack(name)/".env";return {"name":".env","exists":p.is_file(),"content":p.read_text(encoding="utf-8") if p.is_file() else ""}
+    p=stack_env_path(name);return {"name":".env","path":str(p),"exists":p.is_file(),"content":p.read_text(encoding="utf-8") if p.is_file() else ""}
+def _backup_file(source,kind):
+    root=Path(os.environ.get("ROGUEFORGE_BACKUP_TMP",os.environ.get("TMPDIR","/tmp")))/"rogueforge"/kind
+    root.mkdir(parents=True,exist_ok=True)
+    target=root/f"{_norm(source.parent.name)}-{int(time.time()*1000)}-{source.name}.bak"
+    target.write_bytes(source.read_bytes());return target
 def save_stack_env(name,content):
     if not isinstance(content,str) or len(content.encode())>1_000_000:raise ValueError("invalid environment content")
-    p=safe_stack(name)/".env";backup=None
-    if p.is_file():backup=p.with_name(f".env.rogueforge-{int(time.time())}.bak");backup.write_bytes(p.read_bytes())
+    p=stack_env_path(name);p.parent.mkdir(parents=True,exist_ok=True);backup=_backup_file(p,"env-backups") if p.is_file() else None
     p.write_text(content,encoding="utf-8")
     try:validate_stack(name)
     except Exception:
         if backup and backup.is_file():p.write_bytes(backup.read_bytes())
         else:p.unlink(missing_ok=True)
         raise
-    return {"ok":True,"backup":backup.name if backup else None}
+    return {"ok":True,"backup":str(backup) if backup else None}
 
 def inspect_container(cid):
     m=_container_meta(cid);d=json.loads(engine_cli(["inspect",m["id"]],60) or "[]");x=d[0] if isinstance(d,list) and d else d;s=x.get("State") or {};cfg=x.get("Config") or {};hc=x.get("HostConfig") or {};net=x.get("NetworkSettings") or {};rp=hc.get("RestartPolicy") or {};rp={"Name":rp} if isinstance(rp,str) else rp
     return {**{k:m[k] for k in ("id","shortId","name","image","project","service","composeManaged","selfProtected")},"created":x.get("Created"),"status":s.get("Status"),"running":s.get("Running"),"startedAt":s.get("StartedAt"),"finishedAt":s.get("FinishedAt"),"restartCount":x.get("RestartCount",0),"restartPolicy":rp.get("Name") or rp.get("name") or "none","imageId":x.get("Image"),"command":cfg.get("Cmd") or [],"entrypoint":cfg.get("Entrypoint") or [],"mounts":[{"source":a.get("Source"),"destination":a.get("Destination"),"type":a.get("Type"),"rw":a.get("RW")} for a in x.get("Mounts") or []],"networks":list((net.get("Networks") or {}).keys())}
 def container_stats():
     try:
-        raw=engine_cli(["stats","--no-stream","--format","json"],60);rows=[]
-        for line in raw.splitlines():
-            try:rows.append(json.loads(line))
-            except Exception:pass
-        if len(rows)==1 and isinstance(rows[0],list):rows=rows[0]
-        return {(str(r.get("id") or r.get("ID") or r.get("Container") or "")[:12] or str(r.get("name") or r.get("Name") or "")):{"cpu":r.get("cpu_percent") or r.get("CPUPerc") or r.get("CPU"),"memory":r.get("mem_usage") or r.get("MemUsage"),"memoryPercent":r.get("mem_percent") or r.get("MemPerc"),"network":r.get("net_io") or r.get("NetIO"),"block":r.get("block_io") or r.get("BlockIO"),"pids":r.get("pids") or r.get("PIDs")} for r in rows}
-    except Exception:return {}
+        raw=engine_cli(["stats","--no-stream","--format","json"],60).strip();rows=[]
+        if not raw:return {}
+        try:
+            parsed=json.loads(raw);rows=parsed if isinstance(parsed,list) else [parsed]
+        except Exception:
+            for line in raw.splitlines():
+                try:
+                    parsed=json.loads(line);rows.extend(parsed if isinstance(parsed,list) else [parsed])
+                except Exception:pass
+        result={}
+        for r in rows:
+            if not isinstance(r,dict):continue
+            cid=str(r.get("id") or r.get("ID") or r.get("ContainerID") or r.get("Container") or "")
+            name=str(r.get("name") or r.get("Name") or r.get("ContainerName") or "").lstrip("/")
+            value={"cpu":r.get("cpu_percent") or r.get("CPUPerc") or r.get("CPU") or r.get("CPU %"),"memory":r.get("mem_usage") or r.get("MemUsage") or r.get("MEM USAGE / LIMIT") or r.get("Memory"),"memoryPercent":r.get("mem_percent") or r.get("MemPerc") or r.get("MEM %"),"network":r.get("net_io") or r.get("NetIO") or r.get("NET I/O"),"block":r.get("block_io") or r.get("BlockIO") or r.get("BLOCK I/O"),"pids":r.get("pids") or r.get("PIDs")}
+            if cid:result[cid[:12]]=value
+            if name:result[name]=value
+        return result
+    except Exception as e:
+        sys.stderr.write(f"container stats failed: {e}\n");return {}
 def image_status(cid,pull=False):
     m=_container_meta(cid);before=inspect_container(cid).get("imageId");output=engine_cli(["pull",m["image"]],900) if pull else ""
     try:d=json.loads(engine_cli(["image","inspect",m["image"]],60) or "[]");x=d[0] if isinstance(d,list) and d else d;current=x.get("Id") or x.get("ID")
@@ -409,8 +503,35 @@ def container_action(cid,action):
         engine_cli(([action,"--time","10",m["id"]] if action in ("stop","restart") and runtime()["engine"]=="podman" else [action,m["id"]]),60);return {"ok":True}
     if action=="check-update":return image_status(cid,True)
     if action=="update":
-        if not m["composeManaged"]:return {"ok":True,"output":engine_cli(["pull",m["image"]],900),"recreated":False,"message":"Image pulled; standalone container not automatically recreated."}
-        return {"ok":True,"output":(run_compose(m["project"],["pull",m["service"]])+"\n"+run_compose(m["project"],["up","-d","--no-deps","--remove-orphans",m["service"]]))[-100000:],"recreated":True}
+        before=inspect_container(cid).get("imageId")
+        pulled=engine_cli(["pull",m["image"]],900)
+        try:
+            raw=json.loads(engine_cli(["image","inspect",m["image"]],60) or "[]");obj=raw[0] if isinstance(raw,list) and raw else raw;expected=obj.get("Id") or obj.get("ID")
+        except Exception:expected=None
+        if not m["composeManaged"]:return {"ok":True,"output":pulled,"recreated":False,"message":"Image pulled; standalone container not automatically recreated.","beforeImageId":before,"pulledImageId":expected}
+        if expected and before==expected:return {"ok":True,"output":pulled,"recreated":False,"message":"Container is already using the current image.","beforeImageId":before,"pulledImageId":expected,"runningImageId":before,"verified":True}
+        if runtime()["engine"]=="podman":
+            old_name=m["name"];preserved=f"{old_name}-rogueforge-old-{int(time.time())}"
+            engine_cli(["stop","--time","10",m["id"]],60)
+            engine_cli(["rename",m["id"],preserved],60)
+            try:
+                recreated=run_compose(m["project"],["up","-d",m["service"]])
+                inspected=json.loads(engine_cli(["inspect",old_name],60) or "[]");obj=inspected[0] if isinstance(inspected,list) and inspected else inspected;running=obj.get("Image")
+                if expected and running!=expected:raise RuntimeError(f"Update verification failed: expected image {expected}, running {running}")
+                engine_cli(["rm","-f",preserved],60)
+                return {"ok":True,"output":(pulled+"\n"+recreated)[-100000:],"recreated":True,"beforeImageId":before,"pulledImageId":expected,"runningImageId":running,"verified":bool(expected and running==expected)}
+            except Exception:
+                try:engine_cli(["rm","-f",old_name],60)
+                except Exception:pass
+                try:engine_cli(["rename",preserved,old_name],60);engine_cli(["start",old_name],60)
+                except Exception:pass
+                raise
+        recreated=run_compose(m["project"],["up","-d","--no-deps","--force-recreate",m["service"]])
+        try:
+            inspected=json.loads(engine_cli(["inspect",m["name"]],60) or "[]");obj=inspected[0] if isinstance(inspected,list) and inspected else inspected;running=obj.get("Image")
+        except Exception:running=None
+        if expected and running!=expected:raise RuntimeError(f"Update verification failed: expected image {expected}, running {running}")
+        return {"ok":True,"output":(pulled+"\n"+recreated)[-100000:],"recreated":True,"beforeImageId":before,"pulledImageId":expected,"runningImageId":running,"verified":bool(expected and running==expected)}
     if action=="recreate":
         if not m["composeManaged"]:raise RuntimeError("Recreate is only available for Compose-managed containers")
         return {"ok":True,"output":run_compose(m["project"],["up","-d","--no-deps","--force-recreate",m["service"]])}
@@ -604,24 +725,18 @@ def stream_logs(h,cid):
     finally:
         if p.poll() is None:p.terminate()
 
-_timing_lock=threading.Lock();_timings={}
-def record_timing(name,seconds):
-    ms=round(max(0,float(seconds))*1000,2)
-    with _timing_lock:
-        row=_timings.setdefault(name,{"count":0,"lastMs":0.0,"maxMs":0.0,"totalMs":0.0})
-        row["count"]+=1;row["lastMs"]=ms;row["maxMs"]=max(row["maxMs"],ms);row["totalMs"]+=ms
-def timing_snapshot():
-    with _timing_lock:
-        return {k:{"count":v["count"],"lastMs":v["lastMs"],"maxMs":v["maxMs"],"avgMs":round(v["totalMs"]/max(1,v["count"]),2)} for k,v in _timings.items()}
 def diagnostics():
-    rt=runtime();return {"timings":timing_snapshot(),"auth":auth_diagnostics(),"runtime":{"engine":rt["engine"],"socket":rt["socket"],"socketExists":Path(rt["socket"]).exists(),"context":rt.get("context")},"stacks":{"path":str(STACKS_DIR),"exists":STACKS_DIR.is_dir(),"readable":os.access(STACKS_DIR,os.R_OK),"selfStack":SELF_STACK},"discovery":discovery_diagnostics()}
+    rt=runtime();return {"auth":auth_diagnostics(),"runtime":{"engine":rt["engine"],"socket":rt["socket"],"socketExists":Path(rt["socket"]).exists(),"context":rt.get("context")},"paths":{"mediaRoot":str(MEDIA_ROOT),"composeRoot":str(COMPOSE_ROOT),"envRoot":str(ENV_ROOT)},"stacks":{"path":str(COMPOSE_ROOT),"exists":COMPOSE_ROOT.is_dir(),"readable":os.access(COMPOSE_ROOT,os.R_OK),"selfStack":SELF_STACK},"discovery":discovery_diagnostics()}
 class Handler(BaseHTTPRequestHandler):
     server_version=f"RogueForge/{VERSION}"
     def log_message(self,fmt,*args):sys.stderr.write("%s - %s\n"%(self.log_date_time_string(),fmt%args))
     def send_json(self,v,status=200,headers=None):
-        raw=json.dumps(v,separators=(",",":")).encode();self.send_response(status);self.send_header("content-type","application/json");self.send_header("content-length",str(len(raw)));self.send_header("cache-control","no-store");self.send_header("x-content-type-options","nosniff");
-        for n,c in (headers or {}).items():self.send_header(n,c)
-        self.end_headers();self.wfile.write(raw)
+        raw=json.dumps(v,separators=(",",":")).encode()
+        try:
+            self.send_response(status);self.send_header("content-type","application/json");self.send_header("content-length",str(len(raw)));self.send_header("cache-control","no-store");self.send_header("x-content-type-options","nosniff")
+            for n,c in (headers or {}).items():self.send_header(n,c)
+            self.end_headers();self.wfile.write(raw)
+        except (BrokenPipeError,ConnectionResetError):return
     def session_payload(self):
         a=load_auth();cookie=SimpleCookie(self.headers.get("cookie",""));m=cookie.get("rogueforge_session");return read_session(m.value,a) if a and m else None
     def require_auth(self,csrf=False):
@@ -643,15 +758,24 @@ class Handler(BaseHTTPRequestHandler):
         if STATIC_DIR not in p.parents and p!=STATIC_DIR:self.send_error(404);return
         if not p.is_file():p=STATIC_DIR/"index.html"
         d=p.read_bytes();self.send_response(200);self.send_header("content-type",mimetypes.guess_type(str(p))[0] or "application/octet-stream");self.send_header("content-length",str(len(d)));self.send_header("cache-control","no-store, max-age=0");self.send_header("pragma","no-cache");self.send_header("x-content-type-options","nosniff");self.end_headers();self.wfile.write(d)
+    def do_HEAD(self):
+        path=urlparse(self.path).path
+        if path in ("/","/health") or path.startswith("/static/"):
+            self.send_response(200);self.send_header("cache-control","no-store");self.end_headers();return
+        self.send_response(404);self.end_headers()
     def do_GET(self):
         try:
             u=urlparse(self.path);path=u.path
             if path=="/api/auth/session":a=load_auth();s=self.session_payload();self.send_json({"configured":bool(a),"authenticated":bool(s),"user":s.get("user") if s else None,"csrf":s.get("csrf") if s else None,"auth":auth_diagnostics()});return
-            if path=="/api/status":rt=runtime();s=self.session_payload();self.send_json({"appVersion":VERSION,"engine":rt["engine"],"version":rt["version"],"apiVersion":rt["apiVersion"],"context":rt.get("context"),"demo":DEMO_MODE,"publicUrl":PUBLIC_URL,"authConfigured":bool(load_auth()),"socket":rt["socket"] if s else "Protected","stacksDir":str(STACKS_DIR) if s else "Protected","iconsDir":str(ICONS_DIR) if s else "Protected"});return
-            if path=="/api/stacks":
-                t=time.monotonic();data=discover_stacks();record_timing("stacks",time.monotonic()-t);self.send_json(data);return
-            if path=="/api/containers":
-                t=time.monotonic();data=containers();record_timing("containers",time.monotonic()-t);self.send_json(data);return
+            if path=="/api/status":rt=runtime();s=self.session_payload();self.send_json({"appVersion":VERSION,"engine":rt["engine"],"version":rt["version"],"apiVersion":rt["apiVersion"],"context":rt.get("context"),"demo":DEMO_MODE,"publicUrl":PUBLIC_URL,"authConfigured":bool(load_auth()),"socket":rt["socket"] if s else "Protected","stacksDir":str(COMPOSE_ROOT) if s else "Protected","composeRoot":str(COMPOSE_ROOT) if s else "Protected","envRoot":str(ENV_ROOT) if s else "Protected","mediaRoot":str(MEDIA_ROOT) if s else "Protected","iconsDir":str(ICONS_DIR) if s else "Protected"});return
+            if path=="/api/dashboard":
+                # One browser request for the initial dashboard. The short shared
+                # inventory/discovery caches ensure stacks and containers reuse the
+                # same Podman snapshot instead of multiplying engine round-trips.
+                rt=runtime();session=self.session_payload()
+                self.send_json({"status":{"appVersion":VERSION,"engine":rt["engine"],"version":rt["version"],"apiVersion":rt["apiVersion"],"context":rt.get("context"),"demo":DEMO_MODE,"publicUrl":PUBLIC_URL,"authConfigured":bool(load_auth()),"socket":rt["socket"] if session else "Protected","stacksDir":str(STACKS_DIR) if session else "Protected","composeRoot":str(COMPOSE_ROOT) if session else "Protected","envRoot":str(ENV_ROOT) if session else "Protected","mediaRoot":str(MEDIA_ROOT) if session else "Protected","iconsDir":str(ICONS_DIR) if session else "Protected"},"stacks":discover_stacks(),"containers":containers(),"auth":{"configured":bool(load_auth()),"authenticated":bool(session),"user":session.get("user") if session else None,"csrf":session.get("csrf") if session else None,"auth":auth_diagnostics()}});return
+            if path=="/api/stacks":self.send_json(discover_stacks());return
+            if path=="/api/containers":self.send_json(containers());return
             if path=="/api/images":
                 if not self.require_auth():return
                 self.send_json(resource_images(force=parse_qs(u.query).get("refresh")==["1"]));return
@@ -696,6 +820,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_static(path)
         except FileNotFoundError:self.send_json({"error":"not found"},404)
         except PermissionError as e:self.send_json({"error":str(e)},409)
+        except (BrokenPipeError,ConnectionResetError):return
         except Exception as e:self.send_json({"error":str(e)},500)
     def do_POST(self):
         try:
@@ -736,6 +861,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(terminal_input(m.group(1),self.read_json().get("input","")));return
             self.send_json({"error":"not found"},404)
         except PermissionError as e:self.send_json({"error":str(e)},409)
+        except (BrokenPipeError,ConnectionResetError):return
         except Exception as e:self.send_json({"error":str(e)},500)
     def do_PUT(self):
         try:
@@ -747,10 +873,11 @@ class Handler(BaseHTTPRequestHandler):
             p=compose_file(safe_stack(name))
             if not p:raise FileNotFoundError("compose")
             if not isinstance(content,str) or len(content.encode())>1_000_000:raise ValueError("invalid compose content")
-            backup=p.with_suffix(p.suffix+f".rogueforge-{int(time.time())}.bak");backup.write_bytes(p.read_bytes());p.write_text(content,encoding="utf-8")
+            backup=_backup_file(p,"compose-backups");p.write_text(content,encoding="utf-8")
             try:validate_stack(name)
             except Exception:p.write_bytes(backup.read_bytes());raise
-            self.send_json({"ok":True,"backup":backup.name})
+            self.send_json({"ok":True,"backup":str(backup)})
+        except (BrokenPipeError,ConnectionResetError):return
         except Exception as e:self.send_json({"error":str(e)},500)
     def do_DELETE(self):
         try:
@@ -763,6 +890,7 @@ class Handler(BaseHTTPRequestHandler):
             if not m:self.send_json({"error":"not found"},404);return
             if not self.require_auth(csrf=True):return
             self.send_json(close_terminal(m.group(1)))
+        except (BrokenPipeError,ConnectionResetError):return
         except Exception as e:self.send_json({"error":str(e)},500)
 
 def main():

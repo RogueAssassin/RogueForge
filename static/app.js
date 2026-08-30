@@ -2,7 +2,23 @@ const $ = selector => document.querySelector(selector);
 const setText = (selector, value) => { const node=$(selector); if(node) node.textContent=value == null ? "—" : String(value); return node; };
 const setHtml = (selector, value) => { const node=$(selector); if(node) node.innerHTML=value == null ? "" : String(value); return node; };
 const $$ = selector => [...document.querySelectorAll(selector)];
-const state = { status: null, stacks: [], containers: [], currentStack: null, loading: false, auth: { configured: false, authenticated: false, user: null, csrf: null } };
+const state = { status: null, stacks: [], containers: [], currentStack: null, loading: false, auth: { configured: false, authenticated: false, user: null, csrf: null }, hydrated: false, lastRefresh: 0 };
+const DASHBOARD_CACHE_KEY = "rogueforge.dashboard.snapshot.v1";
+function saveDashboardSnapshot(snapshot){
+  try { sessionStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), snapshot })); } catch {}
+}
+function hydrateDashboardSnapshot(){
+  try {
+    const cached=JSON.parse(sessionStorage.getItem(DASHBOARD_CACHE_KEY)||"null");
+    if(!cached?.snapshot || Date.now()-Number(cached.savedAt||0)>60000) return false;
+    state.status=cached.snapshot.status||state.status;
+    state.stacks=cached.snapshot.stacks||[];
+    state.containers=cached.snapshot.containers||[];
+    state.auth=cached.snapshot.auth||state.auth;
+    if(state.status){state.hydrated=true;renderAll();renderAuth();return true;}
+  } catch {}
+  return false;
+}
 state.images=[];state.volumes=[];state.networks=[];state.resourceLoaded={images:false,volumes:false,networks:false};
 const pageMeta = {
   overview: ["Command centre", "Overview"],
@@ -197,7 +213,14 @@ async function load({ quiet = false } = {}) {
   state.loading = true;
   $("#refreshButton").classList.add("spinning");
   try {
-    [state.status, state.stacks, state.containers, state.auth] = await Promise.all([api("/api/status"), api("/api/stacks"), api("/api/containers"), api("/api/auth/session")]);
+    const snapshot = await api("/api/dashboard");
+    state.status = snapshot.status;
+    state.stacks = snapshot.stacks || [];
+    state.containers = snapshot.containers || [];
+    state.auth = snapshot.auth || state.auth;
+    state.hydrated = true;
+    state.lastRefresh = Date.now();
+    saveDashboardSnapshot(snapshot);
     renderAll();
     renderAuth();
     if (!quiet) toast("Infrastructure refreshed");
@@ -335,8 +358,14 @@ $("#cancelLogin").addEventListener("click", () => $("#loginDialog").close());
 $("#stackSearch").addEventListener("input", renderStacks);
 $("#containerSearch").addEventListener("input", renderContainers);
 setView(pageMeta[location.hash.slice(1)] ? location.hash.slice(1) : "overview");
+hydrateDashboardSnapshot();
 load({ quiet: true });
-setInterval(() => load({ quiet: true }), 15000);
+// Runtime inventory refreshes independently of CPU/RAM stats. Slow stats collection in
+// container-controls.js must never block the main dashboard from becoming interactive.
+setInterval(() => { if(!document.hidden) load({ quiet: true }); }, 10000);
+document.addEventListener("visibilitychange", () => {
+  if(!document.hidden && Date.now()-state.lastRefresh>5000) load({ quiet: true });
+});
 
 /* Canonical stack-first UI and resilience layer (consolidated from historical v0.8 frontend assets). */
 const RF_ICON_BASE='https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg';
