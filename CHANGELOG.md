@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.8.8 — Operations quality and production-readiness milestone
+## 0.9.0 — Runtime resources, operations quality and production-readiness milestone
 
 - Added watchdog-backed operation timeouts that also terminate silent/hung Compose processes, plus configurable terminate-to-kill grace handling.
 - Added explicit `timed_out`, cancellation and failure-reason operation states with persisted step/progress metadata for the Operations drawer.
@@ -10,9 +10,9 @@
 
 - Refreshed the repository presentation to match the RogueDashboard family: product header, release/GHCR/build/runtime/engine/platform badges and clearer Rogue ecosystem cross-linking.
 - Added a direct RogueDashboard download/repository link and clarified the split between RogueForge management and RogueDashboard visibility.
-- Expanded the 0.8.8 roadmap around operation timeouts/recovery, persistent audit history, transactional configuration saves, coalesced refreshes, targeted cache invalidation, batched stats, endpoint timing diagnostics, security hardening and compatibility testing.
+- Expanded the 0.9.0 roadmap around operation timeouts/recovery, persistent audit history, transactional configuration saves, coalesced refreshes, targeted cache invalidation, batched stats, endpoint timing diagnostics, security hardening and compatibility testing.
 - Keeps the validated 0.8.7 dashboard snapshot, Podman lifecycle, updater verification, configurable roots, inventory caching and non-blocking runtime refresh work as the baseline.
-- Keeps `main` production-only; 0.8.8 remains on the permanent `testing` channel until regression-tested and promoted.
+- Keeps `main` production-only; 0.9.0 remains on the permanent `testing` channel until regression-tested and promoted.
 
 ## 0.8.7 — Fast dashboard snapshots and non-blocking refresh
 

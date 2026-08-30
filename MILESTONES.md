@@ -14,7 +14,7 @@ Status: **validated testing baseline**
 - [x] Permanent `main` / `testing` branch model and isolated GHCR testing channel.
 - [x] CI validation, unit tests, local container build and GHCR `:testing` publish.
 
-## 0.8.8 — Operations quality and production readiness
+## 0.9.0 — Operations quality, performance and production readiness
 
 Status: **current testing milestone**
 
@@ -49,7 +49,7 @@ Status: **current testing milestone**
 - [ ] Add explicit destructive-operation confirmation/guardrails for remove/prune workflows.
 - [ ] Expand regression tests for rootless Podman and Docker lifecycle/update paths.
 
-## 0.9.0 — Runtime resources
+### Runtime resources
 
 - [ ] Image inventory, update awareness and guarded prune tools.
 - [ ] Volume inventory, usage, backup/export and guarded deletion.
