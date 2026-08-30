@@ -2,6 +2,9 @@
 
 ## 0.9.0 — Runtime resources, operations quality and production-readiness milestone
 
+- Stopped the updater from overwriting its own executable while Bash is still reading it; the downloaded updater is now installed only after a verified healthy deployment, preventing mixed-script syntax failures during channel upgrades.
+- Added CI shell syntax validation for `update.sh` and `install.sh` plus a regression test that enforces safe updater replacement ordering.
+
 - Fixed release tests and installer metadata for the 0.9.0 testing rollover so CI derives version expectations from the canonical `VERSION` file instead of a stale hard-coded 0.8.8 value.
 
 - Added watchdog-backed operation timeouts that also terminate silent/hung Compose processes, plus configurable terminate-to-kill grace handling.

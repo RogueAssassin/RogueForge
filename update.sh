@@ -70,7 +70,9 @@ echo "Backup: $BACKUP"
 
 curl -fsSL "$BASE/compose.yaml" -o "$BACKUP/compose.download" || { echo "RogueForge source ref '$REF' is unavailable." >&2; exit 3; }
 curl -fsSL "$BASE/update.sh" -o "$BACKUP/update.download" || { echo "RogueForge updater is unavailable on '$REF'." >&2; exit 3; }
-install -m 0644 "$BACKUP/compose.download" "$INSTALL_DIR/compose.yaml"; install -m 0755 "$BACKUP/update.download" "$INSTALL_DIR/update.sh"
+install -m 0644 "$BACKUP/compose.download" "$INSTALL_DIR/compose.yaml"
+# Do not replace the running updater in-place. Bash may still be reading this file;
+# self-overwriting it can splice old/new script contents and cause impossible syntax errors.
 
 set_env(){ local key=$1 value=$2; if grep -q "^${key}=" .env; then sed -i "s#^${key}=.*#${key}=${value}#" .env; else printf '%s=%s\n' "$key" "$value" >> .env; fi; }
 set_env ROGUEFORGE_IMAGE "ghcr.io/rogueassassin/rogueforge:$IMAGE_TAG"
@@ -135,6 +137,8 @@ for _ in {1..30}; do
     echo "Compose root: $COMPOSE_ROOT"
     echo "Env root:     $ENV_ROOT"
     [[ $CHANNEL == testing ]] && echo "TESTING BUILD ACTIVE: $REF ($IMAGE_TAG)"
+    install -m 0755 "$BACKUP/update.download" "$INSTALL_DIR/update.sh"
+    echo "Updater refreshed for the next run."
     exit 0
   fi
   sleep 2

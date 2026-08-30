@@ -59,6 +59,13 @@ class RogueForgeTests(unittest.TestCase):
   for key in ('ROGUEFORGE_MEDIA_ROOT','ROGUEFORGE_COMPOSE_ROOT','ROGUEFORGE_ENV_ROOT'):
    self.assertIn(key,compose);self.assertIn(key,env);self.assertIn(key,u);self.assertIn(key,installer)
   self.assertIn('ROGUEFORGE_INVENTORY_CACHE=2',env);self.assertIn(f'VERSION={RELEASE}',installer)
+ def test_updater_does_not_self_overwrite_mid_run(self):
+  u=(ROOT/'update.sh').read_text()
+  first=u.index('install -m 0644 "$BACKUP/compose.download"')
+  health=u.index('RogueForge $CHANNEL update complete.')
+  refresh=u.index('install -m 0755 "$BACKUP/update.download" "$INSTALL_DIR/update.sh"')
+  self.assertGreater(refresh,health);self.assertGreater(refresh,first)
+  self.assertIn('bash -n update.sh',(ROOT/'.github/workflows/container.yml').read_text())
  def test_operation_timeout_and_progress_metadata(self):
   src=(ROOT/'rogueforge.py').read_text();ops=(ROOT/'static/operations.js').read_text();env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text()
   self.assertIn('ROGUEFORGE_OPERATION_TIMEOUT',src);self.assertIn('threading.Timer(timeout,expire)',src);self.assertIn('status="timed_out"',src);self.assertIn('"stepCount"',src);self.assertIn('"currentStep"',src);self.assertIn('"failureReason"',src)

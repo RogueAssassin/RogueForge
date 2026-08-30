@@ -26,6 +26,11 @@ jobs:
           grep -q "VERSION=\"${VERSION}\"" rogueforge.py
       - name: Validate Python runtime
         run: python3 -m py_compile rogueforge.py setup-auth.py
+      - name: Validate shell scripts
+        shell: bash
+        run: |
+          bash -n update.sh
+          bash -n install.sh
       - name: Enforce clean single-runtime repository
         shell: bash
         run: |
