@@ -72,7 +72,7 @@ Status: **current testing milestone**
 - [x] Roll testing version to 0.9.1.
 - [x] Persist server-backed Operations history with explicit duration/result/failure metadata.
 - [x] Transactional Compose/.env save + automatic restore on validation/write failure.
-- [ ] Verified update/recreate rollback UX.
+- [x] Verified stack update rollback backend foundation; recovery status is returned to Operations/API callers.
 - [ ] Coalesced dashboard refresh and stale-while-revalidate snapshots.
 - [ ] Security header/session hardening and destructive-action guardrails.
 - [ ] Guarded Images/Volumes/Networks lifecycle actions.

@@ -2,6 +2,10 @@
 
 ## 0.9.1 — Safety, recovery and observability
 
+- Added verified stack-update recovery: RogueForge snapshots the currently running service set and immutable image IDs before an update, verifies the replacement service set after recreation, and attempts an automatic image retag/recreate rollback when the update fails.
+- Stack updates now refuse to run when there is no running baseline to preserve, preventing an update action from silently turning a deliberately stopped stack into a running stack.
+- Update responses now expose verification and rollback state for Operations/API consumers, with regression coverage for the recovery foundation.
+
 - Made Compose and `.env` editor saves transactional: RogueForge now writes through a same-directory temporary file, flushes it to disk, atomically replaces the target, validates the resulting stack, and automatically restores the exact previous bytes when validation fails.
 - Unified Compose and environment saves behind one backend transaction path while preserving external backups and invalidating stack discovery after successful saves or restores.
 - Added CI regression coverage for atomic writes, validation, restore behavior and removal of the previous direct Compose write path.

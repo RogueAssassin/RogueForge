@@ -122,4 +122,11 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('def save_stack_env(name,content):return _transactional_stack_save(name,"env",content)',src)
   self.assertNotIn('backup=_backup_file(p,"compose-backups");p.write_text(content,encoding="utf-8")',src)
 
+ def test_stack_update_verification_and_rollback_foundation(self):
+  src=(ROOT/'rogueforge.py').read_text()
+  self.assertIn('def _stack_running_snapshot(name):',src);self.assertIn('def _verify_stack_running(name,before,timeout=45):',src)
+  self.assertIn('Update safety check failed: stack has no running containers to preserve',src)
+  self.assertIn('rollbackAttempted',src);self.assertIn('engine_cli(["tag",image_id,tag],60)',src)
+  self.assertIn("Rollback {'succeeded' if rollback_ok else 'failed'}",src)
+
 if __name__=='__main__':unittest.main()

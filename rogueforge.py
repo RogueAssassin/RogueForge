@@ -435,13 +435,51 @@ def run_stack_action(stack,action):
     else:raise ValueError("unsupported action")
     invalidate_inventory();_discovery_cache["time"]=0.0
     return {"ok":True,"output":out[-100000:]}
+def _stack_running_snapshot(name):
+    rec=resolve_stack(name);aliases={str(rec["key"]),str(rec.get("project") or ""),rec["directory"].name}
+    return [{"id":c.get("id"),"name":c.get("name"),"imageId":c.get("imageId"),"service":c.get("service"),"status":c.get("status")}
+            for c in containers() if str(c.get("project")) in aliases and str(c.get("status","")).lower()=="running"]
+def _verify_stack_running(name,before,timeout=45):
+    required={str(x.get("service") or x.get("name")) for x in before}
+    deadline=time.monotonic()+timeout;last=[]
+    while time.monotonic()<deadline:
+        invalidate_inventory()
+        last=_stack_running_snapshot(name)
+        current={str(x.get("service") or x.get("name")) for x in last}
+        if required.issubset(current):return last
+        time.sleep(1)
+    raise RuntimeError(f"Stack verification failed; expected running services {sorted(required)}, observed {[x.get('service') or x.get('name') for x in last]}")
 def update_stack(name):
-    safe_stack(name)
-    # Pull the whole stack, then use the same deterministic down/up sequence as the
-    # host media-server compose_for helper. This favors correctness over zero downtime.
-    out=run_compose(name,["pull"])+"\n"+run_compose(name,["down"])+"\n"+run_compose(name,["up","-d"])
-    invalidate_inventory();_discovery_cache["time"]=0.0
-    return {"ok":True,"output":out[-100000:]}
+    safe_stack(name);before=_stack_running_snapshot(name)
+    if not before:raise RuntimeError("Update safety check failed: stack has no running containers to preserve")
+    out=run_compose(name,["pull"])
+    try:
+        out+="\n"+run_compose(name,["down"])+"\n"+run_compose(name,["up","-d"])
+        after=_verify_stack_running(name,before)
+        invalidate_inventory();invalidate_resource_cache();_discovery_cache["time"]=0.0
+        return {"ok":True,"output":out[-100000:],"verified":True,"rollbackAttempted":False,"before":before,"after":after}
+    except Exception as update_error:
+        rollback_output="";rollback_ok=False
+        try:
+            # The previous images remain addressable by immutable image IDs after a pull.
+            # Retag each service's prior image, then let Compose recreate from those tags.
+            rec=resolve_stack(name);cf=rec["compose"]
+            for old in before:
+                service=str(old.get("service") or "");image_id=str(old.get("imageId") or "")
+                if not service or not image_id:continue
+                cfg=json.loads(run_compose(name,["config","--format","json"],60) or "{}")
+                svc=(cfg.get("services") or {}).get(service) or {};tag=str(svc.get("image") or "")
+                if tag:rollback_output+=engine_cli(["tag",image_id,tag],60)+"\n"
+            rollback_output+=run_compose(name,["up","-d"])
+            restored=_verify_stack_running(name,before)
+            rollback_ok=True
+        except Exception as rollback_error:
+            restored=[];rollback_output+=f"\nRollback failed: {rollback_error}"
+        invalidate_inventory();invalidate_resource_cache();_discovery_cache["time"]=0.0
+        e=RuntimeError(f"Update failed: {update_error}. Rollback {'succeeded' if rollback_ok else 'failed'}.")
+        e.rollback={"attempted":True,"succeeded":rollback_ok,"output":rollback_output[-100000:],"restored":restored}
+        raise e
+
 def stack_env_path(name):
     d=safe_stack(name)
     try:rel=d.resolve().relative_to(COMPOSE_ROOT)
