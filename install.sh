@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-VERSION=0.9.2
+VERSION=0.9.3
 INSTALL_DIR=${ROGUEFORGE_INSTALL_DIR:-/opt/media-server/rogueforge}
 MEDIA_ROOT=${ROGUEFORGE_MEDIA_ROOT:-/opt/media-server}
 COMPOSE_ROOT=${ROGUEFORGE_COMPOSE_ROOT:-${ROGUEFORGE_STACKS_DIR:-$MEDIA_ROOT/compose}}
