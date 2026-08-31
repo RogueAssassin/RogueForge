@@ -50,7 +50,7 @@ class RogueForgeTests(unittest.TestCase):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('Active Compose labels are authoritative',src);self.assertIn('labelled_projects',src)
  def test_release_files(self):
   for f in ('compose.yaml','.env.example','README.md'):self.assertIn(RELEASE,(ROOT/f).read_text())
-  wf=(ROOT/'.github/workflows/container.yml').read_text();self.assertIn('Validate release and frontend consistency',wf);self.assertNotIn('python3 tools/prepare_runtime.py',wf);self.assertNotIn('tools/apply_v0',wf);self.assertIn('branches: [main, testing]',wf);self.assertNotIn('v0.8.7-testing',wf);self.assertIn('type=raw,value=testing',wf);self.assertNotIn('branch-${{ steps.version.outputs.safe_branch }}',wf)
+  wf=(ROOT/'.github/workflows/container.yml').read_text();self.assertIn('Validate release and frontend consistency',wf);self.assertNotIn('python3 tools/prepare_runtime.py',wf);self.assertNotIn('tools/apply_v0',wf);self.assertIn("branches: [main, testing, 'work/**']",wf);self.assertIn("if: github.ref_name == 'main' || github.ref_name == 'testing'",wf);self.assertNotIn('v0.8.7-testing',wf);self.assertIn('type=raw,value=testing',wf);self.assertNotIn('branch-${{ steps.version.outputs.safe_branch }}',wf)
   tools_py=list((ROOT/'tools').glob('*.py'));self.assertEqual(tools_py,[])
  def test_ui_quality(self):
   controls=(ROOT/'static/container-controls.js').read_text();css=(ROOT/'static/operations.css').read_text();operations=(ROOT/'static/operations.js').read_text();loader=(ROOT/'static/branding/branding-switch.js').read_text()
