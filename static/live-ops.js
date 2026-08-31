@@ -1,14 +1,14 @@
-// RogueForge v0.7.0 live operations UI.
+// RogueForge canonical live logs and terminal UI.
 const rfLive = { source: null, terminalToken: null, terminalCursor: 0, terminalTimer: null, paused: false, lines: [] };
 
 function liveButton(label, attrName, container, className="") { return `<button class="small-button ${className}" ${attrName}="${container.id}" data-name="${attr(container.name)}">${label}</button>`; }
-const previousRenderContainersV070 = renderContainers;
-renderContainers = function renderContainersV070() {
-  previousRenderContainersV070();
+const previousRenderContainers = renderContainers;
+renderContainers = function renderContainersWithLiveOps() {
+  previousRenderContainers();
   state.containers.forEach(container => {
     const row = document.querySelector(`[data-container-select="${CSS.escape(container.id)}"]`)?.closest('.container-row');
     if (!row) return;
-    const actions = row.querySelector('.container-actions-v060');
+    const actions = row.querySelector('.rf-action-secondary');
     if (!actions || actions.querySelector('[data-live-logs]')) return;
     actions.insertAdjacentHTML('beforeend', liveButton('Live logs','data-live-logs',container,'accent') + (container.state==='running' ? liveButton('Terminal','data-terminal',container,'') : ''));
   });
