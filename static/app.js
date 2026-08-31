@@ -370,7 +370,7 @@ document.addEventListener("visibilitychange", () => {
   if(!document.hidden && Date.now()-state.lastRefresh>5000) load({ quiet: true });
 });
 
-/* Canonical stack-first UI and resilience layer (consolidated from historical v0.8 frontend assets). */
+/* Canonical stack-first UI and resilience layer. */
 const RF_ICON_BASE='https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg';
 const RF_ICON_ALIASES={
   'nginx-proxy-manager':'nginx-proxy-manager',
@@ -423,7 +423,7 @@ function rfStackUsage(stack){const members=rfStackMembers(stack);let cpu='—',m
 function rfHealthText(stack){return stack.running===stack.services&&stack.services>0?'All services healthy':stack.running?`${stack.running}/${stack.services} services running`:'Services stopped';}
 function rfPath(stack){return stack.relativePath&&stack.relativePath!=='.'?`${state.status?.stacksDir||'/opt/media-server'}/${stack.relativePath}`:(state.status?.stacksDir?`${state.status.stacksDir}/${stack.name}`:stack.name);}
 
-renderOverview=function renderOverviewV080(){
+renderOverview=function renderOverviewCanonical(){
   const running=state.containers.filter(c=>c.state==='running').length,stopped=Math.max(0,state.containers.length-running),healthy=state.stacks.filter(s=>s.state==='running').length;
   const root=$('#view-overview');if(!root)return;
   root.innerHTML=`
@@ -447,7 +447,7 @@ renderOverview=function renderOverviewV080(){
 
 function rfServiceActions(container){const running=container.state==='running';let out='';if(!container.selfProtected){out+=`<button class="small-button ${running?'':'accent'}" data-container-action="${running?'stop':'start'}" data-container="${container.id}" data-name="${attr(container.name)}">${running?'Stop':'Start'}</button>`;if(running)out+=`<button class="small-button" data-container-action="restart" data-container="${container.id}" data-name="${attr(container.name)}">Restart</button>`;if(container.composeManaged)out+=`<button class="small-button accent" data-container-action="update" data-container="${container.id}" data-name="${attr(container.name)}">Update</button>`;}out+=`<button class="small-button" data-live-logs="${container.id}" data-name="${attr(container.name)}">Logs</button>`;if(running)out+=`<button class="small-button" data-terminal="${container.id}" data-name="${attr(container.name)}">Terminal</button>`;return out;}
 
-renderStacks=function renderStacksV080(){
+renderStacks=function renderStacksCanonical(){
   const grid=$('#stackGrid');if(!grid)return;
   const query=($('#stackSearch')?.value||'').trim().toLowerCase();const stacks=state.stacks.filter(s=>[s.name,s.displayName,s.composeFile,s.relativePath].some(v=>String(v||'').toLowerCase().includes(query)));
   grid.className='rf-stack-list';
@@ -455,7 +455,7 @@ renderStacks=function renderStacksV080(){
 };
 
 const rfOriginalRenderContainers=renderContainers;
-renderContainers=function renderRuntimeV080(){rfOriginalRenderContainers();const view=$('#view-containers .page-intro p');if(view)view.textContent='Advanced runtime view for standalone containers, inspection, live logs, terminal access and low-level troubleshooting.';};
+renderContainers=function renderRuntimeCanonical(){rfOriginalRenderContainers();const view=$('#view-containers .page-intro p');if(view)view.textContent='Advanced runtime view for standalone containers, inspection, live logs, terminal access and low-level troubleshooting.';};
 
 let rfConfigStack=null;
 let rfConfigKind='compose';
@@ -518,9 +518,9 @@ async function rfEditEnv(name){if(!ensureAuthenticated())return;rfEnsureEnvDialo
 async function rfSaveEnv(){if(!rfEnvStack)return;const b=$('#rfEnvSave');b.disabled=true;b.textContent='Validating…';try{await api(`/api/stacks/${encodeURIComponent(rfEnvStack)}/env`,protectedOptions({method:'PUT',body:JSON.stringify({content:$('#rfEnvText').value})}));$('#rfEnvDialog').close();toast(`${rfEnvStack}: .env saved`);await load({quiet:true});}catch(e){toast(e.message,'error');}finally{b.disabled=false;b.textContent='Validate & save';}}
 async function rfShowDiscovery(){if(!ensureAuthenticated())return;try{const d=await api('/api/discovery');$('#logsTitle').textContent='Compose discovery';$('#logText').textContent=JSON.stringify(d,null,2);$('#logsDialog').showModal();}catch(e){toast(e.message,'error');}}
 
-function rfBranding(){const nav=[...document.querySelectorAll('.nav-item[data-view]')].find(x=>x.dataset.view==='containers');if(nav){const label=nav.querySelector('span:nth-child(2)');if(label)label.textContent='Runtime';nav.title='Advanced container/runtime troubleshooting';}if(!document.querySelector('.rf-version-card')){$('#sidebar .sidebar-bottom')?.insertAdjacentHTML('beforebegin',`<div class="rf-version-card"><div class="rf-mini-brand"><span class="rf-mini-mark"></span><div><strong>RogueForge <span id="rfSidebarVersion">v0.8.0</span></strong><small>Stack-first operations</small></div></div></div>`);} }
+function rfBranding(){const nav=[...document.querySelectorAll('.nav-item[data-view]')].find(x=>x.dataset.view==='containers');if(nav){const label=nav.querySelector('span:nth-child(2)');if(label)label.textContent='Runtime';nav.title='Advanced container/runtime troubleshooting';}if(!document.querySelector('.rf-version-card')){$('#sidebar .sidebar-bottom')?.insertAdjacentHTML('beforebegin',`<div class="rf-version-card"><div class="rf-mini-brand"><span class="rf-mini-mark"></span><div><strong>RogueForge <span id="rfSidebarVersion">—</span></strong><small>Stack-first operations</small></div></div></div>`);} }
 
-const rfOldRenderAll=renderAll;renderAll=function renderAllV080(){rfOldRenderAll();rfBranding();renderOverview();renderStacks();renderContainers();const v=$('#rfSidebarVersion');if(v&&state.status?.appVersion)v.textContent=`v${state.status.appVersion}`;};
+const rfOldRenderAll=renderAll;renderAll=function renderAllCanonical(){rfOldRenderAll();rfBranding();renderOverview();renderStacks();renderContainers();const v=$('#rfSidebarVersion');if(v&&state.status?.appVersion)v.textContent=`v${state.status.appVersion}`;};
 
 document.addEventListener('click',e=>{const exp=e.target.closest('[data-rf-expand]');if(exp){const n=exp.dataset.rfExpand;rfExpandedStacks.has(n)?rfExpandedStacks.delete(n):rfExpandedStacks.add(n);renderStacks();}const upd=e.target.closest('[data-rf-stack-update]');if(upd)rfUpdateStack(upd.dataset.rfStackUpdate);const cfg=e.target.closest('[data-rf-config]');if(cfg)rfEditConfig(cfg.dataset.rfConfig);const env=e.target.closest('[data-rf-env]');if(env)rfEditEnv(env.dataset.rfEnv);if(e.target.closest('#rfRefreshOverview'))load({force:true});if(e.target.closest('#rfUpdateAll'))updateAllContainers();if(e.target.closest('#rfDiscovery'))rfShowDiscovery();const go=e.target.closest('[data-go-stack]');if(go){setView('stacks');rfExpandedStacks.add(go.dataset.goStack);renderStacks();setTimeout(()=>document.getElementById(`rf-stack-${CSS.escape(go.dataset.goStack)}`)?.scrollIntoView({behavior:'smooth',block:'center'}),50);}});
 rfBranding();
@@ -528,12 +528,12 @@ rfBranding();
 /* Canonical UI compatibility/resilience layer. */
 (function () {
   const text = (selector, value) => { const node = document.querySelector(selector); if (node) node.textContent = value == null ? '—' : String(value); };
-  renderStatus = function renderStatusV080Safe() {
+  renderStatus = function renderStatusSafe() {
     if (!state.status) return;
     const engine = state.status.engine || 'unknown';
-    text('#engineName', `${engine} connected`); text('#engineDetail', state.status.socket || 'Protected'); text('#engineRuntime', engine); text('#engineInitial', engine.charAt(0).toUpperCase()); text('#engineVersion', state.status.version); text('#apiVersion', state.status.apiVersion); text('#socketPath', state.status.socket); text('#engineContext', state.status.context || 'default'); text('#stacksPath', state.status.stacksDir); text('#publicUrl', state.status.publicUrl || 'Not configured'); text('#appVersion', state.status.appVersion ? `v${state.status.appVersion}` : '—'); text('#stackNavCount', state.stacks?.length || 0); text('#containerNavCount', state.containers?.length || 0); text('#rfSidebarVersion', state.status.appVersion ? `v${state.status.appVersion}` : 'v0.8.x');
+    text('#engineName', `${engine} connected`); text('#engineDetail', state.status.socket || 'Protected'); text('#engineRuntime', engine); text('#engineInitial', engine.charAt(0).toUpperCase()); text('#engineVersion', state.status.version); text('#apiVersion', state.status.apiVersion); text('#socketPath', state.status.socket); text('#engineContext', state.status.context || 'default'); text('#stacksPath', state.status.stacksDir); text('#publicUrl', state.status.publicUrl || 'Not configured'); text('#appVersion', state.status.appVersion ? `v${state.status.appVersion}` : '—'); text('#stackNavCount', state.stacks?.length || 0); text('#containerNavCount', state.containers?.length || 0); text('#rfSidebarVersion', state.status.appVersion ? `v${state.status.appVersion}` : '—');
   };
-  renderAll = function renderAllV080Safe() {
+  renderAll = function renderAllCanonicalSafe() {
     try { renderStatus(); } catch (error) { console.error('RogueForge status render failed', error); }
     try { rfBranding(); } catch (error) { console.error('RogueForge branding render failed', error); }
     try { renderOverview(); } catch (error) { console.error('RogueForge overview render failed', error); const root=document.querySelector('#view-overview'); if(root)root.innerHTML=`<div class="empty-state">Overview failed to render: ${escapeHtml(error.message)}</div>`; }
@@ -541,13 +541,8 @@ rfBranding();
     try { renderContainers(); } catch (error) { console.error('RogueForge runtime render failed', error); const root=document.querySelector('#containerGrid'); if(root)root.innerHTML=`<div class="empty-state">Runtime failed to render: ${escapeHtml(error.message)}</div>`; }
   };
   const previousRenderAuth = renderAuth;
-  renderAuth = function renderAuthV080Safe() { const button=document.querySelector('#accountButton'); if(!button)return; try{previousRenderAuth();}catch(error){console.error('RogueForge auth render failed',error);button.textContent=state.auth?.authenticated?String(state.auth.user||'A').slice(0,2).toUpperCase():'Sign in';} };
-  const currentRenderStacks=renderStacks; renderStacks=function renderStacksV080Resilient(){const grid=document.querySelector('#stackGrid');if(!grid)return;return currentRenderStacks();};
-  const currentRenderContainers=renderContainers; renderContainers=function renderRuntimeV080Resilient(){const grid=document.querySelector('#containerGrid');if(!grid)return;return currentRenderContainers();};
-  window.addEventListener('error',event=>{if(String(event.message||'').includes('textContent'))console.error('RogueForge prevented a legacy DOM render failure from hiding workload data.',event.error||event.message);});
-
-  // Load the canonical non-versioned quality layer last so it can safely extend the
-  // stack renderer and icon resolver without adding another vNNN frontend file.
-  const css=document.createElement('link');css.rel='stylesheet';css.href='/operations.css';document.head.appendChild(css);
-  const script=document.createElement('script');script.src='/operations.js';script.defer=true;document.head.appendChild(script);
+  renderAuth = function renderAuthSafe() { const button=document.querySelector('#accountButton'); if(!button)return; try{previousRenderAuth();}catch(error){console.error('RogueForge auth render failed',error);button.textContent=state.auth?.authenticated?String(state.auth.user||'A').slice(0,2).toUpperCase():'Sign in';} };
+  const currentRenderStacks=renderStacks; renderStacks=function renderStacksCanonicalResilient(){const grid=document.querySelector('#stackGrid');if(!grid)return;return currentRenderStacks();};
+  const currentRenderContainers=renderContainers; renderContainers=function renderRuntimeCanonicalResilient(){const grid=document.querySelector('#containerGrid');if(!grid)return;return currentRenderContainers();};
+  window.addEventListener('error',event=>{if(String(event.message||'').includes('textContent'))console.error('RogueForge prevented a DOM render failure from hiding workload data.',event.error||event.message);});
 })();
