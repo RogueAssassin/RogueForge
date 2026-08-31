@@ -40,3 +40,16 @@ The overview, stack summary, and container inventory remain read-only without au
 ## Reporting vulnerabilities
 
 Do not publish credentials, session cookies, Compose secrets, container logs, or exploit details in a public issue. Contact the repository owner privately before disclosure.
+
+
+## Browser response hardening
+
+RogueForge 0.9.3 sends a consistent baseline of browser security headers from the application server:
+
+- `X-Frame-Options: DENY` to prevent clickjacking in frames.
+- `Referrer-Policy: no-referrer` to avoid leaking management URLs.
+- `Permissions-Policy` disables camera, microphone and geolocation access.
+- `Cross-Origin-Opener-Policy: same-origin` isolates the management browsing context.
+- `X-Content-Type-Options: nosniff` remains enabled for API and static responses.
+
+TLS/HSTS and trusted-forwarded-header policy should continue to be enforced by the administrator's reverse proxy.
