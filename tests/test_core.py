@@ -31,7 +31,9 @@ class RogueForgeTests(unittest.TestCase):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('ROGUEFORGE_INVENTORY_CACHE',src);self.assertIn('def _load_containers_uncached():',src);self.assertIn('def load_containers(force=False):',src);self.assertIn('def invalidate_inventory():',src)
   self.assertNotIn('def discover_stacks():\n    reg=_build_registry(force=True)',src)
  def test_media_server_stack_lifecycle(self):
-  src=(ROOT/'rogueforge.py').read_text();self.assertIn('elif action=="stop":out=run_compose(stack,["down"])',src);self.assertIn('elif action=="restart":out=run_compose(stack,["down"])+"\\n"+run_compose(stack,["up","-d"])',src);self.assertIn('out=run_compose(name,["pull"])+"\\n"+run_compose(name,["down"])+"\\n"+run_compose(name,["up","-d"])',src)
+  src=(ROOT/'rogueforge.py').read_text()
+  self.assertIn('elif action=="stop":out=run_compose(stack,["down"])',src);self.assertIn('elif action=="restart":out=run_compose(stack,["down"])+"\\n"+run_compose(stack,["up","-d"])',src)
+  self.assertIn('out=run_compose(name,["pull"])',src);self.assertIn('run_compose(name,["down"])',src);self.assertIn('run_compose(name,["up","-d"])',src)
  def test_http_disconnect_and_head_support(self):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('def do_HEAD(self):',src);self.assertIn('except (BrokenPipeError,ConnectionResetError)',src)
  def test_v087_dashboard_snapshot(self):
@@ -126,7 +128,8 @@ class RogueForgeTests(unittest.TestCase):
   src=(ROOT/'rogueforge.py').read_text()
   self.assertIn('def _stack_running_snapshot(name):',src);self.assertIn('def _verify_stack_running(name,before,timeout=45):',src)
   self.assertIn('Update safety check failed: stack has no running containers to preserve',src)
-  self.assertIn('rollbackAttempted',src);self.assertIn('engine_cli(["tag",image_id,tag],60)',src)
+  self.assertIn('rollbackAttempted',src);self.assertIn('def _restore_stack_images(before):',src);self.assertIn('engine_cli(["tag",image_id,image_ref],60)',src)
+  self.assertIn('str(c.get("state","")).lower()!="running"',src);self.assertNotIn('["config","--format","json"]',src)
   self.assertIn("Rollback {'succeeded' if rollback_ok else 'failed'}",src)
 
 if __name__=='__main__':unittest.main()

@@ -2,6 +2,10 @@
 
 ## 0.9.1 — Safety, recovery and observability
 
+- Corrected the verified-update recovery implementation after CI review: running-service snapshots now use the canonical container `state` field, retain configured image references and resolve immutable image IDs when the inventory omits them.
+- Removed the rollback dependency on `compose config --format json`; recovery now retags the captured immutable image IDs directly to their previous image references, improving compatibility with Podman Compose providers.
+- Updated the lifecycle regression test to validate the required pull/down/up contract semantically instead of requiring the obsolete pre-recovery one-line implementation.
+
 - Added verified stack-update recovery: RogueForge snapshots the currently running service set and immutable image IDs before an update, verifies the replacement service set after recreation, and attempts an automatic image retag/recreate rollback when the update fails.
 - Stack updates now refuse to run when there is no running baseline to preserve, preventing an update action from silently turning a deliberately stopped stack into a running stack.
 - Update responses now expose verification and rollback state for Operations/API consumers, with regression coverage for the recovery foundation.
