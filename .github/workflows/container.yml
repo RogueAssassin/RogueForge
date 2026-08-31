@@ -2,7 +2,7 @@ name: Publish container image
 
 on:
   push:
-    branches: [main, testing]
+    branches: [main, testing, 'work/**']
   workflow_dispatch:
 
 permissions:
@@ -71,6 +71,7 @@ jobs:
 
   publish:
     needs: validate
+    if: github.ref_name == 'main' || github.ref_name == 'testing'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

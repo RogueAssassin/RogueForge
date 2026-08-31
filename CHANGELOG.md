@@ -8,6 +8,7 @@
 - Removed active v0.8-era comments/function labels/placeholders from the canonical frontend while preserving the existing RogueForge branding assets.
 - Added consistent frame, referrer, permissions and cross-origin opener security headers to API/static/HEAD responses.
 - Added regression coverage for the 0.9.3 asset graph, release hygiene and security-header contract.
+- CI now validates `work/**` preflight branches with the same validation/container-build job while restricting GHCR publishing to `main` and `testing`, allowing release trees to be proven before the real testing-channel push.
 
 
 ## 0.9.2 — Performance, cache coherence and diagnostics
