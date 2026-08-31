@@ -287,7 +287,7 @@ def containers(inventory=None,registry=None):
             if project!="standalone":rec=registry["aliases"].get(project) or registry["aliases"].get(_norm(project))
             project_key=rec["key"] if rec else project
             state=str(x.get("State") or x.get("state") or "unknown").lower()
-            result.append({"id":fid[:12],"name":name,"image":image,"state":state,"status":x.get("Status") or x.get("status") or state,"ports":x.get("Ports") or x.get("ports") or [],"project":project_key,"service":service or None,"composeManaged":bool(service and project!="standalone"),"selfProtected":name==SELF_STACK or project==SELF_STACK})
+            result.append({"id":fid[:12],"name":name,"image":image,"imageId":x.get("ImageID") or x.get("ImageId") or x.get("imageID") or x.get("image_id"),"state":state,"status":x.get("Status") or x.get("status") or state,"ports":x.get("Ports") or x.get("ports") or [],"project":project_key,"service":service or None,"composeManaged":bool(service and project!="standalone"),"selfProtected":name==SELF_STACK or project==SELF_STACK})
         except Exception as e:sys.stderr.write(f"container inventory row skipped: {e}\n")
     return sorted(result,key=lambda i:(i["state"]!="running",i["name"].lower()))
 
@@ -436,22 +436,35 @@ def run_stack_action(stack,action):
     invalidate_inventory();_discovery_cache["time"]=0.0
     return {"ok":True,"output":out[-100000:]}
 def _stack_running_snapshot(name):
-    rec=resolve_stack(name);aliases={str(rec["key"]),str(rec.get("project") or ""),rec["directory"].name}
-    return [{"id":c.get("id"),"name":c.get("name"),"imageId":c.get("imageId"),"service":c.get("service"),"status":c.get("status")}
-            for c in containers() if str(c.get("project")) in aliases and str(c.get("status","")).lower()=="running"]
+    rec=resolve_stack(name);aliases={str(rec["key"]),str(rec.get("project") or ""),rec["directory"].name};snapshot=[]
+    for c in containers():
+        if str(c.get("project")) not in aliases or str(c.get("state","")).lower()!="running":continue
+        image_id=str(c.get("imageId") or "")
+        if not image_id:
+            try:image_id=str(inspect_container(c["id"]).get("imageId") or "")
+            except Exception:pass
+        snapshot.append({"id":c.get("id"),"name":c.get("name"),"image":c.get("image"),"imageId":image_id,"service":c.get("service"),"state":c.get("state")})
+    return snapshot
 def _verify_stack_running(name,before,timeout=45):
     required={str(x.get("service") or x.get("name")) for x in before}
     deadline=time.monotonic()+timeout;last=[]
     while time.monotonic()<deadline:
-        invalidate_inventory()
-        last=_stack_running_snapshot(name)
+        invalidate_inventory();last=_stack_running_snapshot(name)
         current={str(x.get("service") or x.get("name")) for x in last}
         if required.issubset(current):return last
         time.sleep(1)
     raise RuntimeError(f"Stack verification failed; expected running services {sorted(required)}, observed {[x.get('service') or x.get('name') for x in last]}")
+def _restore_stack_images(before):
+    output=""
+    for old in before:
+        image_id=str(old.get("imageId") or "");image_ref=str(old.get("image") or "")
+        if image_id and image_ref and image_ref!="unknown":
+            output+=engine_cli(["tag",image_id,image_ref],60)+"\n"
+    return output
 def update_stack(name):
     safe_stack(name);before=_stack_running_snapshot(name)
     if not before:raise RuntimeError("Update safety check failed: stack has no running containers to preserve")
+    if any(not x.get("imageId") for x in before):raise RuntimeError("Update safety check failed: unable to resolve the immutable image ID for every running service")
     out=run_compose(name,["pull"])
     try:
         out+="\n"+run_compose(name,["down"])+"\n"+run_compose(name,["up","-d"])
@@ -459,22 +472,13 @@ def update_stack(name):
         invalidate_inventory();invalidate_resource_cache();_discovery_cache["time"]=0.0
         return {"ok":True,"output":out[-100000:],"verified":True,"rollbackAttempted":False,"before":before,"after":after}
     except Exception as update_error:
-        rollback_output="";rollback_ok=False
+        rollback_output="";rollback_ok=False;restored=[]
         try:
-            # The previous images remain addressable by immutable image IDs after a pull.
-            # Retag each service's prior image, then let Compose recreate from those tags.
-            rec=resolve_stack(name);cf=rec["compose"]
-            for old in before:
-                service=str(old.get("service") or "");image_id=str(old.get("imageId") or "")
-                if not service or not image_id:continue
-                cfg=json.loads(run_compose(name,["config","--format","json"],60) or "{}")
-                svc=(cfg.get("services") or {}).get(service) or {};tag=str(svc.get("image") or "")
-                if tag:rollback_output+=engine_cli(["tag",image_id,tag],60)+"\n"
+            rollback_output+=_restore_stack_images(before)
             rollback_output+=run_compose(name,["up","-d"])
-            restored=_verify_stack_running(name,before)
-            rollback_ok=True
+            restored=_verify_stack_running(name,before);rollback_ok=True
         except Exception as rollback_error:
-            restored=[];rollback_output+=f"\nRollback failed: {rollback_error}"
+            rollback_output+=f"\nRollback failed: {rollback_error}"
         invalidate_inventory();invalidate_resource_cache();_discovery_cache["time"]=0.0
         e=RuntimeError(f"Update failed: {update_error}. Rollback {'succeeded' if rollback_ok else 'failed'}.")
         e.rollback={"attempted":True,"succeeded":rollback_ok,"output":rollback_output[-100000:],"restored":restored}
