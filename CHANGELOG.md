@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.2 — Performance, cache coherence and diagnostics
+
+- Rolled the permanent testing channel to 0.9.2 after the validated 0.9.1 transactional editor and update-recovery stages.
+- Added a short server-side dashboard snapshot with stale-while-revalidate behavior so Overview/Stacks/Runtime can respond immediately from a recent snapshot while one background refresh updates engine state.
+- Coalesced browser dashboard requests into a single in-flight request and made manual/operation refreshes explicitly bypass the snapshot.
+- Dashboard/resource cache state is invalidated by runtime inventory changes, preventing lifecycle operations from leaving stale UI state behind.
+- Added rolling latency diagnostics for dashboard build/request, container inventory and container stats to make slow Podman paths measurable.
+
+
 ## 0.9.1 — Safety, recovery and observability
 
 - Corrected the verified-update recovery implementation after CI review: running-service snapshots now use the canonical container `state` field, retain configured image references and resolve immutable image IDs when the inventory omits them.

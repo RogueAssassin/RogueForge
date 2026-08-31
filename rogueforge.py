@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RogueForge 0.9.1 — single-file Docker/Podman Compose operations runtime."""
+"""RogueForge 0.9.2 — single-file Docker/Podman Compose operations runtime."""
 from __future__ import annotations
 
 import base64, hashlib, hmac, json, mimetypes, os, re, secrets, socket, subprocess, sys, threading, time
@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-VERSION="0.9.1"
+VERSION="0.9.2"
 PORT=int(os.environ.get("ROGUEFORGE_PORT","7810")); BIND=os.environ.get("ROGUEFORGE_BIND","127.0.0.1")
 MEDIA_ROOT=Path(os.environ.get("ROGUEFORGE_MEDIA_ROOT","/opt/media-server")).resolve()
 COMPOSE_ROOT=Path(os.environ.get("ROGUEFORGE_COMPOSE_ROOT",os.environ.get("ROGUEFORGE_STACKS_DIR",str(MEDIA_ROOT)))).resolve()
@@ -27,6 +27,23 @@ _sessions={}; _login_attempts={}; _login_lock=threading.Lock(); _runtime=None; _
 _terminal_sessions={}; _terminal_lock=threading.Lock(); TERMINAL_TTL=1800; TERMINAL_CLOSED_GRACE=60; MAX_TERMINAL_CHUNKS=2500
 INVENTORY_CACHE_SECONDS=max(1,min(30,int(os.environ.get("ROGUEFORGE_INVENTORY_CACHE","2"))))
 _inventory_cache={"time":0.0,"items":[]}; _inventory_lock=threading.Lock()
+DASHBOARD_CACHE_SECONDS=max(1,min(30,int(os.environ.get("ROGUEFORGE_DASHBOARD_CACHE","3"))))
+DASHBOARD_STALE_SECONDS=max(DASHBOARD_CACHE_SECONDS,min(120,int(os.environ.get("ROGUEFORGE_DASHBOARD_STALE","30"))))
+_dashboard_cache={"time":0.0,"snapshot":None,"refreshing":False};_dashboard_lock=threading.Condition()
+_timing_lock=threading.Lock();_timings={}
+def record_timing(name,seconds):
+    ms=round(max(0,float(seconds))*1000,2)
+    with _timing_lock:
+        row=_timings.setdefault(name,{"count":0,"lastMs":0.0,"maxMs":0.0,"totalMs":0.0})
+        row["count"]+=1;row["lastMs"]=ms;row["maxMs"]=max(row["maxMs"],ms);row["totalMs"]+=ms
+def timing_snapshot():
+    with _timing_lock:
+        return {k:{"count":v["count"],"lastMs":v["lastMs"],"maxMs":v["maxMs"],"avgMs":round(v["totalMs"]/max(1,v["count"]),2)} for k,v in _timings.items()}
+def invalidate_dashboard_cache():
+    with _dashboard_lock:
+        _dashboard_cache["time"]=0.0
+        _dashboard_lock.notify_all()
+
 OPERATIONS_FILE=Path(os.environ.get("ROGUEFORGE_OPERATIONS_FILE",Path(__file__).with_name("data")/"operations.json")).resolve()
 _operation_lock=threading.Lock(); _operations={}; MAX_OPERATIONS=120
 OPERATION_TIMEOUT=max(60,min(7200,int(os.environ.get("ROGUEFORGE_OPERATION_TIMEOUT","900"))))
@@ -246,13 +263,13 @@ def load_containers(force=False):
     with _inventory_lock:
         if not force and _inventory_cache["items"] and now-_inventory_cache["time"]<INVENTORY_CACHE_SECONDS:
             return list(_inventory_cache["items"])
-    items=list(_load_containers_uncached() or [])
+    started=time.monotonic();items=list(_load_containers_uncached() or []);record_timing("containerInventory",time.monotonic()-started)
     with _inventory_lock:
         _inventory_cache["time"]=now;_inventory_cache["items"]=items
     return list(items)
 def invalidate_inventory():
     with _inventory_lock:_inventory_cache["time"]=0.0;_inventory_cache["items"]=[]
-    invalidate_resource_cache()
+    invalidate_resource_cache();invalidate_dashboard_cache()
 def _raw_container(cid):
     for x in load_containers() or []:
         actual=str(x.get("Id") or x.get("ID") or x.get("id") or "")
@@ -788,8 +805,49 @@ def stream_logs(h,cid):
     finally:
         if p.poll() is None:p.terminate()
 
+def _build_dashboard_snapshot():
+    started=time.monotonic()
+    inventory=load_containers()
+    registry=_build_registry()
+    data={"stacks":discover_stacks(),"containers":containers(inventory=inventory,registry=registry),"generatedAt":time.time()}
+    record_timing("dashboardBuild",time.monotonic()-started)
+    return data
+def _dashboard_refresh_background():
+    try:data=_build_dashboard_snapshot()
+    except Exception:
+        with _dashboard_lock:_dashboard_cache["refreshing"]=False;_dashboard_lock.notify_all()
+        return
+    with _dashboard_lock:
+        _dashboard_cache.update(time=time.monotonic(),snapshot=data,refreshing=False);_dashboard_lock.notify_all()
+def dashboard_snapshot(force=False):
+    now=time.monotonic()
+    with _dashboard_lock:
+        snap=_dashboard_cache.get("snapshot");age=now-float(_dashboard_cache.get("time") or 0)
+        if snap is not None and not force and age<DASHBOARD_CACHE_SECONDS:
+            return {**snap,"cache":{"state":"fresh","ageMs":round(age*1000,1)}}
+        if snap is not None and not force and age<DASHBOARD_STALE_SECONDS:
+            if not _dashboard_cache["refreshing"]:
+                _dashboard_cache["refreshing"]=True
+                threading.Thread(target=_dashboard_refresh_background,daemon=True).start()
+            return {**snap,"cache":{"state":"stale","ageMs":round(age*1000,1)}}
+        if _dashboard_cache["refreshing"]:
+            deadline=time.monotonic()+10
+            while _dashboard_cache["refreshing"] and time.monotonic()<deadline:_dashboard_lock.wait(timeout=1)
+            snap=_dashboard_cache.get("snapshot")
+            if snap is not None and not force:
+                age=time.monotonic()-float(_dashboard_cache.get("time") or 0)
+                return {**snap,"cache":{"state":"coalesced","ageMs":round(age*1000,1)}}
+        _dashboard_cache["refreshing"]=True
+    try:data=_build_dashboard_snapshot()
+    finally:
+        if 'data' not in locals():
+            with _dashboard_lock:_dashboard_cache["refreshing"]=False;_dashboard_lock.notify_all()
+    with _dashboard_lock:
+        _dashboard_cache.update(time=time.monotonic(),snapshot=data,refreshing=False);_dashboard_lock.notify_all()
+    return {**data,"cache":{"state":"refreshed","ageMs":0.0}}
+
 def diagnostics():
-    rt=runtime();return {"auth":auth_diagnostics(),"runtime":{"engine":rt["engine"],"socket":rt["socket"],"socketExists":Path(rt["socket"]).exists(),"context":rt.get("context")},"paths":{"mediaRoot":str(MEDIA_ROOT),"composeRoot":str(COMPOSE_ROOT),"envRoot":str(ENV_ROOT)},"stacks":{"path":str(COMPOSE_ROOT),"exists":COMPOSE_ROOT.is_dir(),"readable":os.access(COMPOSE_ROOT,os.R_OK),"selfStack":SELF_STACK},"discovery":discovery_diagnostics()}
+    rt=runtime();age=max(0,time.monotonic()-float(_dashboard_cache.get("time") or 0));return {"timings":timing_snapshot(),"dashboardCache":{"ageMs":round(age*1000,1),"hasSnapshot":_dashboard_cache.get("snapshot") is not None,"refreshing":bool(_dashboard_cache.get("refreshing"))},"auth":auth_diagnostics(),"runtime":{"engine":rt["engine"],"socket":rt["socket"],"socketExists":Path(rt["socket"]).exists(),"context":rt.get("context")},"paths":{"mediaRoot":str(MEDIA_ROOT),"composeRoot":str(COMPOSE_ROOT),"envRoot":str(ENV_ROOT)},"stacks":{"path":str(COMPOSE_ROOT),"exists":COMPOSE_ROOT.is_dir(),"readable":os.access(COMPOSE_ROOT,os.R_OK),"selfStack":SELF_STACK},"discovery":discovery_diagnostics()}
 class Handler(BaseHTTPRequestHandler):
     server_version=f"RogueForge/{VERSION}"
     def log_message(self,fmt,*args):sys.stderr.write("%s - %s\n"%(self.log_date_time_string(),fmt%args))
@@ -832,11 +890,10 @@ class Handler(BaseHTTPRequestHandler):
             if path=="/api/auth/session":a=load_auth();s=self.session_payload();self.send_json({"configured":bool(a),"authenticated":bool(s),"user":s.get("user") if s else None,"csrf":s.get("csrf") if s else None,"auth":auth_diagnostics()});return
             if path=="/api/status":rt=runtime();s=self.session_payload();self.send_json({"appVersion":VERSION,"engine":rt["engine"],"version":rt["version"],"apiVersion":rt["apiVersion"],"context":rt.get("context"),"demo":DEMO_MODE,"publicUrl":PUBLIC_URL,"authConfigured":bool(load_auth()),"socket":rt["socket"] if s else "Protected","stacksDir":str(COMPOSE_ROOT) if s else "Protected","composeRoot":str(COMPOSE_ROOT) if s else "Protected","envRoot":str(ENV_ROOT) if s else "Protected","mediaRoot":str(MEDIA_ROOT) if s else "Protected","iconsDir":str(ICONS_DIR) if s else "Protected"});return
             if path=="/api/dashboard":
-                # One browser request for the initial dashboard. The short shared
-                # inventory/discovery caches ensure stacks and containers reuse the
-                # same Podman snapshot instead of multiplying engine round-trips.
-                rt=runtime();session=self.session_payload()
-                self.send_json({"status":{"appVersion":VERSION,"engine":rt["engine"],"version":rt["version"],"apiVersion":rt["apiVersion"],"context":rt.get("context"),"demo":DEMO_MODE,"publicUrl":PUBLIC_URL,"authConfigured":bool(load_auth()),"socket":rt["socket"] if session else "Protected","stacksDir":str(STACKS_DIR) if session else "Protected","composeRoot":str(COMPOSE_ROOT) if session else "Protected","envRoot":str(ENV_ROOT) if session else "Protected","mediaRoot":str(MEDIA_ROOT) if session else "Protected","iconsDir":str(ICONS_DIR) if session else "Protected"},"stacks":discover_stacks(),"containers":containers(),"auth":{"configured":bool(load_auth()),"authenticated":bool(session),"user":session.get("user") if session else None,"csrf":session.get("csrf") if session else None,"auth":auth_diagnostics()}});return
+                started=time.monotonic();session=self.session_payload();force=parse_qs(u.query).get("refresh")==["1"];snap=dashboard_snapshot(force=force);rt=runtime()
+                status={"appVersion":VERSION,"engine":rt["engine"],"version":rt["version"],"apiVersion":rt["apiVersion"],"context":rt.get("context"),"demo":DEMO_MODE,"publicUrl":PUBLIC_URL,"authConfigured":bool(load_auth()),"socket":rt["socket"] if session else "Protected","stacksDir":str(STACKS_DIR) if session else "Protected","composeRoot":str(COMPOSE_ROOT) if session else "Protected","envRoot":str(ENV_ROOT) if session else "Protected","mediaRoot":str(MEDIA_ROOT) if session else "Protected","iconsDir":str(ICONS_DIR) if session else "Protected"}
+                record_timing("dashboardRequest",time.monotonic()-started)
+                self.send_json({"status":status,"stacks":snap["stacks"],"containers":snap["containers"],"cache":snap.get("cache"),"auth":{"configured":bool(load_auth()),"authenticated":bool(session),"user":session.get("user") if session else None,"csrf":session.get("csrf") if session else None,"auth":auth_diagnostics()}});return
             if path=="/api/stacks":self.send_json(discover_stacks());return
             if path=="/api/containers":self.send_json(containers());return
             if path=="/api/images":
@@ -869,7 +926,7 @@ class Handler(BaseHTTPRequestHandler):
                 cid,kind=m.groups();self.send_json({"logs":container_logs(cid)} if kind=="logs" else (inspect_container(cid) if kind=="inspect" else image_status(cid)));return
             if path=="/api/containers/stats":
                 if not self.require_auth():return
-                self.send_json(container_stats());return
+                started=time.monotonic();data=container_stats();record_timing("containerStats",time.monotonic()-started);self.send_json(data);return
             m=re.fullmatch(r"/api/containers/([0-9a-fA-F]+)/logs/stream",path)
             if m:
                 if not self.require_auth():return
