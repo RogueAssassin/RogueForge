@@ -4,6 +4,12 @@ const setHtml = (selector, value) => { const node=$(selector); if(node) node.inn
 const $$ = selector => [...document.querySelectorAll(selector)];
 const state = { status: null, stacks: [], containers: [], currentStack: null, loading: false, auth: { configured: false, authenticated: false, user: null, csrf: null }, hydrated: false, lastRefresh: 0 };
 const DASHBOARD_CACHE_KEY = "rogueforge.dashboard.snapshot.v1";
+let dashboardRequest=null;
+function requestDashboard(force=false){
+  if(dashboardRequest)return dashboardRequest;
+  dashboardRequest=api("/api/dashboard"+(force?"?refresh=1":"")).finally(()=>{dashboardRequest=null;});
+  return dashboardRequest;
+}
 function saveDashboardSnapshot(snapshot){
   try { sessionStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), snapshot })); } catch {}
 }
@@ -208,12 +214,11 @@ function renderStatus() {
 
 function renderAll() { renderStatus(); renderOverview(); renderStacks(); renderContainers(); }
 
-async function load({ quiet = false } = {}) {
-  if (state.loading) return;
-  state.loading = true;
-  $("#refreshButton").classList.add("spinning");
+async function load({ quiet = false, force = false } = {}) {
+  const ownsLoading=!state.loading;
+  if(ownsLoading){state.loading=true;$("#refreshButton").classList.add("spinning");}
   try {
-    const snapshot = await api("/api/dashboard");
+    const snapshot = await requestDashboard(force);
     state.status = snapshot.status;
     state.stacks = snapshot.stacks || [];
     state.containers = snapshot.containers || [];
@@ -229,14 +234,12 @@ async function load({ quiet = false } = {}) {
     setText("#engineDetail", error.message);
     toast(error.message, "error");
   } finally {
-    state.loading = false;
-    $("#refreshButton").classList.remove("spinning");
+    if(ownsLoading){state.loading=false;$("#refreshButton").classList.remove("spinning");}
   }
 }
 
 async function refreshRuntimeInventory(){
-  try{[state.stacks,state.containers]=await Promise.all([api("/api/stacks"),api("/api/containers")]);renderOverview();renderStacks();renderContainers();}
-  catch(error){toast(error.message,"error");}
+  await load({quiet:true,force:true});
 }
 
 function confirmAction(title, message, button = "Continue") {
@@ -349,7 +352,7 @@ document.addEventListener("error", event => {
   if (event.target.matches?.(".service-logo img")) event.target.closest(".service-logo").classList.add("fallback");
 }, true);
 $("#menuButton").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
-$("#refreshButton").addEventListener("click", () => load());
+$("#refreshButton").addEventListener("click", () => load({force:true}));
 $("#saveCompose").addEventListener("click", saveCompose);
 $("#loginForm").addEventListener("submit", login);
 $("#accountButton").addEventListener("click", accountAction);
@@ -519,7 +522,7 @@ function rfBranding(){const nav=[...document.querySelectorAll('.nav-item[data-vi
 
 const rfOldRenderAll=renderAll;renderAll=function renderAllV080(){rfOldRenderAll();rfBranding();renderOverview();renderStacks();renderContainers();const v=$('#rfSidebarVersion');if(v&&state.status?.appVersion)v.textContent=`v${state.status.appVersion}`;};
 
-document.addEventListener('click',e=>{const exp=e.target.closest('[data-rf-expand]');if(exp){const n=exp.dataset.rfExpand;rfExpandedStacks.has(n)?rfExpandedStacks.delete(n):rfExpandedStacks.add(n);renderStacks();}const upd=e.target.closest('[data-rf-stack-update]');if(upd)rfUpdateStack(upd.dataset.rfStackUpdate);const cfg=e.target.closest('[data-rf-config]');if(cfg)rfEditConfig(cfg.dataset.rfConfig);const env=e.target.closest('[data-rf-env]');if(env)rfEditEnv(env.dataset.rfEnv);if(e.target.closest('#rfRefreshOverview'))load();if(e.target.closest('#rfUpdateAll'))updateAllContainers();if(e.target.closest('#rfDiscovery'))rfShowDiscovery();const go=e.target.closest('[data-go-stack]');if(go){setView('stacks');rfExpandedStacks.add(go.dataset.goStack);renderStacks();setTimeout(()=>document.getElementById(`rf-stack-${CSS.escape(go.dataset.goStack)}`)?.scrollIntoView({behavior:'smooth',block:'center'}),50);}});
+document.addEventListener('click',e=>{const exp=e.target.closest('[data-rf-expand]');if(exp){const n=exp.dataset.rfExpand;rfExpandedStacks.has(n)?rfExpandedStacks.delete(n):rfExpandedStacks.add(n);renderStacks();}const upd=e.target.closest('[data-rf-stack-update]');if(upd)rfUpdateStack(upd.dataset.rfStackUpdate);const cfg=e.target.closest('[data-rf-config]');if(cfg)rfEditConfig(cfg.dataset.rfConfig);const env=e.target.closest('[data-rf-env]');if(env)rfEditEnv(env.dataset.rfEnv);if(e.target.closest('#rfRefreshOverview'))load({force:true});if(e.target.closest('#rfUpdateAll'))updateAllContainers();if(e.target.closest('#rfDiscovery'))rfShowDiscovery();const go=e.target.closest('[data-go-stack]');if(go){setView('stacks');rfExpandedStacks.add(go.dataset.goStack);renderStacks();setTimeout(()=>document.getElementById(`rf-stack-${CSS.escape(go.dataset.goStack)}`)?.scrollIntoView({behavior:'smooth',block:'center'}),50);}});
 rfBranding();
 
 /* Canonical UI compatibility/resilience layer. */

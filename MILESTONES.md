@@ -40,11 +40,11 @@ Status: **validated 0.9.0 baseline**
 - [x] Fold the remaining build-time runtime preparation transformations into canonical source and retire `tools/prepare_runtime.py`.
 
 ### Performance and reliability
-- [ ] Coalesce simultaneous dashboard refreshes so only one engine inventory refresh is in flight.
-- [ ] Add stale-while-revalidate server snapshots for Overview/Stacks/Runtime.
+- [x] Coalesce simultaneous dashboard refreshes so only one dashboard/engine refresh is in flight.
+- [x] Add stale-while-revalidate server snapshots for Overview/Stacks/Runtime.
 - [ ] Invalidate only affected stack/container cache entries after operations.
 - [ ] Batch runtime stats and cap concurrent inspect/stats work.
-- [ ] Add endpoint timing diagnostics for dashboard, stacks, containers and stats.
+- [x] Add timing diagnostics for dashboard build/request, container inventory and stats.
 - [ ] Add graceful degradation when one engine/stack query is slow rather than blocking the full dashboard.
 
 ### Security and production hardening
@@ -67,13 +67,13 @@ Status: **validated 0.9.0 baseline**
 
 ## 0.9.1 — Safety, recovery and observability
 
-Status: **current testing milestone**
+Status: **validated 0.9.1 baseline**
 
 - [x] Roll testing version to 0.9.1.
 - [x] Persist server-backed Operations history with explicit duration/result/failure metadata.
 - [x] Transactional Compose/.env save + automatic restore on validation/write failure.
 - [x] Verified stack update rollback backend foundation; recovery status is returned to Operations/API callers.
-- [ ] Coalesced dashboard refresh and stale-while-revalidate snapshots.
+- [x] Coalesced dashboard refresh and stale-while-revalidate snapshots (completed in 0.9.2).
 - [ ] Security header/session hardening and destructive-action guardrails.
 - [ ] Guarded Images/Volumes/Networks lifecycle actions.
 
@@ -83,6 +83,21 @@ Status: **current testing milestone**
 - [ ] Notification hooks for failed operations and unhealthy stacks.
 - [ ] Exportable diagnostics bundle with secrets redacted.
 - [ ] Lightweight health/event history for troubleshooting without becoming a monitoring platform.
+
+## 0.9.2 — Performance, cache coherence and diagnostics
+
+Status: **current testing milestone**
+
+- [x] Roll testing version to 0.9.2.
+- [x] Coalesce simultaneous browser dashboard requests into one in-flight request.
+- [x] Add server-side dashboard stale-while-revalidate snapshots for Overview/Stacks/Runtime.
+- [x] Force-refresh controls explicitly bypass the dashboard snapshot.
+- [x] Lifecycle inventory invalidation expires dashboard/resource snapshots.
+- [x] Add rolling dashboard-build, dashboard-request, container-inventory and stats timing diagnostics.
+- [ ] Add targeted stack/container cache invalidation instead of full inventory expiry.
+- [ ] Add graceful partial dashboard responses when one engine query exceeds its latency budget.
+- [ ] Bound concurrent stats/inspect work.
+- [ ] Continue security/session hardening and guarded runtime-resource actions.
 
 ## 1.0.0 — Stable single-host release
 

@@ -13,7 +13,7 @@
   </tr>
 </table>
 
-[![Testing](https://img.shields.io/badge/TESTING-0.9.1-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
+[![Testing](https://img.shields.io/badge/TESTING-0.9.2-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
 [![GHCR](https://img.shields.io/badge/GHCR-PACKAGE-5c6ac4?style=for-the-badge&logo=github&logoColor=white&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/pkgs/container/rogueforge)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueForge/container.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/actions/workflows/container.yml?query=branch%3Atesting)
 ![Runtime](https://img.shields.io/badge/RUNTIME-PYTHON%203.11-ff4fc8?style=for-the-badge&labelColor=45464d)
@@ -111,7 +111,7 @@ chmod +x update.sh
 
 Update/editor backups are kept outside the stack discovery tree under `/tmp/rogueforge/`.
 
-## 0.9.1 testing milestone
+## 0.9.2 testing milestone
 
 0.9.1 carries the validated 0.9.0 runtime-resource baseline forward and focuses on safety, recovery, observability and production hardening:
 
