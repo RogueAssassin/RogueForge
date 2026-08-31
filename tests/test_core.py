@@ -36,9 +36,9 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('out=run_compose(name,["pull"])',src);self.assertIn('run_compose(name,["down"])',src);self.assertIn('run_compose(name,["up","-d"])',src)
  def test_http_disconnect_and_head_support(self):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('def do_HEAD(self):',src);self.assertIn('except (BrokenPipeError,ConnectionResetError)',src)
- def test_v087_dashboard_snapshot(self):
+ def test_dashboard_snapshot_contract(self):
   backend=(ROOT/'rogueforge.py').read_text();frontend=(ROOT/'static/app.js').read_text()
-  self.assertIn('/api/dashboard',backend);self.assertIn('const snapshot = await api("/api/dashboard")',frontend)
+  self.assertIn('/api/dashboard',backend);self.assertIn('function requestDashboard(force=false)',frontend);self.assertIn('const snapshot = await requestDashboard(force)',frontend)
   self.assertIn('DASHBOARD_CACHE_KEY',frontend);self.assertIn('hydrateDashboardSnapshot()',frontend);self.assertIn('sessionStorage.setItem',frontend)
   self.assertIn('if(!document.hidden) load({ quiet: true })',frontend);self.assertIn('visibilitychange',frontend)
   controls=(ROOT/'static/container-controls.js').read_text();self.assertIn('setTimeout(refreshContainerStats,1200)',controls);self.assertIn('setInterval(refreshContainerStats,15000)',controls)
@@ -110,12 +110,11 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn("nativeFetch('/api/operations'",ops);self.assertIn('waitOperation',ops);self.assertIn('data-rf-cancel-op',ops);self.assertNotIn('localStorage.getItem(HISTORY_KEY)',ops)
   self.assertIn('async function refreshRuntimeInventory()',app);self.assertIn('await refreshRuntimeInventory()',app)
   self.assertIn('composePath',src);self.assertIn('directory',src);self.assertIn('Pin operations to the exact Compose path',src)
- def test_v091_canonical_baseline(self):
+ def test_current_release_baseline(self):
   self.assertEqual((ROOT/'VERSION').read_text().strip(),'0.9.2')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def _load_containers_uncached()',src);self.assertIn('/api/dashboard',src)
   self.assertIn('## 0.9.2 — Performance, cache coherence and diagnostics',road)
-
  def test_transactional_stack_editor_writes(self):
   src=(ROOT/'rogueforge.py').read_text()
   self.assertIn('def _atomic_write(path,content):',src);self.assertIn('os.fsync(f.fileno())',src);self.assertIn('os.replace(tmp,path)',src)
@@ -123,7 +122,6 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('def save_stack_compose(name,content):return _transactional_stack_save(name,"compose",content)',src)
   self.assertIn('def save_stack_env(name,content):return _transactional_stack_save(name,"env",content)',src)
   self.assertNotIn('backup=_backup_file(p,"compose-backups");p.write_text(content,encoding="utf-8")',src)
-
  def test_stack_update_verification_and_rollback_foundation(self):
   src=(ROOT/'rogueforge.py').read_text()
   self.assertIn('def _stack_running_snapshot(name):',src);self.assertIn('def _verify_stack_running(name,before,timeout=45):',src)
@@ -131,7 +129,6 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('rollbackAttempted',src);self.assertIn('def _restore_stack_images(before):',src);self.assertIn('engine_cli(["tag",image_id,image_ref],60)',src)
   self.assertIn('str(c.get("state","")).lower()!="running"',src);self.assertNotIn('["config","--format","json"]',src)
   self.assertIn("Rollback {'succeeded' if rollback_ok else 'failed'}",src)
-
  def test_v092_dashboard_coalescing_and_swr(self):
   src=(ROOT/'rogueforge.py').read_text();app=(ROOT/'static/app.js').read_text();env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text()
   self.assertIn('DASHBOARD_CACHE_SECONDS',src);self.assertIn('DASHBOARD_STALE_SECONDS',src);self.assertIn('def dashboard_snapshot(force=False):',src)
@@ -139,5 +136,4 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('record_timing("dashboardBuild"',src);self.assertIn('record_timing("containerInventory"',src);self.assertIn('record_timing("containerStats"',src)
   self.assertIn('let dashboardRequest=null;',app);self.assertIn('function requestDashboard(force=false)',app);self.assertIn('?refresh=1',app);self.assertIn('await load({quiet:true,force:true})',app)
   self.assertIn('ROGUEFORGE_DASHBOARD_CACHE=3',env);self.assertIn('ROGUEFORGE_DASHBOARD_STALE=30',env);self.assertIn('ROGUEFORGE_DASHBOARD_CACHE:',compose)
-
 if __name__=='__main__':unittest.main()
