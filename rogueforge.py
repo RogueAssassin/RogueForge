@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RogueForge 0.9.2 — single-file Docker/Podman Compose operations runtime."""
+"""RogueForge 0.9.3 — single-file Docker/Podman Compose operations runtime."""
 from __future__ import annotations
 
 import base64, hashlib, hmac, json, mimetypes, os, re, secrets, socket, subprocess, sys, threading, time
@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-VERSION="0.9.2"
+VERSION="0.9.3"
 PORT=int(os.environ.get("ROGUEFORGE_PORT","7810")); BIND=os.environ.get("ROGUEFORGE_BIND","127.0.0.1")
 MEDIA_ROOT=Path(os.environ.get("ROGUEFORGE_MEDIA_ROOT","/opt/media-server")).resolve()
 COMPOSE_ROOT=Path(os.environ.get("ROGUEFORGE_COMPOSE_ROOT",os.environ.get("ROGUEFORGE_STACKS_DIR",str(MEDIA_ROOT)))).resolve()
@@ -851,10 +851,16 @@ def diagnostics():
 class Handler(BaseHTTPRequestHandler):
     server_version=f"RogueForge/{VERSION}"
     def log_message(self,fmt,*args):sys.stderr.write("%s - %s\n"%(self.log_date_time_string(),fmt%args))
+    def send_security_headers(self):
+        self.send_header("x-content-type-options","nosniff")
+        self.send_header("x-frame-options","DENY")
+        self.send_header("referrer-policy","no-referrer")
+        self.send_header("permissions-policy","camera=(), microphone=(), geolocation=()")
+        self.send_header("cross-origin-opener-policy","same-origin")
     def send_json(self,v,status=200,headers=None):
         raw=json.dumps(v,separators=(",",":")).encode()
         try:
-            self.send_response(status);self.send_header("content-type","application/json");self.send_header("content-length",str(len(raw)));self.send_header("cache-control","no-store");self.send_header("x-content-type-options","nosniff")
+            self.send_response(status);self.send_header("content-type","application/json");self.send_header("content-length",str(len(raw)));self.send_header("cache-control","no-store");self.send_security_headers()
             for n,c in (headers or {}).items():self.send_header(n,c)
             self.end_headers();self.wfile.write(raw)
         except (BrokenPipeError,ConnectionResetError):return
@@ -878,11 +884,11 @@ class Handler(BaseHTTPRequestHandler):
         rel="index.html" if rel in ("","/") else rel.lstrip("/");p=(STATIC_DIR/rel).resolve()
         if STATIC_DIR not in p.parents and p!=STATIC_DIR:self.send_error(404);return
         if not p.is_file():p=STATIC_DIR/"index.html"
-        d=p.read_bytes();self.send_response(200);self.send_header("content-type",mimetypes.guess_type(str(p))[0] or "application/octet-stream");self.send_header("content-length",str(len(d)));self.send_header("cache-control","no-store, max-age=0");self.send_header("pragma","no-cache");self.send_header("x-content-type-options","nosniff");self.end_headers();self.wfile.write(d)
+        d=p.read_bytes();self.send_response(200);self.send_header("content-type",mimetypes.guess_type(str(p))[0] or "application/octet-stream");self.send_header("content-length",str(len(d)));self.send_header("cache-control","no-store, max-age=0");self.send_header("pragma","no-cache");self.send_security_headers();self.end_headers();self.wfile.write(d)
     def do_HEAD(self):
         path=urlparse(self.path).path
         if path in ("/","/health") or path.startswith("/static/"):
-            self.send_response(200);self.send_header("cache-control","no-store");self.end_headers();return
+            self.send_response(200);self.send_header("cache-control","no-store");self.send_security_headers();self.end_headers();return
         self.send_response(404);self.end_headers()
     def do_GET(self):
         try:
