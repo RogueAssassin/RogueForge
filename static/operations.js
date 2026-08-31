@@ -1,4 +1,4 @@
-// RogueForge operations-quality layer (v0.8.4).
+// RogueForge canonical operations and runtime-quality layer.
 (()=>{
   const CDN='https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg';
   const RAW='https://raw.githubusercontent.com/homarr-labs/dashboard-icons/main/svg';
@@ -17,6 +17,14 @@
     for(const suffix of ['-server','-web','-app','-container'])if(raw.endsWith(suffix))raw=raw.slice(0,-suffix.length);
     return ICON_ALIASES[raw]||raw||'docker';
   }
+  function bestIdentity(key){
+    const raw=String(key||'');
+    const items=window.state?.containers||[];
+    const exact=items.find(c=>c.name===raw||c.service===raw);
+    if(exact)return exact.image||exact.service||exact.name||raw;
+    const project=items.find(c=>c.project===raw||c.projectDisplay===raw);
+    return project?(project.image||project.service||project.name||raw):raw;
+  }
   function iconSources(value){const key=cleanIconKey(value),local=encodeURIComponent(String(value||key));return[`${CDN}/${encodeURIComponent(key)}.svg`,`${RAW}/${encodeURIComponent(key)}.svg`,`/api/icons/${local}`,`${CDN}/docker.svg`];}
   function wireIcon(img){
     if(img.dataset.rfIconReady==='1')return;img.dataset.rfIconReady='1';
@@ -24,7 +32,7 @@
     img.addEventListener('load',()=>{img.style.display='block';img.classList.add('rf-icon-loaded');});
     img.addEventListener('error',()=>{at++;if(at<sources.length){img.src=sources[at];return;}img.style.display='none';});
   }
-  window.serviceLogo=serviceLogo=function(key){const initial=String(key||'?').charAt(0).toUpperCase();return`<span class="service-logo rf-service-logo"><img data-rf-icon="${attr(key||'service')}" alt="${attr(key||'service')}" loading="lazy"><b>${escapeHtml(initial)}</b></span>`;};
+  window.serviceLogo=serviceLogo=function(key){const identity=bestIdentity(key),initial=String(key||'?').charAt(0).toUpperCase();return`<span class="service-logo rf-service-logo"><img data-rf-icon="${attr(identity||key||'service')}" alt="${attr(key||'service')}" loading="lazy"><b>${escapeHtml(initial)}</b></span>`;};
   function scanIcons(root=document){root.querySelectorAll?.('img[data-rf-icon]').forEach(wireIcon);}
   const observer=new MutationObserver(rs=>rs.forEach(r=>r.addedNodes.forEach(n=>{if(n.nodeType===1){if(n.matches?.('img[data-rf-icon]'))wireIcon(n);scanIcons(n);}})));
 
