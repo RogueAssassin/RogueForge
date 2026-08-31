@@ -44,6 +44,20 @@ jobs:
           test ! -e tools/prepare_runtime.py
           ! compgen -G 'tools/apply_v*.py' >/dev/null
           ! compgen -G 'static/v[0-9]*.*' >/dev/null
+      - name: Validate release and frontend consistency
+        shell: bash
+        run: |
+          VERSION=$(cat VERSION)
+          grep -Fq "$VERSION" README.md
+          grep -Fq "rogueforge:$VERSION" compose.yaml
+          grep -Fq "rogueforge:$VERSION" .env.example
+          grep -Fq "VERSION=$VERSION" install.sh
+          grep -Fq "$VERSION" docs/GHCR.md
+          test ! -e static/runtime-quality.js
+          test "$(grep -o 'src="/operations.js"' static/index.html | wc -l)" -eq 1
+          test "$(grep -o 'href="/operations.css"' static/index.html | wc -l)" -eq 1
+          ! grep -R -E 'v0\.8|container-(row|head)-v0' static/*.js static/*.css static/branding/*.js
+
       - name: Run unit tests
         run: python3 -m unittest discover -s tests -v
       - name: Validate container build locally
