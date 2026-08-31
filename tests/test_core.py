@@ -140,10 +140,10 @@ class RogueForgeTests(unittest.TestCase):
   root=(ROOT/'static/index.html').read_text();app=(ROOT/'static/app.js').read_text();brand=(ROOT/'static/branding/branding-switch.js').read_text();ops=(ROOT/'static/operations.js').read_text();src=(ROOT/'rogueforge.py').read_text()
   self.assertFalse((ROOT/'static/runtime-quality.js').exists())
   self.assertEqual(root.count('src="/operations.js"'),1);self.assertEqual(root.count('href="/operations.css"'),1)
-  self.assertNotIn("script.src='/operations.js'",app);self.assertNotIn('/operations.js',brand);self.assertIn('function bestIdentity(key)',ops)
+  self.assertNotIn("script.src='/operations.js'",app);self.assertNotIn('/operations.js',brand);self.assertIn('function bestIdentity(key)',ops);self.assertIn("row.querySelector('.rf-action-secondary')",(ROOT/'static/live-ops.js').read_text())
   for header in ('x-frame-options','referrer-policy','permissions-policy','cross-origin-opener-policy'):self.assertIn(header,src)
   for path in ('static/app.js','static/container-controls.js','static/operations.js','static/live-ops.js','static/branding/branding-switch.js'):
-   self.assertNotIn('v0.8',(ROOT/path).read_text())
-  self.assertNotIn('container-row-v0',(ROOT/'static/container-controls.js').read_text());self.assertNotIn('container-head-v0',(ROOT/'static/container-controls.css').read_text())
+   self.assertNotRegex((ROOT/path).read_text(),r'v0\.[0-9]')
+  self.assertNotIn('container-row-v0',(ROOT/'static/container-controls.js').read_text());self.assertNotIn('container-head-v0',(ROOT/'static/container-controls.css').read_text());self.assertNotIn('container-actions-v0',(ROOT/'static/live-ops.js').read_text())
 
 if __name__=='__main__':unittest.main()
