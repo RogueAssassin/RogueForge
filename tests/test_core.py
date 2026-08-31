@@ -53,8 +53,8 @@ class RogueForgeTests(unittest.TestCase):
   wf=(ROOT/'.github/workflows/container.yml').read_text();self.assertNotIn('python3 tools/prepare_runtime.py',wf);self.assertNotIn('tools/apply_v0',wf);self.assertIn('branches: [main, testing]',wf);self.assertNotIn('v0.8.7-testing',wf);self.assertIn('type=raw,value=testing',wf);self.assertNotIn('branch-${{ steps.version.outputs.safe_branch }}',wf)
   tools_py=list((ROOT/'tools').glob('*.py'));self.assertEqual(tools_py,[])
  def test_ui_quality(self):
-  controls=(ROOT/'static/container-controls.js').read_text();css=(ROOT/'static/operations.css').read_text();quality=(ROOT/'static/runtime-quality.js').read_text();loader=(ROOT/'static/branding/branding-switch.js').read_text()
-  self.assertIn('const iconKey=c.image||c.service||c.name',controls);self.assertIn('rf-action-primary',controls);self.assertIn('object-position:center',css);self.assertIn('bestIdentity',quality);self.assertIn('/runtime-quality.js',loader);app=(ROOT/'static/app.js').read_text();self.assertIn('data-rf-config=',app);self.assertIn('data-rf-config-tab="compose"',app);self.assertIn('data-rf-config-tab="env"',app);self.assertNotIn('data-edit-stack="${attr(stack.name)}">Compose</button><button class="small-button" data-rf-env=',app)
+  controls=(ROOT/'static/container-controls.js').read_text();css=(ROOT/'static/operations.css').read_text();operations=(ROOT/'static/operations.js').read_text();loader=(ROOT/'static/branding/branding-switch.js').read_text()
+  self.assertIn('const iconKey=c.image||c.service||c.name',controls);self.assertIn('rf-action-primary',controls);self.assertIn('object-position:center',css);self.assertIn('function bestIdentity(key)',operations);self.assertNotIn('runtime-quality.js',loader);app=(ROOT/'static/app.js').read_text();self.assertIn('data-rf-config=',app);self.assertIn('data-rf-config-tab="compose"',app);self.assertIn('data-rf-config-tab="env"',app);self.assertNotIn('data-edit-stack="${attr(stack.name)}">Compose</button><button class="small-button" data-rf-env=',app)
  def test_static_assets_are_never_stale(self):
   src=(ROOT/'rogueforge.py').read_text();html=(ROOT/'static/index.html').read_text();css=(ROOT/'static/styles.css').read_text();app=(ROOT/'static/app.js').read_text()
   self.assertIn('cache-control","no-store, max-age=0"',src)
@@ -111,10 +111,10 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('async function refreshRuntimeInventory()',app);self.assertIn('await refreshRuntimeInventory()',app)
   self.assertIn('composePath',src);self.assertIn('directory',src);self.assertIn('Pin operations to the exact Compose path',src)
  def test_current_release_baseline(self):
-  self.assertEqual((ROOT/'VERSION').read_text().strip(),'0.9.2')
+  self.assertEqual((ROOT/'VERSION').read_text().strip(),'0.9.3')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def _load_containers_uncached()',src);self.assertIn('/api/dashboard',src)
-  self.assertIn('## 0.9.2 — Performance, cache coherence and diagnostics',road)
+  self.assertIn('## 0.9.3 — Frontend consolidation and security hardening',road)
  def test_transactional_stack_editor_writes(self):
   src=(ROOT/'rogueforge.py').read_text()
   self.assertIn('def _atomic_write(path,content):',src);self.assertIn('os.fsync(f.fileno())',src);self.assertIn('os.replace(tmp,path)',src)
@@ -136,4 +136,13 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('record_timing("dashboardBuild"',src);self.assertIn('record_timing("containerInventory"',src);self.assertIn('record_timing("containerStats"',src)
   self.assertIn('let dashboardRequest=null;',app);self.assertIn('function requestDashboard(force=false)',app);self.assertIn('?refresh=1',app);self.assertIn('await load({quiet:true,force:true})',app)
   self.assertIn('ROGUEFORGE_DASHBOARD_CACHE=3',env);self.assertIn('ROGUEFORGE_DASHBOARD_STALE=30',env);self.assertIn('ROGUEFORGE_DASHBOARD_CACHE:',compose)
+ def test_v093_asset_graph_security_and_release_hygiene(self):
+  root=(ROOT/'static/index.html').read_text();app=(ROOT/'static/app.js').read_text();brand=(ROOT/'static/branding/branding-switch.js').read_text();ops=(ROOT/'static/operations.js').read_text();src=(ROOT/'rogueforge.py').read_text()
+  self.assertFalse((ROOT/'static/runtime-quality.js').exists())
+  self.assertEqual(root.count('src="/operations.js"'),1);self.assertEqual(root.count('href="/operations.css"'),1)
+  self.assertNotIn("script.src='/operations.js'",app);self.assertNotIn('/operations.js',brand);self.assertIn('function bestIdentity(key)',ops)
+  for header in ('x-frame-options','referrer-policy','permissions-policy','cross-origin-opener-policy'):self.assertIn(header,src)
+  for path in ('static/app.js','static/container-controls.js','static/operations.js','static/live-ops.js','static/branding/branding-switch.js'):
+   self.assertNotIn('v0.8',(ROOT/path).read_text())
+
 if __name__=='__main__':unittest.main()
