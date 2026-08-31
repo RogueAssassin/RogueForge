@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.3 — Frontend consolidation and security hardening
+
+- Rolled the permanent testing channel to 0.9.3 after the validated 0.9.2 cache/coalescing milestone.
+- Removed the redundant runtime-quality frontend asset and folded its container/image identity resolver into the canonical operations layer.
+- Removed duplicate dynamic loading of `operations.js` / `operations.css`; the browser now has one explicit asset graph declared by `index.html`.
+- Removed active v0.8-era comments/function labels/placeholders from the canonical frontend while preserving the existing RogueForge branding assets.
+- Added consistent frame, referrer, permissions and cross-origin opener security headers to API/static/HEAD responses.
+- Added regression coverage for the 0.9.3 asset graph, release hygiene and security-header contract.
+
+
 ## 0.9.2 — Performance, cache coherence and diagnostics
 
 - Rolled the permanent testing channel to 0.9.2 after the validated 0.9.1 transactional editor and update-recovery stages.
