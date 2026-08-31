@@ -74,7 +74,7 @@ Status: **validated 0.9.1 baseline**
 - [x] Transactional Compose/.env save + automatic restore on validation/write failure.
 - [x] Verified stack update rollback backend foundation; recovery status is returned to Operations/API callers.
 - [x] Coalesced dashboard refresh and stale-while-revalidate snapshots (completed in 0.9.2).
-- [ ] Security header/session hardening and destructive-action guardrails.
+- [x] Security header foundation completed in 0.9.3; session/proxy and destructive-action guardrails remain.
 - [ ] Guarded Images/Volumes/Networks lifecycle actions.
 
 ### Automation and observability
@@ -86,7 +86,7 @@ Status: **validated 0.9.1 baseline**
 
 ## 0.9.2 — Performance, cache coherence and diagnostics
 
-Status: **current testing milestone**
+Status: **validated 0.9.2 baseline**
 
 - [x] Roll testing version to 0.9.2.
 - [x] Coalesce simultaneous browser dashboard requests into one in-flight request.
@@ -98,6 +98,21 @@ Status: **current testing milestone**
 - [ ] Add graceful partial dashboard responses when one engine query exceeds its latency budget.
 - [ ] Bound concurrent stats/inspect work.
 - [ ] Continue security/session hardening and guarded runtime-resource actions.
+
+## 0.9.3 — Frontend consolidation and security hardening
+
+Status: **current testing milestone**
+
+- [x] Roll testing version to 0.9.3.
+- [x] Replace duplicate dynamic operations/quality loading with one explicit frontend asset graph.
+- [x] Fold runtime icon identity resolution into the canonical operations layer and remove the redundant quality script.
+- [x] Remove active v0.8-era frontend labels/placeholders from canonical JavaScript.
+- [x] Add security headers for framing, referrer leakage, browser permissions and cross-origin opener isolation.
+- [x] Add regression guards for duplicate asset loading, stale active-script version labels and release metadata.
+- [ ] Add graceful partial dashboard responses when one engine query exceeds its latency budget.
+- [ ] Bound concurrent stats/inspect work.
+- [ ] Harden reverse-proxy/session behavior and document trusted proxy expectations.
+- [ ] Begin guarded Images/Volumes/Networks lifecycle controls after the safety contract is complete.
 
 ## 1.0.0 — Stable single-host release
 
