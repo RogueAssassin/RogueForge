@@ -142,6 +142,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertEqual(root.count('src="/operations.js"'),1);self.assertEqual(root.count('href="/operations.css"'),1)
   self.assertNotIn("script.src='/operations.js'",app);self.assertNotIn('/operations.js',brand);self.assertIn('function bestIdentity(key)',ops);self.assertIn("row.querySelector('.rf-action-secondary')",(ROOT/'static/live-ops.js').read_text())
   for header in ('x-frame-options','referrer-policy','permissions-policy','cross-origin-opener-policy'):self.assertIn(header,src)
+  self.assertIn('h.send_security_headers();h.end_headers()',src)
   for path in ('static/app.js','static/container-controls.js','static/operations.js','static/live-ops.js','static/branding/branding-switch.js'):
    self.assertNotRegex((ROOT/path).read_text(),r'v0\.[0-9]')
   self.assertNotIn('container-row-v0',(ROOT/'static/container-controls.js').read_text());self.assertNotIn('container-head-v0',(ROOT/'static/container-controls.css').read_text());self.assertNotIn('container-actions-v0',(ROOT/'static/live-ops.js').read_text())
