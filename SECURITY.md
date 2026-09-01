@@ -53,3 +53,10 @@ RogueForge 0.9.3 sends a consistent baseline of browser security headers from th
 - `X-Content-Type-Options: nosniff` remains enabled for API and static responses.
 
 TLS/HSTS and trusted-forwarded-header policy should continue to be enforced by the administrator's reverse proxy.
+
+
+## Runtime session and engine limits
+
+RogueForge 0.9.4 bounds engine-detail and interactive-session work. Administrators can tune `ROGUEFORGE_ENGINE_DETAIL_CONCURRENCY`, `ROGUEFORGE_MAX_TERMINALS`, `ROGUEFORGE_TERMINAL_TTL`, `ROGUEFORGE_TERMINAL_MAX_LIFETIME` and `ROGUEFORGE_MAX_LOG_STREAMS`.
+
+The defaults are intentionally conservative for a single-host management service. Raising these limits increases concurrent work against the Docker/Podman socket and should only be done when the host has sufficient capacity.
