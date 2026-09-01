@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.4 — Final production hardening
+
+- Rolled the testing channel to 0.9.4 as the final hardening milestone before the 1.0 release candidate.
+- Added a configurable concurrency bound around container inspect/stats engine-detail work to prevent bursts of remote socket calls.
+- Added configurable maximum terminal sessions, terminal idle timeout, absolute terminal lifetime and concurrent live-log stream limits.
+- Live-log capacity exhaustion now returns HTTP 429 instead of creating an unbounded engine process.
+- Dashboard snapshot construction now isolates inventory, registry, stack and container failures and returns available data with explicit degraded/error metadata instead of failing the entire page.
+- Added regression coverage and release metadata for the new hardening limits.
+
+
 ## 0.9.3 — Frontend consolidation and security hardening
 
 - Rolled the permanent testing channel to 0.9.3 after the validated 0.9.2 cache/coalescing milestone.
