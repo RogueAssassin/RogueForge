@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RogueForge 0.9.3 — single-file Docker/Podman Compose operations runtime."""
+"""RogueForge 0.9.4 — single-file Docker/Podman Compose operations runtime."""
 from __future__ import annotations
 
 import base64, hashlib, hmac, json, mimetypes, os, re, secrets, socket, subprocess, sys, threading, time
@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-VERSION="0.9.3"
+VERSION="0.9.4"
 PORT=int(os.environ.get("ROGUEFORGE_PORT","7810")); BIND=os.environ.get("ROGUEFORGE_BIND","127.0.0.1")
 MEDIA_ROOT=Path(os.environ.get("ROGUEFORGE_MEDIA_ROOT","/opt/media-server")).resolve()
 COMPOSE_ROOT=Path(os.environ.get("ROGUEFORGE_COMPOSE_ROOT",os.environ.get("ROGUEFORGE_STACKS_DIR",str(MEDIA_ROOT)))).resolve()
@@ -24,7 +24,15 @@ SCAN_DEPTH=max(1,min(12,int(os.environ.get("ROGUEFORGE_SCAN_DEPTH","4")))); CACH
 COMPOSE_NAMES=("podman-compose.yaml","compose.podman.yaml","docker-compose.yaml","docker-compose.yml","compose.yaml","compose.yml")
 EXCLUDED_DIRS={".git",".cache","node_modules","__pycache__","backup","backups","update-backups","rogueforge-update-backups"}; MAX_BODY=2_000_000; LOGIN_WINDOW=300; LOGIN_LIMIT=8
 _sessions={}; _login_attempts={}; _login_lock=threading.Lock(); _runtime=None; _discovery_cache={"time":0.0,"records":[],"aliases":{},"by_dir":{}}
-_terminal_sessions={}; _terminal_lock=threading.Lock(); TERMINAL_TTL=1800; TERMINAL_CLOSED_GRACE=60; MAX_TERMINAL_CHUNKS=2500
+_terminal_sessions={}; _terminal_lock=threading.Lock()
+TERMINAL_TTL=max(60,min(7200,int(os.environ.get("ROGUEFORGE_TERMINAL_TTL","1800"))))
+TERMINAL_MAX_LIFETIME=max(300,min(28800,int(os.environ.get("ROGUEFORGE_TERMINAL_MAX_LIFETIME","7200"))))
+MAX_TERMINAL_SESSIONS=max(1,min(16,int(os.environ.get("ROGUEFORGE_MAX_TERMINALS","4"))))
+TERMINAL_CLOSED_GRACE=60; MAX_TERMINAL_CHUNKS=2500
+MAX_LOG_STREAMS=max(1,min(32,int(os.environ.get("ROGUEFORGE_MAX_LOG_STREAMS","6"))))
+ENGINE_DETAIL_CONCURRENCY=max(1,min(16,int(os.environ.get("ROGUEFORGE_ENGINE_DETAIL_CONCURRENCY","4"))))
+_engine_detail_slots=threading.BoundedSemaphore(ENGINE_DETAIL_CONCURRENCY)
+_log_stream_slots=threading.BoundedSemaphore(MAX_LOG_STREAMS)
 INVENTORY_CACHE_SECONDS=max(1,min(30,int(os.environ.get("ROGUEFORGE_INVENTORY_CACHE","2"))))
 _inventory_cache={"time":0.0,"items":[]}; _inventory_lock=threading.Lock()
 DASHBOARD_CACHE_SECONDS=max(1,min(30,int(os.environ.get("ROGUEFORGE_DASHBOARD_CACHE","3"))))
@@ -546,11 +554,14 @@ def save_stack_env(name,content):return _transactional_stack_save(name,"env",con
 def save_stack_compose(name,content):return _transactional_stack_save(name,"compose",content)
 
 def inspect_container(cid):
-    m=_container_meta(cid);d=json.loads(engine_cli(["inspect",m["id"]],60) or "[]");x=d[0] if isinstance(d,list) and d else d;s=x.get("State") or {};cfg=x.get("Config") or {};hc=x.get("HostConfig") or {};net=x.get("NetworkSettings") or {};rp=hc.get("RestartPolicy") or {};rp={"Name":rp} if isinstance(rp,str) else rp
+    with _engine_detail_slots:
+        m=_container_meta(cid);d=json.loads(engine_cli(["inspect",m["id"]],60) or "[]")
+    x=d[0] if isinstance(d,list) and d else d;s=x.get("State") or {};cfg=x.get("Config") or {};hc=x.get("HostConfig") or {};net=x.get("NetworkSettings") or {};rp=hc.get("RestartPolicy") or {};rp={"Name":rp} if isinstance(rp,str) else rp
     return {**{k:m[k] for k in ("id","shortId","name","image","project","service","composeManaged","selfProtected")},"created":x.get("Created"),"status":s.get("Status"),"running":s.get("Running"),"startedAt":s.get("StartedAt"),"finishedAt":s.get("FinishedAt"),"restartCount":x.get("RestartCount",0),"restartPolicy":rp.get("Name") or rp.get("name") or "none","imageId":x.get("Image"),"command":cfg.get("Cmd") or [],"entrypoint":cfg.get("Entrypoint") or [],"mounts":[{"source":a.get("Source"),"destination":a.get("Destination"),"type":a.get("Type"),"rw":a.get("RW")} for a in x.get("Mounts") or []],"networks":list((net.get("Networks") or {}).keys())}
 def container_stats():
     try:
-        raw=engine_cli(["stats","--no-stream","--format","json"],60).strip();rows=[]
+        with _engine_detail_slots:raw=engine_cli(["stats","--no-stream","--format","json"],45).strip()
+        rows=[]
         if not raw:return {}
         try:
             parsed=json.loads(raw);rows=parsed if isinstance(parsed,list) else [parsed]
@@ -742,7 +753,7 @@ def _cleanup_terminals():
     now=time.time();stale=[]
     with _terminal_lock:
         for t,s in _terminal_sessions.items():
-            if now-s["lastAccess"]>TERMINAL_TTL or (s.get("closed") and now-s["lastAccess"]>TERMINAL_CLOSED_GRACE):stale.append(t)
+            if now-s["lastAccess"]>TERMINAL_TTL or now-s["created"]>TERMINAL_MAX_LIFETIME or (s.get("closed") and now-s["lastAccess"]>TERMINAL_CLOSED_GRACE):stale.append(t)
     for t in stale:close_terminal(t)
 def _terminal_reader(token):
     s=_terminal_sessions.get(token)
@@ -760,7 +771,11 @@ def _terminal_reader(token):
             c=_terminal_sessions.get(token)
             if c:c["closed"]=True;c["exitCode"]=p.poll()
 def start_terminal(cid):
-    _cleanup_terminals();m=_container_meta(cid);ins=inspect_container(cid)
+    _cleanup_terminals()
+    with _terminal_lock:
+        active=sum(1 for s in _terminal_sessions.values() if not s.get("closed"))
+        if active>=MAX_TERMINAL_SESSIONS:raise RuntimeError(f"Terminal session limit reached ({MAX_TERMINAL_SESSIONS})")
+    m=_container_meta(cid);ins=inspect_container(cid)
     if not ins.get("running"):raise RuntimeError("Container must be running before opening a terminal")
     shell="/bin/sh"
     try:
@@ -797,19 +812,29 @@ def close_terminal(token):
             except Exception:pass
     return {"ok":True}
 def stream_logs(h,cid):
-    p=_popen_engine(["logs","--follow","--tail","150","--timestamps",_container_meta(cid)["id"]]);h.send_response(200);h.send_header("content-type","text/event-stream");h.send_header("cache-control","no-cache, no-store");h.send_header("connection","keep-alive");h.send_header("x-accel-buffering","no");h.send_security_headers();h.end_headers()
+    if not _log_stream_slots.acquire(blocking=False):
+        h.send_json({"error":f"Live log stream limit reached ({MAX_LOG_STREAMS})"},429);return
+    p=None
     try:
+        p=_popen_engine(["logs","--follow","--tail","150","--timestamps",_container_meta(cid)["id"]);h.send_response(200);h.send_header("content-type","text/event-stream");h.send_header("cache-control","no-cache, no-store");h.send_header("connection","keep-alive");h.send_header("x-accel-buffering","no");h.send_security_headers();h.end_headers()
         h.wfile.write(b"event: ready\ndata: {}\n\n");h.wfile.flush()
         for line in iter(p.stdout.readline,""):h.wfile.write(b"data: "+json.dumps({"line":line.rstrip("\n")}).encode()+b"\n\n");h.wfile.flush()
     except (BrokenPipeError,ConnectionResetError):pass
     finally:
-        if p.poll() is None:p.terminate()
+        if p and p.poll() is None:p.terminate()
+        _log_stream_slots.release()
 
 def _build_dashboard_snapshot():
-    started=time.monotonic()
-    inventory=load_containers()
-    registry=_build_registry()
-    data={"stacks":discover_stacks(),"containers":containers(inventory=inventory,registry=registry),"generatedAt":time.time()}
+    started=time.monotonic();errors={};inventory=[];registry={};stack_rows=[];container_rows=[]
+    try:inventory=load_containers()
+    except Exception as e:errors["inventory"]=str(e)
+    try:registry=_build_registry()
+    except Exception as e:errors["registry"]=str(e)
+    try:stack_rows=discover_stacks()
+    except Exception as e:errors["stacks"]=str(e)
+    try:container_rows=containers(inventory=inventory,registry=registry) if inventory else []
+    except Exception as e:errors["containers"]=str(e)
+    data={"stacks":stack_rows,"containers":container_rows,"generatedAt":time.time(),"degraded":bool(errors),"errors":errors}
     record_timing("dashboardBuild",time.monotonic()-started)
     return data
 def _dashboard_refresh_background():
@@ -847,7 +872,7 @@ def dashboard_snapshot(force=False):
     return {**data,"cache":{"state":"refreshed","ageMs":0.0}}
 
 def diagnostics():
-    rt=runtime();age=max(0,time.monotonic()-float(_dashboard_cache.get("time") or 0));return {"timings":timing_snapshot(),"dashboardCache":{"ageMs":round(age*1000,1),"hasSnapshot":_dashboard_cache.get("snapshot") is not None,"refreshing":bool(_dashboard_cache.get("refreshing"))},"auth":auth_diagnostics(),"runtime":{"engine":rt["engine"],"socket":rt["socket"],"socketExists":Path(rt["socket"]).exists(),"context":rt.get("context")},"paths":{"mediaRoot":str(MEDIA_ROOT),"composeRoot":str(COMPOSE_ROOT),"envRoot":str(ENV_ROOT)},"stacks":{"path":str(COMPOSE_ROOT),"exists":COMPOSE_ROOT.is_dir(),"readable":os.access(COMPOSE_ROOT,os.R_OK),"selfStack":SELF_STACK},"discovery":discovery_diagnostics()}
+    rt=runtime();age=max(0,time.monotonic()-float(_dashboard_cache.get("time") or 0));return {"timings":timing_snapshot(),"dashboardCache":{"ageMs":round(age*1000,1),"hasSnapshot":_dashboard_cache.get("snapshot") is not None,"refreshing":bool(_dashboard_cache.get("refreshing"))},"limits":{"engineDetailConcurrency":ENGINE_DETAIL_CONCURRENCY,"maxTerminals":MAX_TERMINAL_SESSIONS,"terminalIdleSeconds":TERMINAL_TTL,"terminalMaxLifetimeSeconds":TERMINAL_MAX_LIFETIME,"maxLogStreams":MAX_LOG_STREAMS},"auth":auth_diagnostics(),"runtime":{"engine":rt["engine"],"socket":rt["socket"],"socketExists":Path(rt["socket"]).exists(),"context":rt.get("context")},"paths":{"mediaRoot":str(MEDIA_ROOT),"composeRoot":str(COMPOSE_ROOT),"envRoot":str(ENV_ROOT)},"stacks":{"path":str(COMPOSE_ROOT),"exists":COMPOSE_ROOT.is_dir(),"readable":os.access(COMPOSE_ROOT,os.R_OK),"selfStack":SELF_STACK},"discovery":discovery_diagnostics()}
 class Handler(BaseHTTPRequestHandler):
     server_version=f"RogueForge/{VERSION}"
     def log_message(self,fmt,*args):sys.stderr.write("%s - %s\n"%(self.log_date_time_string(),fmt%args))
@@ -899,7 +924,7 @@ class Handler(BaseHTTPRequestHandler):
                 started=time.monotonic();session=self.session_payload();force=parse_qs(u.query).get("refresh")==["1"];snap=dashboard_snapshot(force=force);rt=runtime()
                 status={"appVersion":VERSION,"engine":rt["engine"],"version":rt["version"],"apiVersion":rt["apiVersion"],"context":rt.get("context"),"demo":DEMO_MODE,"publicUrl":PUBLIC_URL,"authConfigured":bool(load_auth()),"socket":rt["socket"] if session else "Protected","stacksDir":str(STACKS_DIR) if session else "Protected","composeRoot":str(COMPOSE_ROOT) if session else "Protected","envRoot":str(ENV_ROOT) if session else "Protected","mediaRoot":str(MEDIA_ROOT) if session else "Protected","iconsDir":str(ICONS_DIR) if session else "Protected"}
                 record_timing("dashboardRequest",time.monotonic()-started)
-                self.send_json({"status":status,"stacks":snap["stacks"],"containers":snap["containers"],"cache":snap.get("cache"),"auth":{"configured":bool(load_auth()),"authenticated":bool(session),"user":session.get("user") if session else None,"csrf":session.get("csrf") if session else None,"auth":auth_diagnostics()}});return
+                self.send_json({"status":status,"stacks":snap["stacks"],"containers":snap["containers"],"cache":snap.get("cache"),"degraded":bool(snap.get("degraded")),"errors":snap.get("errors") or {},"auth":{"configured":bool(load_auth()),"authenticated":bool(session),"user":session.get("user") if session else None,"csrf":session.get("csrf") if session else None,"auth":auth_diagnostics()}});return
             if path=="/api/stacks":self.send_json(discover_stacks());return
             if path=="/api/containers":self.send_json(containers());return
             if path=="/api/images":
