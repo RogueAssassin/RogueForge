@@ -81,7 +81,7 @@ jobs:
         id: version
         shell: bash
         run: |
-          VERSION=$(cat VERSION); COMPACT=${VERSION//./}
+          VERSION=$(cat VERSION); COMPACT=$(printf '%s' "$VERSION" | tr -d '.-')
           if [[ "$GITHUB_REF_NAME" == main ]]; then CHANNEL=production; else CHANNEL=testing; fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "compact=$COMPACT" >> "$GITHUB_OUTPUT"
