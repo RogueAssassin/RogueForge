@@ -4,6 +4,13 @@
 
 - Promoted the server-validated 1.0.0-rc1 codebase to the first stable RogueForge 1.x production release.
 - No new feature scope was introduced after RC1; 1.0.0 preserves the validated runtime, frontend, security and recovery baseline.
+- Production release metadata, container defaults, installer and documentation now target 1.0.0.
+
+
+## 1.0.0 — Stable production release
+
+- Promoted the server-validated 1.0.0-rc1 codebase to the first stable RogueForge 1.x production release.
+- No new feature scope was introduced after RC1; 1.0.0 preserves the validated runtime, frontend, security and recovery baseline.
 - Production release metadata, container defaults, installer, documentation and regression expectations now target 1.0.0.
 - The testing-to-main promotion model remains the supported release path for future RogueForge development.
 
