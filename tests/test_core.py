@@ -111,10 +111,10 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('async function refreshRuntimeInventory()',app);self.assertIn('await refreshRuntimeInventory()',app)
   self.assertIn('composePath',src);self.assertIn('directory',src);self.assertIn('Pin operations to the exact Compose path',src)
  def test_current_release_baseline(self):
-  self.assertEqual((ROOT/'VERSION').read_text().strip(),'0.9.3')
+  self.assertEqual((ROOT/'VERSION').read_text().strip(),'0.9.4')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def _load_containers_uncached()',src);self.assertIn('/api/dashboard',src)
-  self.assertIn('## 0.9.3 — Frontend consolidation and security hardening',road)
+  self.assertIn('## 0.9.4 — Final production hardening',road)
  def test_transactional_stack_editor_writes(self):
   src=(ROOT/'rogueforge.py').read_text()
   self.assertIn('def _atomic_write(path,content):',src);self.assertIn('os.fsync(f.fileno())',src);self.assertIn('os.replace(tmp,path)',src)
@@ -146,5 +146,12 @@ class RogueForgeTests(unittest.TestCase):
   for path in ('static/app.js','static/container-controls.js','static/operations.js','static/live-ops.js','static/branding/branding-switch.js'):
    self.assertNotRegex((ROOT/path).read_text(),r'v0\.[0-9]')
   self.assertNotIn('container-row-v0',(ROOT/'static/container-controls.js').read_text());self.assertNotIn('container-head-v0',(ROOT/'static/container-controls.css').read_text());self.assertNotIn('container-actions-v0',(ROOT/'static/live-ops.js').read_text())
+
+ def test_v094_runtime_limits_and_partial_dashboard(self):
+  src=(ROOT/'rogueforge.py').read_text();env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text()
+  for key in ('ROGUEFORGE_ENGINE_DETAIL_CONCURRENCY','ROGUEFORGE_MAX_TERMINALS','ROGUEFORGE_TERMINAL_TTL','ROGUEFORGE_TERMINAL_MAX_LIFETIME','ROGUEFORGE_MAX_LOG_STREAMS'):
+   self.assertIn(key,src);self.assertIn(key,env);self.assertIn(key,compose)
+  self.assertIn('with _engine_detail_slots:',src);self.assertIn('Terminal session limit reached',src);self.assertIn('_log_stream_slots.acquire(blocking=False)',src)
+  self.assertIn('"degraded":bool(errors)',src);self.assertIn('"errors":errors',src);self.assertIn('errors["inventory"]',src);self.assertIn('errors["stacks"]',src)
 
 if __name__=='__main__':unittest.main()
