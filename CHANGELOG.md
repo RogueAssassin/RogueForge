@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0-rc1 — First 1.0 release candidate
+
+- Promoted the validated 0.9.4 hardening baseline into the first 1.0 release candidate.
+- Feature scope is frozen for RC1; changes from this point are limited to release-blocking stability, compatibility, recovery and documentation fixes.
+- Retains bounded engine-detail work, terminal/log limits, partial dashboard degradation, frontend asset consolidation and browser security-header hardening.
+- RC1 is intended for final clean-install, upgrade, rollback, Docker/rootless-Podman and production-soak validation before 1.0.0.
+
+
 ## 0.9.4 — Final production hardening
 
 - Rolled the testing channel to 0.9.4 as the final hardening milestone before the 1.0 release candidate.
