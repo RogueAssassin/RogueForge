@@ -9,7 +9,7 @@ class RogueForgeTests(unittest.TestCase):
  @classmethod
  def tearDownClass(cls):cls.temp.cleanup()
  def test_release_and_single_runtime(self):
-  self.assertTrue(RELEASE=='1.0.0-rc1' or __import__('re').fullmatch(r'\d+\.\d+\.\d+',RELEASE))
+  self.assertTrue(__import__('re').fullmatch(r'\d+\.\d+\.\d+',RELEASE))
   self.assertEqual(self.app.VERSION,RELEASE)
   self.assertFalse(any(ROOT.glob('rogueforge_v*.py')))
   for n in ('rogueforge_ext.py','rogueforge_live.py','rogueforge_discovery.py','upgrade.sh'):self.assertFalse((ROOT/n).exists())
@@ -111,10 +111,10 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('async function refreshRuntimeInventory()',app);self.assertIn('await refreshRuntimeInventory()',app)
   self.assertIn('composePath',src);self.assertIn('directory',src);self.assertIn('Pin operations to the exact Compose path',src)
  def test_current_release_baseline(self):
-  self.assertEqual((ROOT/'VERSION').read_text().strip(),'1.0.0-rc1')
+  self.assertEqual((ROOT/'VERSION').read_text().strip(),'1.0.0')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def _load_containers_uncached()',src);self.assertIn('/api/dashboard',src)
-  self.assertIn('## 1.0.0-rc1 — Release candidate',road)
+  self.assertIn('## 1.0.0 — Stable single-host release',road)
  def test_transactional_stack_editor_writes(self):
   src=(ROOT/'rogueforge.py').read_text()
   self.assertIn('def _atomic_write(path,content):',src);self.assertIn('os.fsync(f.fileno())',src);self.assertIn('os.replace(tmp,path)',src)
