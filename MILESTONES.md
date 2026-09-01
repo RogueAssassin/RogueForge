@@ -43,12 +43,12 @@ Status: **validated 0.9.0 baseline**
 - [x] Coalesce simultaneous dashboard refreshes so only one dashboard/engine refresh is in flight.
 - [x] Add stale-while-revalidate server snapshots for Overview/Stacks/Runtime.
 - [ ] Invalidate only affected stack/container cache entries after operations.
-- [ ] Batch runtime stats and cap concurrent inspect/stats work.
+- [x] Cap concurrent inspect/stats engine-detail work (0.9.4).
 - [x] Add timing diagnostics for dashboard build/request, container inventory and stats.
-- [ ] Add graceful degradation when one engine/stack query is slow rather than blocking the full dashboard.
+- [x] Return partial dashboard snapshots with degraded/error metadata when one engine/discovery query fails (0.9.4).
 
 ### Security and production hardening
-- [ ] Bound terminal/log sessions with idle cleanup and per-session limits.
+- [x] Bound terminal/log sessions with idle/lifetime cleanup and per-process limits (0.9.4).
 - [ ] Review authentication/session cookie defaults for reverse-proxy deployments.
 - [ ] Add security headers and document trusted-proxy behaviour.
 - [ ] Add explicit destructive-operation confirmation/guardrails for remove/prune workflows.
@@ -95,13 +95,13 @@ Status: **validated 0.9.2 baseline**
 - [x] Lifecycle inventory invalidation expires dashboard/resource snapshots.
 - [x] Add rolling dashboard-build, dashboard-request, container-inventory and stats timing diagnostics.
 - [ ] Add targeted stack/container cache invalidation instead of full inventory expiry.
-- [ ] Add graceful partial dashboard responses when one engine query exceeds its latency budget.
-- [ ] Bound concurrent stats/inspect work.
+- [x] Add partial dashboard responses when an engine/discovery query fails (0.9.4).
+- [x] Bound concurrent stats/inspect work (0.9.4).
 - [ ] Continue security/session hardening and guarded runtime-resource actions.
 
 ## 0.9.3 — Frontend consolidation and security hardening
 
-Status: **current testing milestone**
+Status: **validated 0.9.3 baseline**
 
 - [x] Roll testing version to 0.9.3.
 - [x] Replace duplicate dynamic operations/quality loading with one explicit frontend asset graph.
@@ -113,6 +113,20 @@ Status: **current testing milestone**
 - [ ] Bound concurrent stats/inspect work.
 - [ ] Harden reverse-proxy/session behavior and document trusted proxy expectations.
 - [ ] Begin guarded Images/Volumes/Networks lifecycle controls after the safety contract is complete.
+
+## 0.9.4 — Final production hardening
+
+Status: **current testing milestone**
+
+- [x] Roll testing version to 0.9.4.
+- [x] Bound concurrent container inspect/stats engine-detail work.
+- [x] Bound live terminal sessions with configurable idle and maximum lifetime limits.
+- [x] Bound concurrent live-log streams and return an explicit 429 when capacity is exhausted.
+- [x] Return partial dashboard data with degraded/error metadata when an engine/discovery query fails.
+- [ ] Harden reverse-proxy/session behavior and document trusted proxy expectations.
+- [ ] Add guarded Images/Volumes/Networks lifecycle actions.
+- [ ] Add automated Docker and rootless Podman lifecycle compatibility checks.
+- [ ] Finalize backup/recovery, upgrade and rollback guarantees for 1.0.
 
 ## 1.0.0 — Stable single-host release
 
