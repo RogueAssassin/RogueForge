@@ -130,7 +130,7 @@ Status: **validated 0.9.4 baseline**
 
 ## 1.0.0-rc1 — Release candidate
 
-Status: **current testing milestone**
+Status: **validated release candidate**
 
 - [x] Freeze the validated 0.9.4 feature baseline.
 - [x] Roll testing version and deployment metadata to 1.0.0-rc1.
@@ -145,6 +145,13 @@ Status: **current testing milestone**
 - [ ] Final README/CHANGELOG/SECURITY/install/update audit before 1.0.0.
 
 ## 1.0.0 — Stable single-host release
+
+Status: **production release**
+
+- [x] Promote the validated 1.0.0-rc1 codebase without new feature changes.
+- [x] Roll production version and deployment metadata to 1.0.0.
+- [x] Preserve the validated Docker/Podman single-runtime architecture and 0.9.4 hardening baseline.
+- [x] Finalize production README, changelog, install/update and GHCR metadata.
 
 - [ ] Stable API contracts and migration policy.
 - [ ] Automated Docker and rootless Podman compatibility matrix.
