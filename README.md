@@ -13,7 +13,7 @@
   </tr>
 </table>
 
-[![Testing](https://img.shields.io/badge/TESTING-0.9.3-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
+[![Testing](https://img.shields.io/badge/TESTING-0.9.4-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
 [![GHCR](https://img.shields.io/badge/GHCR-PACKAGE-5c6ac4?style=for-the-badge&logo=github&logoColor=white&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/pkgs/container/rogueforge)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueForge/container.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/actions/workflows/container.yml?query=branch%3Atesting)
 ![Runtime](https://img.shields.io/badge/RUNTIME-PYTHON%203.11-ff4fc8?style=for-the-badge&labelColor=45464d)
@@ -111,15 +111,15 @@ chmod +x update.sh
 
 Update/editor backups are kept outside the stack discovery tree under `/tmp/rogueforge/`.
 
-## 0.9.3 testing milestone
+## 0.9.4 testing milestone
 
-0.9.3 builds on the validated 0.9.2 performance baseline and focuses on reducing frontend complexity and tightening the production security contract:
+0.9.4 is the final production-hardening milestone before the 1.0 release candidate. It builds on the validated 0.9.3 frontend/security baseline:
 
-- one explicit frontend asset-loading path with no duplicate dynamic operations loader,
-- runtime icon identity folded into the canonical operations layer,
-- stale version-specific frontend naming removed from active scripts,
-- consistent security headers for JSON, static assets and HEAD responses,
+- bounded container inspect/stats engine detail work,
+- bounded live terminal and log streaming sessions,
+- dashboard partial-response behavior when one engine query fails,
 - continued dashboard coalescing, stale-while-revalidate caching and latency diagnostics,
+- 0.9.3 frontend/security cleanup retained as the production baseline,
 - verified update recovery and transactional Compose/.env saves retained as the safety baseline.
 
 
