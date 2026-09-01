@@ -116,7 +116,7 @@ Status: **validated 0.9.3 baseline**
 
 ## 0.9.4 — Final production hardening
 
-Status: **current testing milestone**
+Status: **validated 0.9.4 baseline**
 
 - [x] Roll testing version to 0.9.4.
 - [x] Bound concurrent container inspect/stats engine-detail work.
@@ -127,6 +127,22 @@ Status: **current testing milestone**
 - [ ] Add guarded Images/Volumes/Networks lifecycle actions.
 - [ ] Add automated Docker and rootless Podman lifecycle compatibility checks.
 - [ ] Finalize backup/recovery, upgrade and rollback guarantees for 1.0.
+
+## 1.0.0-rc1 — Release candidate
+
+Status: **current testing milestone**
+
+- [x] Freeze the validated 0.9.4 feature baseline.
+- [x] Roll testing version and deployment metadata to 1.0.0-rc1.
+- [ ] Validate clean install on rootless Podman.
+- [ ] Validate upgrade from 0.9.4 testing with configuration/data preservation.
+- [ ] Validate rollback/recovery from RC1 to the previous known-good release.
+- [ ] Validate Docker lifecycle parity for start/stop/restart/update/recreate.
+- [ ] Validate rootless Podman lifecycle parity for start/stop/restart/update/recreate.
+- [ ] Complete reverse-proxy/session deployment review.
+- [ ] Complete guarded Images/Volumes/Networks lifecycle safety review.
+- [ ] Run final production soak with no release-blocking errors.
+- [ ] Final README/CHANGELOG/SECURITY/install/update audit before 1.0.0.
 
 ## 1.0.0 — Stable single-host release
 
