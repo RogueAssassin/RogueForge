@@ -78,7 +78,7 @@ RogueForge uses:
 - asynchronous CPU/RAM refresh,
 - targeted refresh after lifecycle operations.
 
-The 1.0.0-rc1 testing milestone continues this with the validated cache/coalescing baseline, a single canonical frontend asset graph, security-header hardening and continued runtime diagnostics.
+The 1.0.0 production release continues this with the validated cache/coalescing baseline, a single canonical frontend asset graph, security-header hardening and continued runtime diagnostics.
 
 ## Network model
 
