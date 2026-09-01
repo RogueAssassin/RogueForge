@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RogueForge 0.9.4 — single-file Docker/Podman Compose operations runtime."""
+"""RogueForge 1.0.0-rc1 — single-file Docker/Podman Compose operations runtime."""
 from __future__ import annotations
 
 import base64, hashlib, hmac, json, mimetypes, os, re, secrets, socket, subprocess, sys, threading, time
@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-VERSION="0.9.4"
+VERSION="1.0.0-rc1"
 PORT=int(os.environ.get("ROGUEFORGE_PORT","7810")); BIND=os.environ.get("ROGUEFORGE_BIND","127.0.0.1")
 MEDIA_ROOT=Path(os.environ.get("ROGUEFORGE_MEDIA_ROOT","/opt/media-server")).resolve()
 COMPOSE_ROOT=Path(os.environ.get("ROGUEFORGE_COMPOSE_ROOT",os.environ.get("ROGUEFORGE_STACKS_DIR",str(MEDIA_ROOT)))).resolve()
