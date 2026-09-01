@@ -153,6 +153,13 @@ Status: **production release**
 - [x] Preserve the validated Docker/Podman single-runtime architecture and 0.9.4 hardening baseline.
 - [x] Finalize production README, changelog, install/update and GHCR metadata.
 
+Status: **production release**
+
+- [x] Promote the validated 1.0.0-rc1 codebase without new feature changes.
+- [x] Roll production version and deployment metadata to 1.0.0.
+- [x] Preserve the validated Docker/Podman single-runtime architecture and 0.9.4 hardening baseline.
+- [x] Finalize production README, changelog, install/update and GHCR metadata.
+
 - [ ] Stable API contracts and migration policy.
 - [ ] Automated Docker and rootless Podman compatibility matrix.
 - [ ] Documented backup/recovery, upgrade and rollback guarantees.
