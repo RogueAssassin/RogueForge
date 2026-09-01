@@ -816,7 +816,7 @@ def stream_logs(h,cid):
         h.send_json({"error":f"Live log stream limit reached ({MAX_LOG_STREAMS})"},429);return
     p=None
     try:
-        p=_popen_engine(["logs","--follow","--tail","150","--timestamps",_container_meta(cid)["id"]);h.send_response(200);h.send_header("content-type","text/event-stream");h.send_header("cache-control","no-cache, no-store");h.send_header("connection","keep-alive");h.send_header("x-accel-buffering","no");h.send_security_headers();h.end_headers()
+        p=_popen_engine(["logs","--follow","--tail","150","--timestamps",_container_meta(cid)["id"]]);h.send_response(200);h.send_header("content-type","text/event-stream");h.send_header("cache-control","no-cache, no-store");h.send_header("connection","keep-alive");h.send_header("x-accel-buffering","no");h.send_security_headers();h.end_headers()
         h.wfile.write(b"event: ready\ndata: {}\n\n");h.wfile.flush()
         for line in iter(p.stdout.readline,""):h.wfile.write(b"data: "+json.dumps({"line":line.rstrip("\n")}).encode()+b"\n\n");h.wfile.flush()
     except (BrokenPipeError,ConnectionResetError):pass
