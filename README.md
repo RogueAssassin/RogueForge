@@ -13,7 +13,7 @@
   </tr>
 </table>
 
-[![Testing](https://img.shields.io/badge/TESTING-0.9.4-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
+[![Testing](https://img.shields.io/badge/TESTING-1.0.0--rc1-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
 [![GHCR](https://img.shields.io/badge/GHCR-PACKAGE-5c6ac4?style=for-the-badge&logo=github&logoColor=white&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/pkgs/container/rogueforge)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueForge/container.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/actions/workflows/container.yml?query=branch%3Atesting)
 ![Runtime](https://img.shields.io/badge/RUNTIME-PYTHON%203.11-ff4fc8?style=for-the-badge&labelColor=45464d)
@@ -111,9 +111,9 @@ chmod +x update.sh
 
 Update/editor backups are kept outside the stack discovery tree under `/tmp/rogueforge/`.
 
-## 0.9.4 testing milestone
+## 1.0.0-rc1 release candidate
 
-0.9.4 is the final production-hardening milestone before the 1.0 release candidate. It builds on the validated 0.9.3 frontend/security baseline:
+1.0.0-rc1 is the first release candidate for the stable single-host RogueForge 1.0 line. It freezes the validated 0.9.4 hardening baseline for final upgrade, rollback, Docker/Podman and production-soak testing:
 
 - bounded container inspect/stats engine detail work,
 - bounded live terminal and log streaming sessions,
