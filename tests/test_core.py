@@ -9,7 +9,7 @@ class RogueForgeTests(unittest.TestCase):
  @classmethod
  def tearDownClass(cls):cls.temp.cleanup()
  def test_release_and_single_runtime(self):
-  self.assertTrue(RELEASE=='1.0.0-rc1' or __import__('re').fullmatch(r'\d+\.\d+\.\d+',RELEASE))
+  self.assertRegex(RELEASE,r'^\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?$')
   self.assertEqual(self.app.VERSION,RELEASE)
   self.assertFalse(any(ROOT.glob('rogueforge_v*.py')))
   for n in ('rogueforge_ext.py','rogueforge_live.py','rogueforge_discovery.py','upgrade.sh'):self.assertFalse((ROOT/n).exists())
