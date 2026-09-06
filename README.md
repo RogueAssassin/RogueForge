@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/static/branding/rogueforge.svg" width="128" height="128" alt="RogueForge logo">
+<img src="https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/static/branding/rogueforge.svg" width="128" height="128" alt="RogueForge logo">
 
 # RogueForge
 
 **Local-first Docker and Podman stack management, verified updates and live troubleshooting.**
 
-[![Release](https://img.shields.io/badge/RELEASE-2.0.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
-[![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueForge/container.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/actions/workflows/container.yml?query=branch%3Atesting)
+[![Release](https://img.shields.io/badge/RELEASE-2.0.0%20STABLE-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/main)
+[![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueForge/container.yml?branch=main&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/actions/workflows/container.yml?query=branch%3Amain)
 ![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
 ![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
 
@@ -49,10 +49,12 @@ RogueForge 2.0.0 is the testing candidate for the first stable 2.x operations co
 
 | Service | Responsibility |
 | --- | --- |
-| **RogueDashboard** | visibility, health, uptime, incidents and alerts |
-| **RogueForge** | container/stack management, updates, logs and terminal |
-| **RogueMediaValidator** | torrent/media validation and protection |
-| **RogueRoute GPX** | routing and GPX services |
+| Service | What it does |
+| --- | --- |
+| [**RogueDashboard**](https://github.com/RogueAssassin/RogueDashboard) | Lightweight media-server visibility, health, uptime, incidents, alerts and service overview. |
+| **RogueForge** | Docker/Podman stack management, verified updates, live logs, terminals and operational troubleshooting. |
+| [**RogueMediaValidator**](https://github.com/RogueAssassin/RogueMediaValidator) | Torrent/media validation and protection for download workflows, including policy enforcement and diagnostics. |
+| [**RogueRoute-GPX**](https://github.com/RogueAssassin/RogueRoute-GPX) | Routing and GPX services for route generation, processing and related mapping workflows. |
 
 RogueDashboard can consume RogueForge's lightweight status information without receiving Docker/Podman socket access or RogueForge administrator credentials.
 
@@ -84,9 +86,9 @@ RogueForge's own deployment stays in `/opt/media-server/rogueforge`. Stack disco
 mkdir -p /opt/media-server/rogueforge
 cd /opt/media-server/rogueforge
 
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/compose.yaml -o compose.yaml
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/.env.example -o .env
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/setup-auth.py -o setup-auth.py
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/compose.yaml -o compose.yaml
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/.env.example -o .env
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/setup-auth.py -o setup-auth.py
 chmod 600 .env
 
 # Set ROGUEFORGE_SOCKET_SOURCE to /run/user/$(id -u)/podman/podman.sock
@@ -110,9 +112,9 @@ http://HOST:17810
 mkdir -p /opt/media-server/rogueforge
 cd /opt/media-server/rogueforge
 
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/compose.yaml -o compose.yaml
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/.env.example -o .env
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/setup-auth.py -o setup-auth.py
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/compose.yaml -o compose.yaml
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/.env.example -o .env
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/setup-auth.py -o setup-auth.py
 chmod 600 .env
 ```
 
@@ -126,11 +128,11 @@ docker compose --env-file .env -f compose.yaml up -d
 
 ## Updating
 
-Testing:
+Production:
 
 ```bash
 cd /opt/media-server/rogueforge
-./update.sh testing
+./update.sh latest
 ```
 
 Pinned version:
@@ -139,10 +141,10 @@ Pinned version:
 ./update.sh 2.0.0
 ```
 
-Production after promotion:
+Testing channel:
 
 ```bash
-./update.sh latest
+./update.sh testing
 ```
 
 The updater preserves the existing `.env` and persistent authentication/operation data.
@@ -197,17 +199,24 @@ Keep RogueForge behind a trusted reverse proxy and do not expose the engine sock
 
 ## Release channels
 
-Testing:
-
-```text
-ghcr.io/rogueassassin/rogueforge:testing
-```
-
-Production after promotion:
+Production:
 
 ```text
 ghcr.io/rogueassassin/rogueforge:latest
 ghcr.io/rogueassassin/rogueforge:2.0.0
 ```
 
-The permanent `testing` branch is the proving ground. `main` remains production-only.
+Testing:
+
+```text
+ghcr.io/rogueassassin/rogueforge:testing
+```
+
+Production tags:
+
+```text
+ghcr.io/rogueassassin/rogueforge:latest
+ghcr.io/rogueassassin/rogueforge:2.0.0
+```
+
+`main` is the stable production branch. The permanent `testing` branch is the proving ground for 2.1.0 and later development.
