@@ -59,8 +59,9 @@ function openLiveLogs(id,name){
   $('#liveLogText').textContent='Connecting…';$('#liveLogStatus').textContent='Connecting';$('#pauseLiveLogs').textContent='Pause';$('#liveLogsDialog').showModal();
   const source=new EventSource(`/api/containers/${id}/logs/stream`);rfLive.source=source;
   source.addEventListener('ready',()=>{$('#liveLogStatus').textContent='Live';$('#liveLogText').textContent='';});
+  source.addEventListener('ended',()=>{flushLiveLines();source.close();if(rfLive.source===source)rfLive.source=null;$('#liveLogStatus').textContent='Stream ended';});
   source.onmessage=event=>{try{const data=JSON.parse(event.data);queueLiveLine(data.line??event.data);}catch{queueLiveLine(event.data);}};
-  source.onerror=()=>{$('#liveLogStatus').textContent='Reconnecting…';};
+  source.onerror=()=>{if(rfLive.source===source)$('#liveLogStatus').textContent='Reconnecting…';};
 }
 async function closeTerminal(){if(rfLive.terminalTimer){clearTimeout(rfLive.terminalTimer);rfLive.terminalTimer=null;}const token=rfLive.terminalToken;rfLive.terminalToken=null;if(token&&state.auth?.authenticated){try{await api(`/api/terminal/${encodeURIComponent(token)}`,protectedOptions({method:'DELETE'}));}catch(_){}}}
 async function pollTerminal(){const token=rfLive.terminalToken;if(!token)return;try{const data=await api(`/api/terminal/${encodeURIComponent(token)}?cursor=${rfLive.terminalCursor}`);rfLive.terminalCursor=data.cursor??rfLive.terminalCursor;if(data.output){const pre=$('#terminalText');pre.textContent+=data.output;pre.scrollTop=pre.scrollHeight;}$('#terminalStatus').textContent=data.closed?`Closed${data.exitCode!=null?` (${data.exitCode})`:''}`:`${data.shell||'shell'} · connected`;if(!data.closed&&token===rfLive.terminalToken)rfLive.terminalTimer=setTimeout(pollTerminal,500);}catch(error){$('#terminalStatus').textContent=error.message;}}
