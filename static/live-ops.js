@@ -2,7 +2,7 @@
 // Live logs remain intentionally browser-buffered: RogueForge does not build a server-side
 // log database/index, so idle CPU/RAM remains effectively unchanged.
 const RF_LOG_MAX_LINES = 3000;
-const rfLive = { source: null, terminalToken: null, terminalCursor: 0, terminalTimer: null, paused: false, lines: [], pending: [], renderFrame: 0 };
+const rfLive = { source: null, terminalToken: null, terminalCursor: 0, terminalTimer: null, paused: false, lines: [], pending: [], renderFrame: 0, name: '', reconnects: 0, connectedAt: 0 };
 
 function liveButton(label, attrName, container, className="") { return `<button class="small-button ${className}" ${attrName}="${container.id}" data-name="${attr(container.name)}">${label}</button>`; }
 const previousRenderContainers = renderContainers;
@@ -42,7 +42,8 @@ function queueLiveLine(line){
 }
 function renderLiveLines(){
   const filter=($('#liveLogSearch')?.value||'').trim().toLowerCase();
-  const output=filter?rfLive.lines.filter(line=>line.toLowerCase().includes(filter)):rfLive.lines;
+  const level=$('#liveLogLevel')?.value||'all';
+  const output=rfLive.lines.filter(line=>(!filter||line.toLowerCase().includes(filter))&&(level==='all'||classifyLiveLine(line)===level));
   const pre=$('#liveLogText');if(!pre)return;
   const pinned=pre.scrollHeight-pre.scrollTop-pre.clientHeight<80;
   pre.textContent=output.join('\n');
@@ -50,18 +51,18 @@ function renderLiveLines(){
   const errors=output.reduce((n,line)=>n+(classifyLiveLine(line)==='error'),0);
   const warnings=output.reduce((n,line)=>n+(classifyLiveLine(line)==='warn'),0);
   const status=$('#liveLogStatus');
-  if(status&&!rfLive.paused)status.textContent=`Live · ${output.length} lines${errors?` · ${errors} errors`:''}${warnings?` · ${warnings} warnings`:''}`;
+  if(status&&!rfLive.paused){const source=rfLive.name?`${rfLive.name} · `:'';const reconnect=rfLive.reconnects?` · ${rfLive.reconnects} reconnect${rfLive.reconnects===1?'':'s'}`:'';status.textContent=`${source}Live · ${output.length}/${rfLive.lines.length} lines${errors?` · ${errors} errors`:''}${warnings?` · ${warnings} warnings`:''}${reconnect}`;}
 }
 function openLiveLogs(id,name){
   if(!ensureAuthenticated())return;
-  stopLiveLogs();rfLive.lines=[];rfLive.pending=[];rfLive.paused=false;
+  stopLiveLogs();rfLive.lines=[];rfLive.pending=[];rfLive.paused=false;rfLive.name=name;rfLive.reconnects=0;rfLive.connectedAt=0;
   $('#liveLogsTitle').textContent=`${name} · Live logs`;
   $('#liveLogText').textContent='Connecting…';$('#liveLogStatus').textContent='Connecting';$('#pauseLiveLogs').textContent='Pause';$('#liveLogsDialog').showModal();
   const source=new EventSource(`/api/containers/${id}/logs/stream`);rfLive.source=source;
-  source.addEventListener('ready',()=>{$('#liveLogStatus').textContent='Live';$('#liveLogText').textContent='';});
+  source.addEventListener('ready',()=>{rfLive.connectedAt=Date.now();$('#liveLogStatus').textContent=`${name} · Live`;$('#liveLogText').textContent='';});
   source.addEventListener('ended',()=>{flushLiveLines();source.close();if(rfLive.source===source)rfLive.source=null;$('#liveLogStatus').textContent='Stream ended';});
   source.onmessage=event=>{try{const data=JSON.parse(event.data);queueLiveLine(data.line??event.data);}catch{queueLiveLine(event.data);}};
-  source.onerror=()=>{if(rfLive.source===source)$('#liveLogStatus').textContent='Reconnecting…';};
+  source.onerror=()=>{if(rfLive.source===source){rfLive.reconnects++;$('#liveLogStatus').textContent=`${name} · Reconnecting… · attempt ${rfLive.reconnects}`;}};
 }
 async function closeTerminal(){if(rfLive.terminalTimer){clearTimeout(rfLive.terminalTimer);rfLive.terminalTimer=null;}const token=rfLive.terminalToken;rfLive.terminalToken=null;if(token&&state.auth?.authenticated){try{await api(`/api/terminal/${encodeURIComponent(token)}`,protectedOptions({method:'DELETE'}));}catch(_){}}}
 async function pollTerminal(){const token=rfLive.terminalToken;if(!token)return;try{const data=await api(`/api/terminal/${encodeURIComponent(token)}?cursor=${rfLive.terminalCursor}`);rfLive.terminalCursor=data.cursor??rfLive.terminalCursor;if(data.output){const pre=$('#terminalText');pre.textContent+=data.output;pre.scrollTop=pre.scrollHeight;}$('#terminalStatus').textContent=data.closed?`Closed${data.exitCode!=null?` (${data.exitCode})`:''}`:`${data.shell||'shell'} · connected`;if(!data.closed&&token===rfLive.terminalToken)rfLive.terminalTimer=setTimeout(pollTerminal,500);}catch(error){$('#terminalStatus').textContent=error.message;}}
@@ -78,5 +79,6 @@ document.addEventListener('click',event=>{
 });
 let rfLogFilterTimer=0;
 document.addEventListener('input',event=>{if(event.target.id==='liveLogSearch'){clearTimeout(rfLogFilterTimer);rfLogFilterTimer=setTimeout(renderLiveLines,120);}});
+document.addEventListener('change',event=>{if(event.target.id==='liveLogLevel')renderLiveLines();});
 document.addEventListener('keydown',event=>{if(event.target.id==='terminalInput'&&event.key==='Enter'){event.preventDefault();sendTerminalInput();}});
 $('#liveLogsDialog')?.addEventListener('close',stopLiveLogs);$('#terminalDialog')?.addEventListener('close',closeTerminal);window.addEventListener('beforeunload',()=>{stopLiveLogs();closeTerminal();});if(state?.containers?.length)renderContainers();
