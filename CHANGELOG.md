@@ -14,6 +14,10 @@
 - Throttled and bounded persisted Operations output to avoid repeated large JSON writes during noisy Compose pulls/updates while retaining richer in-memory live output.
 - Fixed active-operation persistence so non-serializable process handles are never written to disk.
 - Fixed prerelease-safe CI runtime stamping so RC tags are packaged exactly as declared in `VERSION`.
+- Reworked `.env.example` into a RogueMediaValidator-style administrator reference with detailed explanations for deployment, socket, discovery, lifecycle, performance, logs and terminal settings.
+- Standardized RogueForge's host deployment at `/opt/media-server/rogueforge` with persistent state under `/opt/media-server/rogueforge/data`, while Compose/.env discovery correctly defaults to the sibling-stack root `/opt/media-server`.
+- Updated fresh installs to seed the full commented `.env` and preserve it on subsequent installer runs instead of generating a stripped-down environment file.
+- Added pinned prerelease update support such as `./update.sh 1.0.0-rc2` and synchronized deployment documentation with the reversible RC2 lifecycle contract.
 
 
 ## 1.0.0-rc1 — First 1.0 release candidate
