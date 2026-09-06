@@ -2,31 +2,19 @@
 
 RogueForge is the lightweight Docker/Podman management and troubleshooting layer for the Rogue media-server ecosystem. New features must preserve verified lifecycle safety and exceptional idle performance.
 
-## 1.5.0 — Stack management and update intelligence
+## 1.6.0 — RogueDashboard integration and migration validation
 
 Status: **testing release**
 
-- [x] Preserve the host-tested Start, Stop, Restart, Recreate and Update lifecycle baseline.
-- [x] Show a pre-update preview before stack updates.
-- [x] Show affected running services and their configured image references.
-- [x] Show current running image IDs and locally tagged image IDs.
-- [x] Highlight locally available image changes without background pulling.
-- [x] Keep the actual update path protected by pull, in-place recreate, verification and rollback.
-- [x] Keep strict per-stack lifecycle serialization.
-- [x] Preserve lightweight 1.4 live logging and bounded operation history.
-- [x] Keep `.env.example` as the complete fresh-install default.
-- [x] Introduce append-only environment revision blocks beginning with `Rev 150 update`.
-- [x] Preserve existing administrator `.env` files during upgrades.
-
-## 1.6.0 — RogueDashboard integration and migration validation
-
-- [ ] Expand compact read-only status endpoints for RogueDashboard.
-- [ ] Surface active operations and recent failures without exposing administrator credentials.
-- [ ] Share consistent Rogue service identity/icon metadata.
-- [ ] Add lightweight event hooks for meaningful lifecycle failures.
-- [ ] Add clearer update/recovery summaries suitable for RogueDashboard.
-- [ ] Complete live-host validation that RogueForge + RogueDashboard replace normal Dozzle workflows.
-- [ ] Keep Uptime Kuma removal as a separate RogueDashboard monitoring-readiness decision.
+- [x] Preserve the host-tested lifecycle, update preview, rollback and logging baseline.
+- [x] Add a compact read-only RogueDashboard integration endpoint.
+- [x] Expose version, engine type, stack/container counts and capability flags.
+- [x] Expose active operation count/items and recent failure summaries without raw output.
+- [x] Reuse RogueForge's existing cached dashboard snapshot instead of adding another engine poller.
+- [x] Keep engine socket paths, Compose paths and administrator credentials out of the integration payload.
+- [x] Adopt the uploaded default `.env` layout as the canonical fresh-install reference.
+- [x] Preserve revision history and append `Rev 160 update` at the bottom.
+- [x] Keep existing administrator `.env` files intact during upgrades.
 
 ## 1.7.0 — Operations quality
 
@@ -37,6 +25,7 @@ Status: **testing release**
 - [ ] Improve stopped-stack discovery and recovery edge cases.
 - [ ] Expand Docker and rootless Podman lifecycle regression coverage.
 - [ ] Improve Compose validation feedback before transactional saves.
+- [ ] Complete live-host validation that RogueForge + RogueDashboard replace normal Dozzle workflows.
 
 ## 2.0.0 — Stable operations platform
 
@@ -48,19 +37,19 @@ Status: **testing release**
 
 ## Environment revision policy
 
-`.env.example` is always the complete default configuration for a fresh install.
+`.env.example` is always the complete default configuration for a fresh install and follows the uploaded canonical layout.
 
-Existing installations keep their current `.env`. If a later release introduces new environment commands, the release notes and updater add only a clearly labelled block:
+Existing installations keep their current `.env`. New settings are added only as revision blocks at the bottom:
 
 ```env
 # ------------------------------------------------------------------------------
-# Rev 160 update - RogueForge v1.6.0
+# Rev 170 update - RogueForge v1.7.0
 # ------------------------------------------------------------------------------
 NEW_SETTING=value
-ROGUEFORGE_ENV_REV=160
+ROGUEFORGE_ENV_REV=170
 ```
 
-This avoids replacing working administrator configuration just to introduce new settings.
+If a release requires no new runtime setting, its revision block contains only the revision marker and explanatory comments.
 
 ## Engineering principles
 
