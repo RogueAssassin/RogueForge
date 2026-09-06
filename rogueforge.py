@@ -173,16 +173,19 @@ def _operation_worker(oid):
         with _operation_lock:
             x=_operations[oid];x["stepCount"]=len(steps);_save_operations()
         try:
+            expected_images={}
             for index,args in enumerate(steps,1):
                 with _operation_lock:
                     x=_operations[oid]
                     if x.get("cancelRequested"):raise InterruptedError("operation cancelled")
                     x["stepIndex"]=index;x["currentStep"]=" ".join(args);x["stepStarted"]=time.time();_save_operations()
                 _op_append(oid,f"$ compose {' '.join(args)}\n");_op_compose(oid,target,args)
+                if action=="update" and args==["pull"]:expected_images=_local_image_ids(before)
             if action=="stop":_verify_stack_stopped(target)
             elif action in ("start","restart","recreate"):
                 _verify_stack_running(target,before) if before else _verify_stack_started(target)
-            elif action=="update":_verify_stack_running(target,before)
+            elif action=="update":
+                after=_verify_stack_running(target,before);_verify_updated_images(after,expected_images)
             invalidate_inventory();invalidate_resource_cache();_build_registry(force=True)
             status="success"
         except Exception as action_error:
@@ -195,7 +198,7 @@ def _operation_worker(oid):
                 _op_append(oid,"Recovery: restoring previous image references and stack state\n")
                 rollback_ok=False
                 try:
-                    _op_append(oid,_restore_stack_images(before));_op_compose(oid,target,["up","-d"]);_verify_stack_running(target,before);rollback_ok=True
+                    _op_append(oid,_restore_stack_images(before));_op_compose(oid,target,["up","-d","--force-recreate"]);_verify_stack_running(target,before);rollback_ok=True
                 except Exception as rollback_error:_op_append(oid,f"Rollback failed: {rollback_error}\n")
                 raise RuntimeError(f"Update failed: {action_error}; rollback {'succeeded' if rollback_ok else 'failed'}") from action_error
             raise
