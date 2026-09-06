@@ -9,7 +9,7 @@ class RogueForgeTests(unittest.TestCase):
  @classmethod
  def tearDownClass(cls):cls.temp.cleanup()
  def test_release_and_single_runtime(self):
-  self.assertTrue(__import__('re').fullmatch(r'\d+\.\d+\.\d+',RELEASE))
+  self.assertRegex(RELEASE,r'^\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?$')
   self.assertEqual(self.app.VERSION,RELEASE)
   self.assertFalse(any(ROOT.glob('rogueforge_v*.py')))
   for n in ('rogueforge_ext.py','rogueforge_live.py','rogueforge_discovery.py','upgrade.sh'):self.assertFalse((ROOT/n).exists())
@@ -32,8 +32,8 @@ class RogueForgeTests(unittest.TestCase):
   self.assertNotIn('def discover_stacks():\n    reg=_build_registry(force=True)',src)
  def test_media_server_stack_lifecycle(self):
   src=(ROOT/'rogueforge.py').read_text()
-  self.assertIn('elif action=="stop":out=run_compose(stack,["down"])',src);self.assertIn('elif action=="restart":out=run_compose(stack,["down"])+"\\n"+run_compose(stack,["up","-d"])',src)
-  self.assertIn('out=run_compose(name,["pull"])',src);self.assertIn('run_compose(name,["down"])',src);self.assertIn('run_compose(name,["up","-d"])',src)
+  self.assertIn('out=run_compose(stack,["stop"]);after=[];_verify_stack_stopped(stack)',src);self.assertIn('out=run_compose(stack,["restart"])',src);self.assertIn('Restart fallback after:',src)
+  self.assertIn('out=run_compose(name,["pull"]);expected=_local_image_ids(before)',src);self.assertIn('run_compose(name,["up","-d","--force-recreate"])',src);self.assertNotIn('out+="\\n"+run_compose(name,["down"])',src)
  def test_http_disconnect_and_head_support(self):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('def do_HEAD(self):',src);self.assertIn('except (BrokenPipeError,ConnectionResetError)',src)
  def test_dashboard_snapshot_contract(self):
@@ -86,6 +86,15 @@ class RogueForgeTests(unittest.TestCase):
   names=[p.name for p in (ROOT/'static').iterdir() if p.is_file()]
   self.assertFalse(any(n.startswith('v0') for n in names))
   html=(ROOT/'static/index.html').read_text();self.assertNotIn('/v080',html)
+ def test_detailed_env_reference_and_canonical_layout(self):
+  env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text();installer=(ROOT/'install.sh').read_text();update=(ROOT/'update.sh').read_text();docs=(ROOT/'docs/CONTAINER_DEPLOYMENT.md').read_text()
+  self.assertIn('RogueForge Default Environment Configuration',env)
+  self.assertIn('ROGUEFORGE_INSTALL_DIR=/opt/media-server/rogueforge',env);self.assertIn('ROGUEFORGE_DATA_DIR=/opt/media-server/rogueforge/data',env)
+  self.assertIn('ROGUEFORGE_COMPOSE_ROOT=/opt/media-server',env);self.assertIn('ROGUEFORGE_ENV_ROOT=/opt/media-server',env);self.assertIn('ROGUEFORGE_STACKS_DIR=/opt/media-server',env)
+  self.assertIn('${ROGUEFORGE_DATA_DIR:-/opt/media-server/rogueforge/data}:/opt/rogueforge/data',compose)
+  self.assertIn('cp .env.example .env',installer);self.assertIn('Existing .env files are never replaced',installer);self.assertIn('SOURCE_REF=${ROGUEFORGE_SOURCE_REF:-$DEFAULT_SOURCE_REF}',installer)
+  self.assertIn('X.Y.Z-rcN',update);self.assertNotIn('COMPOSE_ROOT=/opt/media-server/compose',update)
+  self.assertIn('Stop      -> stop, then verify stopped state',docs);self.assertIn('Update    -> pull, verify target image IDs',docs)
  def test_testing_updater_and_roots(self):
   u=(ROOT/'update.sh').read_text();compose=(ROOT/'compose.yaml').read_text();env=(ROOT/'.env.example').read_text();installer=(ROOT/'install.sh').read_text()
   self.assertIn('DEFAULT_TEST_BRANCH="testing"',u);self.assertIn('IMAGE_TAG=testing',u);self.assertIn('REF="$BRANCH"; CHANNEL=testing',u);self.assertIn('/tmp}/rogueforge/update-backups',u)
@@ -99,6 +108,38 @@ class RogueForgeTests(unittest.TestCase):
   refresh=u.index('install -m 0755 "$BACKUP/update.download" "$INSTALL_DIR/update.sh"')
   self.assertGreater(refresh,health);self.assertGreater(refresh,first)
   self.assertIn('bash -n update.sh',(ROOT/'.github/workflows/container.yml').read_text())
+ def test_stack_lifecycle_uses_internal_serialization_and_recovery(self):
+  src=(ROOT/'rogueforge.py').read_text()
+  self.assertIn('_stack_mutation_lock',src);self.assertIn('already has a lifecycle operation in progress',src)
+  self.assertIn('def _verify_stack_started(',src);self.assertIn('def _verify_stack_stopped(',src)
+  self.assertIn('Recovery: restoring stack after',src);self.assertIn('Recovery: restoring previous image references and stack state',src)
+  self.assertIn('if action=="update":\n            if not before:raise RuntimeError("Update safety check failed',src)
+  self.assertIn('finally:lock.release()',src)
+  self.assertIn('does not depend on,',src);self.assertIn('external media-server lock files',src)
+ def test_lightweight_lifecycle_and_logging_hardening(self):
+  src=(ROOT/'rogueforge.py').read_text();live=(ROOT/'static/live-ops.js').read_text();env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text()
+  self.assertIn('LIFECYCLE_VERIFY_INTERVAL',src);self.assertIn('LIFECYCLE_STABLE_SAMPLES',src);self.assertIn('def _stack_snapshot_ready(',src)
+  self.assertIn('def _verify_updated_images(',src);self.assertIn('Update image verification failed',src);self.assertIn('expected_images=_local_image_ids(before)',src)
+  self.assertIn('["stop"]',src);self.assertIn('["restart"]',src);self.assertIn('["up","-d","--force-recreate"]',src)
+  self.assertIn('LOG_TAIL_DEFAULT',src);self.assertIn('event: ended',src);self.assertIn('RF_LOG_MAX_LINES = 3000',live);self.assertIn('requestAnimationFrame(flushLiveLines)',live);self.assertIn("addEventListener('ended'",live);self.assertIn('Paused · buffering',live);self.assertIn('setTimeout(renderLiveLines,120)',live)
+  self.assertIn('ROGUEFORGE_LIFECYCLE_VERIFY_INTERVAL=0.5',env);self.assertIn('ROGUEFORGE_LOG_TAIL=200',env);self.assertIn('ROGUEFORGE_LOG_TAIL:',compose)
+ def test_container_actions_share_lifecycle_lock_and_verify(self):
+  src=(ROOT/'rogueforge.py').read_text()
+  self.assertIn('def _container_action_unlocked(',src);self.assertIn('def _verify_container_state(',src)
+  self.assertIn('lock_key=m["project"] if m.get("composeManaged") else f"container:{m[\'id\']}"',src)
+  self.assertIn('state=_verify_container_state(m["name"],action!="stop")',src)
+  self.assertIn('already has a lifecycle operation in progress',src)
+  self.assertIn('engine_cli(["inspect",str(identifier)],30)',src)
+ def test_operation_history_persistence_is_bounded_and_serializable(self):
+  src=(ROOT/'rogueforge.py').read_text()
+  self.assertIn('OPERATION_PERSIST_INTERVAL=1.0',src);self.assertIn('OPERATION_PERSIST_OUTPUT=32000',src)
+  self.assertIn('if not force and now-_operation_last_persist<OPERATION_PERSIST_INTERVAL:return',src)
+  self.assertIn('row={k:v for k,v in item.items() if k!="process"}',src)
+  self.assertIn('row["output"]=row["output"][-OPERATION_PERSIST_OUTPUT:]',src)
+  self.assertIn('_save_operations(force=True)',src)
+ def test_prerelease_version_stamping_is_safe(self):
+  wf=(ROOT/'.github/workflows/container.yml').read_text()
+  self.assertIn('([-.][A-Za-z0-9.]+)*',wf);self.assertIn('grep -q "VERSION=\\"${VERSION}\\"" rogueforge.py',wf)
  def test_operation_timeout_and_progress_metadata(self):
   src=(ROOT/'rogueforge.py').read_text();ops=(ROOT/'static/operations.js').read_text();env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text()
   self.assertIn('ROGUEFORGE_OPERATION_TIMEOUT',src);self.assertIn('threading.Timer(timeout,expire)',src);self.assertIn('status="timed_out"',src);self.assertIn('"stepCount"',src);self.assertIn('"currentStep"',src);self.assertIn('"failureReason"',src)
@@ -110,11 +151,51 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn("nativeFetch('/api/operations'",ops);self.assertIn('waitOperation',ops);self.assertIn('data-rf-cancel-op',ops);self.assertNotIn('localStorage.getItem(HISTORY_KEY)',ops)
   self.assertIn('async function refreshRuntimeInventory()',app);self.assertIn('await refreshRuntimeInventory()',app)
   self.assertIn('composePath',src);self.assertIn('directory',src);self.assertIn('Pin operations to the exact Compose path',src)
+ def test_v140_logging_operations_and_github_alignment(self):
+  live=(ROOT/'static/live-ops.js').read_text();html=(ROOT/'static/index.html').read_text();ops=(ROOT/'static/operations.js').read_text();readme=(ROOT/'README.md').read_text();road=(ROOT/'MILESTONES.md').read_text();change=(ROOT/'CHANGELOG.md').read_text()
+  self.assertIn('id="liveLogLevel"',html);self.assertIn('option value="error"',html);self.assertIn('option value="warn"',html)
+  self.assertIn("const level=$('#liveLogLevel')?.value||'all'",live);self.assertIn('rfLive.reconnects++',live);self.assertIn('reconnect',live)
+  self.assertIn('stepElapsed=',ops);self.assertIn('current step',ops)
+  self.assertRegex(readme,r'RELEASE-2\.0\.0%20(?:TESTING|STABLE)');self.assertIn('## Rogue ecosystem',readme)
+  self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.0.0 (testing)',change)
+ def test_v150_update_preview_and_env_revision_policy(self):
+  src=(ROOT/'rogueforge.py').read_text();app=(ROOT/'static/app.js').read_text();env=(ROOT/'.env.example').read_text();update=(ROOT/'update.sh').read_text();road=(ROOT/'MILESTONES.md').read_text()
+  self.assertIn('def stack_update_preview(name):',src);self.assertIn('/update-preview',src)
+  self.assertIn('localUpdatePending',src);self.assertIn('remoteChecked',src)
+  self.assertIn('/update-preview',app);self.assertIn('Affected services:',app);self.assertIn('immutable image IDs',app)
+  self.assertNotIn('Rev 150 update',env);self.assertNotIn('ROGUEFORGE_ENV_REV=150',env)
+  self.assertNotIn('append_env_revision 150',update);self.assertIn('Existing installs keep their current',road)
+  self.assertNotIn('cp .env.example .env\nfi\nset_env',update)
+ def test_pre20_rogue_dashboard_integration(self):
+  src=(ROOT/'rogueforge.py').read_text();env=(ROOT/'.env.example').read_text();update=(ROOT/'update.sh').read_text();road=(ROOT/'MILESTONES.md').read_text();readme=(ROOT/'README.md').read_text()
+  self.assertIn('def rogue_dashboard_status():',src);self.assertIn('/api/integrations/rogue-dashboard',src)
+  block=src[src.index('def rogue_dashboard_status():'):src.index('class Handler')]
+  self.assertIn('"capabilities"',block);self.assertIn('"recentFailures"',block);self.assertIn('dashboard_snapshot(force=False)',block)
+  self.assertNotIn('"socket"',block);self.assertNotIn('"composeRoot"',block);self.assertNotIn('"output"',block)
+  self.assertIn('RogueForge Default Environment Configuration',env)
+  self.assertNotIn('Rev 150 update',env);self.assertNotIn('Rev 160 update',env);self.assertNotIn('ROGUEFORGE_ENV_REV=',env)
+  self.assertNotIn('append_env_revision 160',update);self.assertIn('stable operations platform',readme);self.assertIn('## 2.0.0 — Stable operations platform',road)
+ def test_v200_contract_baseline(self):
+  env=(ROOT/'.env.example').read_text();update=(ROOT/'update.sh').read_text();road=(ROOT/'MILESTONES.md').read_text();change=(ROOT/'CHANGELOG.md').read_text();readme=(ROOT/'README.md').read_text()
+  self.assertIn('Environment Revision Policy',env)
+  self.assertNotIn('Rev 150 update',env);self.assertNotIn('Rev 160 update',env);self.assertNotIn('ROGUEFORGE_ENV_REV=',env)
+  self.assertNotIn('append_env_revision',update)
+  self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.1.0 — Post-2.0 development',road)
+  self.assertIn('## 2.0.0 (testing)',change);self.assertIn('final 1.x cleanup baseline',change)
+  self.assertRegex(readme,r'RELEASE-2\.0\.0%20(?:TESTING|STABLE)');self.assertIn('stable operations platform',readme)
+ def test_v200_api_and_state_contract(self):
+  src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text();env=(ROOT/'.env.example').read_text();readme=(ROOT/'README.md').read_text()
+  self.assertIn('API_VERSION="2"; STATE_SCHEMA_VERSION=1',src)
+  self.assertIn('def state_contract():',src);self.assertIn('/api/v2/status',src);self.assertIn('/api/v2/contract',src)
+  self.assertIn('"apiVersion":API_VERSION',src);self.assertIn('"stateSchemaVersion":STATE_SCHEMA_VERSION',src)
+  self.assertIn('"backwardCompatibleFrom":"1.9.0"',src)
+  self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.1.0 — Post-2.0 development',road)
+  self.assertNotIn('ROGUEFORGE_ENV_REV=',env);self.assertIn('stable operations platform',readme)
  def test_current_release_baseline(self):
-  self.assertEqual((ROOT/'VERSION').read_text().strip(),'1.0.0')
+  self.assertEqual((ROOT/'VERSION').read_text().strip(),'2.0.0')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def _load_containers_uncached()',src);self.assertIn('/api/dashboard',src)
-  self.assertIn('## 1.0.0 — Stable single-host release',road)
+  self.assertIn('## 2.0.0 — Stable operations platform',road)
  def test_transactional_stack_editor_writes(self):
   src=(ROOT/'rogueforge.py').read_text()
   self.assertIn('def _atomic_write(path,content):',src);self.assertIn('os.fsync(f.fileno())',src);self.assertIn('os.replace(tmp,path)',src)
@@ -124,7 +205,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertNotIn('backup=_backup_file(p,"compose-backups");p.write_text(content,encoding="utf-8")',src)
  def test_stack_update_verification_and_rollback_foundation(self):
   src=(ROOT/'rogueforge.py').read_text()
-  self.assertIn('def _stack_running_snapshot(name):',src);self.assertIn('def _verify_stack_running(name,before,timeout=45):',src)
+  self.assertIn('def _stack_running_snapshot(name):',src);self.assertIn('def _verify_stack_running(name,before,timeout=None):',src)
   self.assertIn('Update safety check failed: stack has no running containers to preserve',src)
   self.assertIn('rollbackAttempted',src);self.assertIn('def _restore_stack_images(before):',src);self.assertIn('engine_cli(["tag",image_id,image_ref],60)',src)
   self.assertIn('str(c.get("state","")).lower()!="running"',src);self.assertNotIn('["config","--format","json"]',src)

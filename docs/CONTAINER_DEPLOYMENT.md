@@ -18,19 +18,21 @@ Runtime inventory and container actions use the remote Podman socket. Compose-ma
 The mount root, Compose discovery root and environment-file root are independent:
 
 ```env
+ROGUEFORGE_INSTALL_DIR=/opt/media-server/rogueforge
+ROGUEFORGE_DATA_DIR=/opt/media-server/rogueforge/data
 ROGUEFORGE_MEDIA_ROOT=/opt/media-server
-ROGUEFORGE_COMPOSE_ROOT=/opt/media-server/compose
-ROGUEFORGE_ENV_ROOT=/opt/media-server/compose
+ROGUEFORGE_COMPOSE_ROOT=/opt/media-server
+ROGUEFORGE_ENV_ROOT=/opt/media-server
 ```
 
-For a stack named `dozzle`, that layout resolves to:
+For a stack named `radarr`, that layout resolves to:
 
 ```text
-/opt/media-server/compose/dozzle/compose.yaml
-/opt/media-server/compose/dozzle/.env
+/opt/media-server/radarr/compose.yaml
+/opt/media-server/radarr/.env
 ```
 
-Administrators can point all roots at the same directory when their layout is flatter.
+RogueForge's own deployment remains isolated at `/opt/media-server/rogueforge` while the discovery root stays at `/opt/media-server`.
 
 ## Mounts
 
@@ -39,7 +41,7 @@ A typical Podman deployment mounts:
 ```text
 /run/user/<UID>/podman/podman.sock -> /run/podman/podman.sock
 /opt/media-server                  -> /opt/media-server
-./data                             -> /opt/rogueforge/data
+/opt/media-server/rogueforge/data -> /opt/rogueforge/data
 ```
 
 The installer derives the current UID rather than assuming UID 1000.
@@ -49,11 +51,11 @@ The installer derives the current UID rather than assuming UID 1000.
 RogueForge deliberately uses deterministic Compose lifecycle operations:
 
 ```text
-Start     -> up -d
-Stop      -> down
-Restart   -> down, then up -d
-Recreate  -> down, then up -d
-Update    -> pull, down, then up -d
+Start     -> up -d, then verify stable running state
+Stop      -> stop, then verify stopped state
+Restart   -> restart, verify, then in-place reconcile if needed
+Recreate  -> up -d --force-recreate, then verify
+Update    -> pull, verify target image IDs, force-recreate in place, then verify/rollback
 ```
 
 Update/replacement flows verify immutable image identity rather than treating a successful pull as a successful deployment.
@@ -78,7 +80,7 @@ RogueForge uses:
 - asynchronous CPU/RAM refresh,
 - targeted refresh after lifecycle operations.
 
-The 1.0.0 production release continues this with the validated cache/coalescing baseline, a single canonical frontend asset graph, security-header hardening and continued runtime diagnostics.
+The current 2.0.0 testing baseline preserves the validated cache/coalescing model, bounded engine concurrency, on-demand logs and lightweight read-only RogueDashboard integration.
 
 ## Network model
 
@@ -101,3 +103,26 @@ podman exec rogueforge podman --remote --url unix:///run/podman/podman.sock info
 ```
 
 Do not use `sudo podman` for a rootless deployment.
+
+
+## Read-only RogueDashboard integration
+
+RogueDashboard can query:
+
+```text
+http://rogueforge:7810/api/integrations/rogue-dashboard
+```
+
+This endpoint reuses RogueForge's existing cached dashboard snapshot and in-memory operation history. It does not create a second Docker/Podman polling loop and does not expose the engine socket, filesystem roots, administrator credentials or raw operation output.
+
+
+## 2.0 API and state contract
+
+RogueForge 2.0 publishes API version 2 and state schema version 1. The stable read-only endpoints are:
+
+```text
+/api/v2/status
+/api/v2/contract
+```
+
+They reuse the existing lightweight cached runtime model and do not introduce another engine polling loop.

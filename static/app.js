@@ -512,7 +512,18 @@ async function rfSaveConfig(){
   finally{b.disabled=false;b.textContent='Validate & save';}
 }
 
-async function rfUpdateStack(name){if(!ensureAuthenticated())return;if(!await confirmAction(`Update ${name}?`,'Pull latest images and redeploy this stack with its current Compose definition.','Update stack'))return;try{toast(`${name}: update started`);const r=await api(`/api/stacks/${encodeURIComponent(name)}/update`,protectedOptions({method:'POST'}));if(r.output)console.info(r.output);toast(`${name}: update complete`);await refreshRuntimeInventory();}catch(e){toast(e.message,'error');}}
+async function rfUpdateStack(name){
+  if(!ensureAuthenticated())return;
+  let preview=null;
+  try{preview=await api(`/api/stacks/${encodeURIComponent(name)}/update-preview`);}catch(e){console.warn('Update preview unavailable',e);}
+  const services=preview?.services||[];
+  const summary=services.length
+    ? services.slice(0,8).map(s=>`${s.service}: ${s.image}${s.localUpdatePending?' · local image newer':''}`).join('\n')+(services.length>8?`\n+${services.length-8} more service(s)`:'')
+    : 'No running services were found in the preview.';
+  const message=`Affected services: ${preview?.runningServices??services.length}\nLocal image changes already pending: ${preview?.localUpdatesPending??0}\n\n${summary}\n\nRogueForge will pull remote images, recreate in place, verify immutable image IDs and roll back on failure.`;
+  if(!await confirmAction(`Update ${name}?`,message,'Update stack'))return;
+  try{toast(`${name}: update started`);const r=await api(`/api/stacks/${encodeURIComponent(name)}/update`,protectedOptions({method:'POST'}));if(r.output)console.info(r.output);toast(`${name}: update complete`);await refreshRuntimeInventory();}catch(e){toast(e.message,'error');}
+}
 function rfEnsureEnvDialog(){if($('#rfEnvDialog'))return;document.body.insertAdjacentHTML('beforeend',`<dialog id="rfEnvDialog"><div class="modal wide"><header><div><p class="eyebrow">Stack environment</p><h2 id="rfEnvTitle">.env</h2></div><button class="close-button" type="button" id="rfEnvClose">×</button></header><div class="editor-toolbar"><span>.env</span><span>Validated through Compose before save</span></div><textarea id="rfEnvText" spellcheck="false" aria-label="Environment file"></textarea><footer><button class="button secondary" type="button" id="rfEnvCancel">Cancel</button><button class="button primary" type="button" id="rfEnvSave">Validate & save</button></footer></div></dialog>`);$('#rfEnvClose').onclick=$('#rfEnvCancel').onclick=()=>$('#rfEnvDialog').close();$('#rfEnvSave').onclick=rfSaveEnv;}
 async function rfEditEnv(name){if(!ensureAuthenticated())return;rfEnsureEnvDialog();try{const d=await api(`/api/stacks/${encodeURIComponent(name)}/env`);rfEnvStack=name;$('#rfEnvTitle').textContent=`${name} · .env`;$('#rfEnvText').value=d.content||'';$('#rfEnvDialog').showModal();}catch(e){toast(e.message,'error');}}
 async function rfSaveEnv(){if(!rfEnvStack)return;const b=$('#rfEnvSave');b.disabled=true;b.textContent='Validating…';try{await api(`/api/stacks/${encodeURIComponent(rfEnvStack)}/env`,protectedOptions({method:'PUT',body:JSON.stringify({content:$('#rfEnvText').value})}));$('#rfEnvDialog').close();toast(`${rfEnvStack}: .env saved`);await load({quiet:true});}catch(e){toast(e.message,'error');}finally{b.disabled=false;b.textContent='Validate & save';}}
