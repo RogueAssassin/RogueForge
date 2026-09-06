@@ -6,7 +6,7 @@
 
 **Local-first Docker and Podman stack management, verified updates and live troubleshooting.**
 
-[![Release](https://img.shields.io/badge/RELEASE-2.0.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
+[![Release](https://img.shields.io/badge/RELEASE-2.1.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueForge/container.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/actions/workflows/container.yml?query=branch%3Atesting)
 ![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
 ![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
@@ -32,27 +32,27 @@ RogueForge deliberately stays separate from **RogueDashboard**, which owns monit
 - canonical deployment under `/opt/media-server/rogueforge`
 - no permanent log indexer and no high-frequency background engine polling
 
-## 2.0.0 stable operations platform
+## 2.1.0 testing development baseline
 
-RogueForge 2.0.0 is the testing candidate for the first stable 2.x operations contract.
+RogueForge 2.1.0 is the active post-2.0 testing baseline.
 
-- preserves the host-tested 1.9 lifecycle, update-preview, rollback, logging and terminal systems
-- introduces explicit `API_VERSION=2` and `STATE_SCHEMA_VERSION=1`
-- adds stable read-only `/api/v2/status` and `/api/v2/contract` endpoints
-- keeps the RogueDashboard integration payload aligned with the v2 contract
-- defines persistent-state compatibility metadata without forcing a migration for the existing 1.9 data
-- keeps the default `.env` unchanged because 2.0 adds no new runtime setting
-- keeps Docker and rootless Podman first-class and retains the lightweight single-host architecture
-- 2.0 remains on `testing` until live-host validation is complete; only then should it move to `main/latest`
+- starts from the production-tested 2.0.0 operations platform
+- keeps API version 2 and state schema version 1 stable
+- preserves verified lifecycle, update preview, rollback, logs, terminals and RogueDashboard integration
+- keeps the default `.env` unchanged because 2.1.0 adds no new runtime setting
+- reserves 2.1 development for versioned API expansion, audit/event improvements and diagnostics without adding unnecessary background load
+- remains on the permanent `testing` branch until the next release is validated
 
 ## Rogue ecosystem
 
 | Service | Responsibility |
 | --- | --- |
-| **RogueDashboard** | visibility, health, uptime, incidents and alerts |
-| **RogueForge** | container/stack management, updates, logs and terminal |
-| **RogueMediaValidator** | torrent/media validation and protection |
-| **RogueRoute GPX** | routing and GPX services |
+| Service | What it does |
+| --- | --- |
+| [**RogueDashboard**](https://github.com/RogueAssassin/RogueDashboard) | Lightweight media-server visibility, health, uptime, incidents, alerts and service overview. |
+| **RogueForge** | Docker/Podman stack management, verified updates, live logs, terminals and operational troubleshooting. |
+| [**RogueMediaValidator**](https://github.com/RogueAssassin/RogueMediaValidator) | Torrent/media validation and protection for download workflows, including policy enforcement and diagnostics. |
+| [**RogueRoute-GPX**](https://github.com/RogueAssassin/RogueRoute-GPX) | Routing and GPX services for route generation, processing and related mapping workflows. |
 
 RogueDashboard can consume RogueForge's lightweight status information without receiving Docker/Podman socket access or RogueForge administrator credentials.
 
@@ -136,7 +136,7 @@ cd /opt/media-server/rogueforge
 Pinned version:
 
 ```bash
-./update.sh 2.0.0
+./update.sh 2.1.0
 ```
 
 Production after promotion:
@@ -207,7 +207,7 @@ Production after promotion:
 
 ```text
 ghcr.io/rogueassassin/rogueforge:latest
-ghcr.io/rogueassassin/rogueforge:2.0.0
+ghcr.io/rogueassassin/rogueforge:2.1.0
 ```
 
 The permanent `testing` branch is the proving ground. `main` remains production-only.
