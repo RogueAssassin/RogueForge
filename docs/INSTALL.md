@@ -14,27 +14,29 @@ A typical media-server deployment uses:
 │   ├── setup-auth.py
 │   ├── .env
 │   └── data/
-│       └── auth.json
-└── compose/
-    ├── bazarr/
-    │   ├── compose.yaml
-    │   └── .env
-    ├── dozzle/
-    │   ├── compose.yaml
-    │   └── .env
-    └── ...
+│       ├── auth.json
+│       └── operations.json
+├── bazarr/
+│   ├── compose.yaml
+│   └── .env
+├── radarr/
+├── sonarr/
+├── qbittorrent/
+└── ...
 ```
 
 The locations are configurable:
 
 ```env
+ROGUEFORGE_INSTALL_DIR=/opt/media-server/rogueforge
+ROGUEFORGE_DATA_DIR=/opt/media-server/rogueforge/data
 ROGUEFORGE_MEDIA_ROOT=/opt/media-server
-ROGUEFORGE_COMPOSE_ROOT=/opt/media-server/compose
-ROGUEFORGE_ENV_ROOT=/opt/media-server/compose
-ROGUEFORGE_STACKS_DIR=/opt/media-server/compose
+ROGUEFORGE_COMPOSE_ROOT=/opt/media-server
+ROGUEFORGE_ENV_ROOT=/opt/media-server
+ROGUEFORGE_STACKS_DIR=/opt/media-server
 ```
 
-If Compose projects live directly below `/opt/media-server`, point the Compose and environment roots there instead.
+This is the canonical media-server layout: RogueForge's own files stay in `/opt/media-server/rogueforge`, while Compose discovery remains rooted at `/opt/media-server` so sibling stacks are visible.
 
 ## Rootless Podman prerequisites
 
@@ -72,7 +74,7 @@ chmod +x install.sh
 ./install.sh --engine podman
 ```
 
-The installer validates the runtime and Compose provider, checks the configured roots, provisions the rootless socket mapping, creates authentication when needed, pulls the GHCR image, starts RogueForge and waits for `/health`.
+The installer validates the runtime and Compose provider, checks the configured roots, provisions the rootless socket mapping, copies the fully commented `.env.example` to `/opt/media-server/rogueforge/.env` on fresh installs, patches only machine-specific values, creates authentication when needed, pulls the GHCR image, starts RogueForge and waits for `/health`. Existing `.env` files are preserved.
 
 ## Testing install / switch
 
@@ -96,10 +98,11 @@ cd /opt/media-server/rogueforge
 ./update.sh latest
 ```
 
-Pinned production version:
+Pinned production or release-candidate version:
 
 ```bash
 ./update.sh X.Y.Z
+./update.sh X.Y.Z-rcN
 ```
 
 Testing:
