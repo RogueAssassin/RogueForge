@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0-rc1 — Lifecycle and live-log hardening
+## 1.0.0-rc2 — Lifecycle, logging and persistence tuning
 
 - Reworked stack Stop to use reversible Compose `stop` instead of destructive `down`, preserving container/network definitions for fast recovery.
 - Reworked Restart to use native Compose `restart` first, with verified in-place Compose reconciliation as a fallback instead of tearing the stack down.
@@ -11,6 +11,9 @@
 - Optimized live logs with animation-frame batching, a bounded 3,000-line browser buffer, buffered pause/resume, debounced filtering and lightweight error/warning counts.
 - Kept logging on-demand with no server-side log database, indexer or background polling process, preserving exceptional idle performance.
 - Reduced terminal polling frequency slightly to lower steady browser/API churn while retaining responsive interactive shells.
+- Throttled and bounded persisted Operations output to avoid repeated large JSON writes during noisy Compose pulls/updates while retaining richer in-memory live output.
+- Fixed active-operation persistence so non-serializable process handles are never written to disk.
+- Fixed prerelease-safe CI runtime stamping so RC tags are packaged exactly as declared in `VERSION`.
 
 
 ## 1.0.0-rc1 — First 1.0 release candidate
