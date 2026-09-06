@@ -6,7 +6,7 @@
 
 **Local-first Docker and Podman stack management, verified updates and live troubleshooting.**
 
-[![Release](https://img.shields.io/badge/RELEASE-1.4.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
+[![Release](https://img.shields.io/badge/RELEASE-1.5.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueForge/container.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/actions/workflows/container.yml?query=branch%3Atesting)
 ![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
 ![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
@@ -32,18 +32,18 @@ RogueForge deliberately stays separate from **RogueDashboard**, which owns monit
 - canonical deployment under `/opt/media-server/rogueforge`
 - no permanent log indexer and no high-frequency background engine polling
 
-## 1.4.0 logging and operations visibility
+## 1.5.0 stack management and update intelligence
 
-RogueForge 1.4.0 builds on the host-tested 1.3 lifecycle baseline.
+RogueForge 1.5.0 builds on the tested lifecycle and logging baseline with safer update visibility.
 
-- added live-log severity filtering for Error, Warning and Info
-- added clearer live stream source, reconnect-attempt and buffered-line visibility
-- retained bounded 3,000-line browser log buffering and bounded concurrent streams
-- retained on-demand-only server log streaming with no persistent log database
-- added clearer current-operation step elapsed time
-- retained operation duration, failure reason, timeout, cancellation and JSON export
-- kept the tested Start, Stop, Restart and Update workflows unchanged
-- kept `/opt/media-server/rogueforge` as the canonical deployment location
+- added a pre-update stack preview showing affected running services and image references
+- shows current running image IDs and locally tagged image IDs before confirmation
+- highlights locally available image changes without performing a background pull
+- keeps the actual update path as pull → in-place recreate → immutable image verification → rollback on failure
+- preserves strict per-stack lifecycle serialization
+- introduces the append-only environment revision convention beginning with `Rev 150 update`
+- keeps `.env.example` as the complete fresh-install reference while upgrades preserve existing `.env`
+- retains the 1.4 live-log filtering, reconnect visibility and bounded operation history
 
 ## Rogue ecosystem
 
@@ -136,7 +136,7 @@ cd /opt/media-server/rogueforge
 Pinned version:
 
 ```bash
-./update.sh 1.4.0
+./update.sh 1.5.0
 ```
 
 Production after promotion:
@@ -207,7 +207,7 @@ Production after promotion:
 
 ```text
 ghcr.io/rogueassassin/rogueforge:latest
-ghcr.io/rogueassassin/rogueforge:1.4.0
+ghcr.io/rogueassassin/rogueforge:1.5.0
 ```
 
 The permanent `testing` branch is the proving ground. `main` remains production-only.
