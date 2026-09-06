@@ -74,13 +74,15 @@ The repository uses two persistent branches: `main` is production-only and `test
 RogueForge separates the mounted host root from Compose discovery and `.env` locations:
 
 ```env
+ROGUEFORGE_INSTALL_DIR=/opt/media-server/rogueforge
+ROGUEFORGE_DATA_DIR=/opt/media-server/rogueforge/data
 ROGUEFORGE_MEDIA_ROOT=/opt/media-server
-ROGUEFORGE_COMPOSE_ROOT=/opt/media-server/compose
-ROGUEFORGE_ENV_ROOT=/opt/media-server/compose
-ROGUEFORGE_STACKS_DIR=/opt/media-server/compose
+ROGUEFORGE_COMPOSE_ROOT=/opt/media-server
+ROGUEFORGE_ENV_ROOT=/opt/media-server
+ROGUEFORGE_STACKS_DIR=/opt/media-server
 ```
 
-A stack such as `/opt/media-server/compose/dozzle/compose.yaml` with `/opt/media-server/compose/dozzle/.env` is supported directly. Administrators who keep stacks directly below `/opt/media-server` can point all roots there. `ROGUEFORGE_STACKS_DIR` remains a compatibility alias.
+RogueForge's own `.env`, `compose.yaml`, scripts and persistent `data/` live in `/opt/media-server/rogueforge`. Managed media stacks live directly below `/opt/media-server/<stack>/`, so Compose and environment discovery default to `/opt/media-server`. `ROGUEFORGE_STACKS_DIR` remains a compatibility alias.
 
 ## Performance configuration
 
