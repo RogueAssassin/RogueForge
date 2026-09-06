@@ -32,8 +32,8 @@ class RogueForgeTests(unittest.TestCase):
   self.assertNotIn('def discover_stacks():\n    reg=_build_registry(force=True)',src)
  def test_media_server_stack_lifecycle(self):
   src=(ROOT/'rogueforge.py').read_text()
-  self.assertIn('out=run_compose(stack,["down"]);_verify_stack_stopped(stack)',src);self.assertIn('action in ("restart","recreate")',src);self.assertIn('_verify_stack_running(stack,before)',src)
-  self.assertIn('out=run_compose(name,["pull"])',src);self.assertIn('run_compose(name,["down"])',src);self.assertIn('run_compose(name,["up","-d"])',src)
+  self.assertIn('out=run_compose(stack,["stop"]);after=[];_verify_stack_stopped(stack)',src);self.assertIn('out=run_compose(stack,["restart"])',src);self.assertIn('Restart fallback after:',src)
+  self.assertIn('out=run_compose(name,["pull"]);expected=_local_image_ids(before)',src);self.assertIn('run_compose(name,["up","-d","--force-recreate"])',src);self.assertNotIn('out+="\\n"+run_compose(name,["down"])',src)
  def test_http_disconnect_and_head_support(self):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('def do_HEAD(self):',src);self.assertIn('except (BrokenPipeError,ConnectionResetError)',src)
  def test_dashboard_snapshot_contract(self):
@@ -107,6 +107,13 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('if action=="update":\n            if not before:raise RuntimeError("Update safety check failed',src)
   self.assertIn('finally:lock.release()',src)
   self.assertIn('does not depend on,',src);self.assertIn('external media-server lock files',src)
+ def test_lightweight_lifecycle_and_logging_hardening(self):
+  src=(ROOT/'rogueforge.py').read_text();live=(ROOT/'static/live-ops.js').read_text();env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text()
+  self.assertIn('LIFECYCLE_VERIFY_INTERVAL',src);self.assertIn('LIFECYCLE_STABLE_SAMPLES',src);self.assertIn('def _stack_snapshot_ready(',src)
+  self.assertIn('def _verify_updated_images(',src);self.assertIn('Update image verification failed',src);self.assertIn('expected_images=_local_image_ids(before)',src)
+  self.assertIn('["stop"]',src);self.assertIn('["restart"]',src);self.assertIn('["up","-d","--force-recreate"]',src)
+  self.assertIn('LOG_TAIL_DEFAULT',src);self.assertIn('RF_LOG_MAX_LINES = 3000',live);self.assertIn('requestAnimationFrame(flushLiveLines)',live);self.assertIn('Paused · buffering',live);self.assertIn('setTimeout(renderLiveLines,120)',live)
+  self.assertIn('ROGUEFORGE_LIFECYCLE_VERIFY_INTERVAL=0.5',env);self.assertIn('ROGUEFORGE_LOG_TAIL=200',env);self.assertIn('ROGUEFORGE_LOG_TAIL:',compose)
  def test_operation_timeout_and_progress_metadata(self):
   src=(ROOT/'rogueforge.py').read_text();ops=(ROOT/'static/operations.js').read_text();env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text()
   self.assertIn('ROGUEFORGE_OPERATION_TIMEOUT',src);self.assertIn('threading.Timer(timeout,expire)',src);self.assertIn('status="timed_out"',src);self.assertIn('"stepCount"',src);self.assertIn('"currentStep"',src);self.assertIn('"failureReason"',src)
@@ -132,7 +139,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertNotIn('backup=_backup_file(p,"compose-backups");p.write_text(content,encoding="utf-8")',src)
  def test_stack_update_verification_and_rollback_foundation(self):
   src=(ROOT/'rogueforge.py').read_text()
-  self.assertIn('def _stack_running_snapshot(name):',src);self.assertIn('def _verify_stack_running(name,before,timeout=45):',src)
+  self.assertIn('def _stack_running_snapshot(name):',src);self.assertIn('def _verify_stack_running(name,before,timeout=None):',src)
   self.assertIn('Update safety check failed: stack has no running containers to preserve',src)
   self.assertIn('rollbackAttempted',src);self.assertIn('def _restore_stack_images(before):',src);self.assertIn('engine_cli(["tag",image_id,image_ref],60)',src)
   self.assertIn('str(c.get("state","")).lower()!="running"',src);self.assertNotIn('["config","--format","json"]',src)
