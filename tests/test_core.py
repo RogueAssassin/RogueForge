@@ -157,7 +157,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn("const level=$('#liveLogLevel')?.value||'all'",live);self.assertIn('rfLive.reconnects++',live);self.assertIn('reconnect',live)
   self.assertIn('stepElapsed=',ops);self.assertIn('current step',ops)
   self.assertIn('RELEASE-2.0.0%20TESTING',readme);self.assertIn('## Rogue ecosystem',readme)
-  self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 1.4.0 (testing)',change)
+  self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.0.0 (testing)',change)
  def test_v150_update_preview_and_env_revision_policy(self):
   src=(ROOT/'rogueforge.py').read_text();app=(ROOT/'static/app.js').read_text();env=(ROOT/'.env.example').read_text();update=(ROOT/'update.sh').read_text();road=(ROOT/'MILESTONES.md').read_text()
   self.assertIn('def stack_update_preview(name):',src);self.assertIn('/update-preview',src)
@@ -180,7 +180,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('Environment Revision Policy',env)
   self.assertNotIn('Rev 150 update',env);self.assertNotIn('Rev 160 update',env);self.assertNotIn('ROGUEFORGE_ENV_REV=',env)
   self.assertNotIn('append_env_revision',update)
-  self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.0.0 — Stable operations platform',road)
+  self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.1.0 — Post-2.0 development',road)
   self.assertIn('## 2.0.0 (testing)',change);self.assertIn('final 1.x cleanup baseline',change)
   self.assertIn('RELEASE-2.0.0%20TESTING',readme);self.assertIn('stable operations platform',readme)
  def test_v200_api_and_state_contract(self):
