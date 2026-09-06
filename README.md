@@ -34,7 +34,7 @@ RogueForge deliberately stays separate from **RogueDashboard**, which owns monit
 
 ## 2.0.0 stable operations platform
 
-RogueForge 2.0.0 is the testing candidate for the first stable 2.x operations contract.
+RogueForge 2.0.0 is the stable production baseline for the first 2.x operations contract.
 
 - preserves the host-tested 1.9 lifecycle, update-preview, rollback, logging and terminal systems
 - introduces explicit `API_VERSION=2` and `STATE_SCHEMA_VERSION=1`
@@ -43,12 +43,10 @@ RogueForge 2.0.0 is the testing candidate for the first stable 2.x operations co
 - defines persistent-state compatibility metadata without forcing a migration for the existing 1.9 data
 - keeps the default `.env` unchanged because 2.0 adds no new runtime setting
 - keeps Docker and rootless Podman first-class and retains the lightweight single-host architecture
-- 2.0 remains on `testing` until live-host validation is complete; only then should it move to `main/latest`
+- 2.0.0 is the validated `main` / `latest` production baseline; active development continues on `testing`
 
 ## Rogue ecosystem
 
-| Service | Responsibility |
-| --- | --- |
 | Service | What it does |
 | --- | --- |
 | [**RogueDashboard**](https://github.com/RogueAssassin/RogueDashboard) | Lightweight media-server visibility, health, uptime, incidents, alerts and service overview. |
