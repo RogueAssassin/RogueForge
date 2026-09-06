@@ -111,7 +111,7 @@ Testing:
 ./update.sh testing
 ```
 
-The updater backs up deployment files under `/tmp/rogueforge/update-backups/`, pulls the requested image, recreates RogueForge when the immutable image ID changed, verifies the new running image ID, and then verifies `/health`. It does not overwrite `.env` or `data/auth.json`.
+The updater backs up deployment files under `/tmp/rogueforge/update-backups/`, pulls the requested image, recreates RogueForge when the immutable image ID changed, verifies the new running image ID, and then verifies `/health`. It does not overwrite `.env` or `data/auth.json`. Environment additions are appended as clearly labelled revision blocks such as `Rev 160 update`.
 
 ## Verification
 
@@ -165,3 +165,14 @@ podman logs -f rogueforge
 ```
 
 For application-managed stacks, RogueForge uses the deterministic lifecycle contract documented in [CONTAINER_DEPLOYMENT.md](CONTAINER_DEPLOYMENT.md).
+
+
+## RogueDashboard integration
+
+RogueForge 1.6.0 exposes a compact read-only endpoint for RogueDashboard:
+
+```text
+/api/integrations/rogue-dashboard
+```
+
+The payload contains version, engine type, stack/container counts, active operations, recent failure summaries and capability flags. It deliberately omits engine socket paths, Compose paths, credentials and operation output.
