@@ -709,7 +709,7 @@ def _container_action_unlocked(cid,action):
     m=_container_meta(cid);_mutable(m,action)
     if action in ("start","stop","restart"):
         engine_cli(([action,"--time","10",m["id"]] if action in ("stop","restart") and runtime()["engine"]=="podman" else [action,m["id"]]),60)
-        state=_verify_container_state(m["id"],action!="stop")
+        state=_verify_container_state(m["name"],action!="stop")
         return {"ok":True,"verified":True,"state":state}
     if action=="check-update":return image_status(cid,True)
     if action=="update":
@@ -744,22 +744,27 @@ def _container_action_unlocked(cid,action):
         return {"ok":True,"output":(pulled+"\n"+recreated)[-100000:],"recreated":True,"beforeImageId":before,"pulledImageId":expected,"runningImageId":running,"verified":bool(expected and running==expected)}
     if action=="recreate":
         if not m["composeManaged"]:raise RuntimeError("Recreate is only available for Compose-managed containers")
-        output=run_compose(m["project"],["up","-d","--no-deps","--force-recreate",m["service"]]);state=_verify_container_state(m["id"],True)
+        output=run_compose(m["project"],["up","-d","--no-deps","--force-recreate",m["service"]]);state=_verify_container_state(m["name"],True)
         return {"ok":True,"output":output,"verified":True,"state":state}
     if action=="remove":
         return {"ok":True,"output":run_compose(m["project"],["rm","-s","-f",m["service"]],300) if m["composeManaged"] else engine_cli(["rm","-f",m["id"]],300)}
     raise ValueError("unsupported action")
-def _verify_container_state(cid,running,timeout=20):
+def _verify_container_state(identifier,running,timeout=20):
     deadline=time.monotonic()+timeout;last=None;stable=0
     while time.monotonic()<deadline:
         invalidate_inventory()
-        try:last=inspect_container(cid);ok=bool(last.get("running")) is bool(running)
-        except FileNotFoundError:last=None;ok=not running
-        except Exception:last=None;ok=False
+        try:
+            raw=json.loads(engine_cli(["inspect",str(identifier)],30) or "[]");obj=raw[0] if isinstance(raw,list) and raw else raw
+            state=obj.get("State") or {};is_running=bool(state.get("Running")) if isinstance(state,dict) else str(state).lower()=="running"
+            last={"name":str(identifier),"running":is_running,"status":state.get("Status") if isinstance(state,dict) else state}
+            ok=is_running is bool(running)
+        except Exception:
+            last=None;ok=not running
         stable=stable+1 if ok else 0
-        if stable>=LIFECYCLE_STABLE_SAMPLES:return last or {"running":False}
+        if stable>=LIFECYCLE_STABLE_SAMPLES:return last or {"name":str(identifier),"running":False,"status":"missing"}
         time.sleep(LIFECYCLE_VERIFY_INTERVAL)
     raise RuntimeError(f"Container verification failed; expected {'running' if running else 'stopped'} state")
+
 
 def container_action(cid,action):
     m=_container_meta(cid);_mutable(m,action)
