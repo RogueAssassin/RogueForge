@@ -114,6 +114,13 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('["stop"]',src);self.assertIn('["restart"]',src);self.assertIn('["up","-d","--force-recreate"]',src)
   self.assertIn('LOG_TAIL_DEFAULT',src);self.assertIn('RF_LOG_MAX_LINES = 3000',live);self.assertIn('requestAnimationFrame(flushLiveLines)',live);self.assertIn('Paused · buffering',live);self.assertIn('setTimeout(renderLiveLines,120)',live)
   self.assertIn('ROGUEFORGE_LIFECYCLE_VERIFY_INTERVAL=0.5',env);self.assertIn('ROGUEFORGE_LOG_TAIL=200',env);self.assertIn('ROGUEFORGE_LOG_TAIL:',compose)
+ def test_container_actions_share_lifecycle_lock_and_verify(self):
+  src=(ROOT/'rogueforge.py').read_text()
+  self.assertIn('def _container_action_unlocked(',src);self.assertIn('def _verify_container_state(',src)
+  self.assertIn('lock_key=m["project"] if m.get("composeManaged") else f"container:{m[\'id\']}"',src)
+  self.assertIn('state=_verify_container_state(m["name"],action!="stop")',src)
+  self.assertIn('already has a lifecycle operation in progress',src)
+  self.assertIn('engine_cli(["inspect",str(identifier)],30)',src)
  def test_operation_timeout_and_progress_metadata(self):
   src=(ROOT/'rogueforge.py').read_text();ops=(ROOT/'static/operations.js').read_text();env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text()
   self.assertIn('ROGUEFORGE_OPERATION_TIMEOUT',src);self.assertIn('threading.Timer(timeout,expire)',src);self.assertIn('status="timed_out"',src);self.assertIn('"stepCount"',src);self.assertIn('"currentStep"',src);self.assertIn('"failureReason"',src)
