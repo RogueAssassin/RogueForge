@@ -600,6 +600,14 @@ def _verify_updated_images(after,expected):
     if mismatches:raise RuntimeError("Update image verification failed: "+"; ".join(mismatches))
     return True
 
+def stack_update_preview(name):
+    safe_stack(name);before=_stack_running_snapshot(name);local=_local_image_ids(before)
+    services=[]
+    for x in before:
+        ref=str(x.get("image") or "");running=str(x.get("imageId") or "");tagged=str(local.get(ref) or "")
+        services.append({"service":x.get("service") or x.get("name"),"container":x.get("name"),"image":ref,"runningImageId":running,"localImageId":tagged,"localUpdatePending":bool(running and tagged and running!=tagged)})
+    return {"stack":name,"runningServices":len(before),"services":services,"localUpdatesPending":sum(1 for x in services if x["localUpdatePending"]),"remoteChecked":False,"note":"Preview does not pull images. Update performs the remote pull, immutable image verification and rollback protection."}
+
 def _restore_stack_images(before):
     output=""
     for old in before:
@@ -1108,6 +1116,10 @@ class Handler(BaseHTTPRequestHandler):
             if path in ("/api/diagnostics","/api/discovery"):
                 if not self.require_auth():return
                 self.send_json(diagnostics() if path.endswith("diagnostics") else discovery_diagnostics());return
+            m=re.fullmatch(r"/api/stacks/([^/]+)/update-preview",path)
+            if m:
+                if not self.require_auth():return
+                self.send_json(stack_update_preview(m.group(1)));return
             m=re.fullmatch(r"/api/stacks/([^/]+)/(compose|env)",path)
             if m:
                 if not self.require_auth():return
