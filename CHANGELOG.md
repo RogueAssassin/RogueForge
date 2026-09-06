@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.4.0 (testing)
+
+- Advanced RogueForge to the logging and operations-visibility release.
+- Preserved the host-tested verified Start, Stop, Restart, Recreate and Update lifecycle system from 1.3.0.
+- Added live-log severity filtering for Error, Warning and Info without adding a server-side log index.
+- Added clearer live stream source, buffered-line counts and reconnect-attempt visibility.
+- Preserved bounded 3,000-line browser log buffering, pause/resume, text filtering and log download.
+- Added clearer current operation step elapsed time alongside total duration, step progress, timeout and failure reporting.
+- Preserved bounded operation-history persistence/export and on-demand-only log streaming.
+- Reworked the README to match the streamlined RogueDashboard/RogueMediaValidator release presentation.
+- Added a consistent Rogue ecosystem responsibility table and simplified Docker/Podman quick-install/update documentation.
+- Updated the roadmap around 1.5 update intelligence, 1.6 RogueDashboard integration, 1.7 operations quality and 2.0 API/platform stability.
+- Kept the canonical deployment at `/opt/media-server/rogueforge`, persistent data at `/opt/media-server/rogueforge/data`, and sibling stack discovery at `/opt/media-server`.
+- Testing publishes through `ghcr.io/rogueassassin/rogueforge:testing`; stable semantic tags remain production-only until promotion.
+
 ## 1.3.0 — Stable lifecycle and deployment baseline
 
 - Promoted the tested Start, Stop, Restart and Update lifecycle system to a normal stable release with no RC suffix.
