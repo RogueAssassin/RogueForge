@@ -151,6 +151,13 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn("nativeFetch('/api/operations'",ops);self.assertIn('waitOperation',ops);self.assertIn('data-rf-cancel-op',ops);self.assertNotIn('localStorage.getItem(HISTORY_KEY)',ops)
   self.assertIn('async function refreshRuntimeInventory()',app);self.assertIn('await refreshRuntimeInventory()',app)
   self.assertIn('composePath',src);self.assertIn('directory',src);self.assertIn('Pin operations to the exact Compose path',src)
+ def test_v140_logging_operations_and_github_alignment(self):
+  live=(ROOT/'static/live-ops.js').read_text();html=(ROOT/'static/index.html').read_text();ops=(ROOT/'static/operations.js').read_text();readme=(ROOT/'README.md').read_text();road=(ROOT/'MILESTONES.md').read_text();change=(ROOT/'CHANGELOG.md').read_text()
+  self.assertIn('id="liveLogLevel"',html);self.assertIn('option value="error"',html);self.assertIn('option value="warn"',html)
+  self.assertIn("const level=$('#liveLogLevel')?.value||'all'",live);self.assertIn('rfLive.reconnects++',live);self.assertIn('reconnect',live)
+  self.assertIn('stepElapsed=',ops);self.assertIn('current step',ops)
+  self.assertIn('RELEASE-1.4.0%20TESTING',readme);self.assertIn('## Rogue ecosystem',readme)
+  self.assertIn('## 1.4.0 — Logging and operations visibility',road);self.assertIn('## 1.4.0 (testing)',change)
  def test_current_release_baseline(self):
   self.assertEqual((ROOT/'VERSION').read_text().strip(),'1.4.0')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
