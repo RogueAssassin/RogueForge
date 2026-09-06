@@ -86,6 +86,15 @@ class RogueForgeTests(unittest.TestCase):
   names=[p.name for p in (ROOT/'static').iterdir() if p.is_file()]
   self.assertFalse(any(n.startswith('v0') for n in names))
   html=(ROOT/'static/index.html').read_text();self.assertNotIn('/v080',html)
+ def test_detailed_env_reference_and_canonical_layout(self):
+  env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text();installer=(ROOT/'install.sh').read_text();update=(ROOT/'update.sh').read_text();docs=(ROOT/'docs/CONTAINER_DEPLOYMENT.md').read_text()
+  self.assertIn('RogueForge v1.0.0-rc2 testing - Environment Configuration',env)
+  self.assertIn('ROGUEFORGE_INSTALL_DIR=/opt/media-server/rogueforge',env);self.assertIn('ROGUEFORGE_DATA_DIR=/opt/media-server/rogueforge/data',env)
+  self.assertIn('ROGUEFORGE_COMPOSE_ROOT=/opt/media-server',env);self.assertIn('ROGUEFORGE_ENV_ROOT=/opt/media-server',env);self.assertIn('ROGUEFORGE_STACKS_DIR=/opt/media-server',env)
+  self.assertIn('${ROGUEFORGE_DATA_DIR:-/opt/media-server/rogueforge/data}:/opt/rogueforge/data',compose)
+  self.assertIn('cp .env.example .env',installer);self.assertIn('Existing .env files are never replaced',installer);self.assertIn('SOURCE_REF=${ROGUEFORGE_SOURCE_REF:-$DEFAULT_SOURCE_REF}',installer)
+  self.assertIn('X.Y.Z-rcN',update);self.assertNotIn('COMPOSE_ROOT=/opt/media-server/compose',update)
+  self.assertIn('Stop      -> stop, then verify stopped state',docs);self.assertIn('Update    -> pull, verify target image IDs',docs)
  def test_testing_updater_and_roots(self):
   u=(ROOT/'update.sh').read_text();compose=(ROOT/'compose.yaml').read_text();env=(ROOT/'.env.example').read_text();installer=(ROOT/'install.sh').read_text()
   self.assertIn('DEFAULT_TEST_BRANCH="testing"',u);self.assertIn('IMAGE_TAG=testing',u);self.assertIn('REF="$BRANCH"; CHANNEL=testing',u);self.assertIn('/tmp}/rogueforge/update-backups',u)
