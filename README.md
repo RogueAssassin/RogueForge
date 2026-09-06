@@ -1,65 +1,201 @@
 <div align="center">
 
-<table>
-  <tr>
-    <td width="220" align="center">
-      <img src="https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/static/branding/rogueforge.svg" width="128" height="128" alt="RogueForge logo">
-    </td>
-    <td align="left">
-      <h1>RogueForge</h1>
-      <p><strong>Fast, local-first Docker and Podman stack operations.</strong></p>
-      <p>Compose stacks • Verified updates • Live operations • Runtime resources • Local authentication</p>
-    </td>
-  </tr>
-</table>
+<img src="https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/static/branding/rogueforge.svg" width="128" height="128" alt="RogueForge logo">
 
-[![Testing](https://img.shields.io/badge/TESTING-1.0.0--rc2-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
-[![GHCR](https://img.shields.io/badge/GHCR-PACKAGE-5c6ac4?style=for-the-badge&logo=github&logoColor=white&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/pkgs/container/rogueforge)
+# RogueForge
+
+**Local-first Docker and Podman stack management, verified updates and live troubleshooting.**
+
+[![Release](https://img.shields.io/badge/RELEASE-1.4.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueForge/container.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/actions/workflows/container.yml?query=branch%3Atesting)
-![Runtime](https://img.shields.io/badge/RUNTIME-PYTHON%203.11-ff4fc8?style=for-the-badge&labelColor=45464d)
 ![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
 ![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
 
 </div>
 
-RogueForge is a local-first operations console for self-hosted Docker and Podman environments. It discovers Compose projects, manages stack and container lifecycle, provides verified image updates, live logs, terminal access, configuration editing and lightweight runtime visibility from one authenticated interface.
+RogueForge is the management and troubleshooting layer for the Rogue media-server stack. It discovers Compose projects, safely controls stacks and containers, performs verified image updates, streams logs on demand, provides authenticated terminal access, edits Compose/.env files transactionally and exposes lightweight runtime inventory.
 
-RogueForge is designed to complement **[RogueDashboard](https://github.com/RogueAssassin/RogueDashboard)**. Use RogueForge for management and maintenance; use RogueDashboard for fast day-to-day service visibility, health, latency and application widgets.
+RogueForge deliberately stays separate from **RogueDashboard**, which owns monitoring, uptime, incidents and notifications, and **RogueMediaValidator**, which owns torrent/media validation and protection.
 
-## What RogueForge does
+## Highlights
 
-- Discovers Compose stacks recursively, preferring active runtime labels over duplicate filesystem candidates.
-- Supports Docker and rootless Podman through a mounted Unix socket.
-- Starts, stops, restarts, recreates, pulls and updates Compose stacks with deterministic lifecycle operations.
-- Verifies replacement/update image identity instead of treating a successful pull as a successful deployment.
-- Edits Compose and `.env` files with validation and backups outside the discovery tree.
-- Manages individual containers with lifecycle, inspect, logs, terminal, update checks and resource statistics.
-- Uses unified dashboard snapshots, short-lived inventory caching and asynchronous CPU/RAM refresh for a responsive UI.
-- Provides signed sessions, CSRF protection, login throttling and RogueForge self-protection.
-- Resolves service artwork through Dashboard Icons with explicit Nginx Proxy Manager and Cloudflared aliases.
-- Records operation output and status for troubleshooting.
+- verified Start, Stop, Restart, Recreate and Update workflows
+- per-stack lifecycle serialization to prevent competing actions
+- in-place updates with immutable image verification and rollback
+- bounded operation history with timeout, cancellation, progress and export
+- on-demand live logs with search, severity filtering, pause/resume and download
+- authenticated per-container terminal access
+- Images, Volumes and Networks inventory
+- transactional Compose and `.env` editing with validation and backup
+- Docker and rootless Podman support
+- short-lived inventory/dashboard caches and bounded engine concurrency
+- canonical deployment under `/opt/media-server/rogueforge`
+- no permanent log indexer and no high-frequency background engine polling
+
+## 1.4.0 logging and operations visibility
+
+RogueForge 1.4.0 builds on the host-tested 1.3 lifecycle baseline.
+
+- added live-log severity filtering for Error, Warning and Info
+- added clearer live stream source, reconnect-attempt and buffered-line visibility
+- retained bounded 3,000-line browser log buffering and bounded concurrent streams
+- retained on-demand-only server log streaming with no persistent log database
+- added clearer current-operation step elapsed time
+- retained operation duration, failure reason, timeout, cancellation and JSON export
+- kept the tested Start, Stop, Restart and Update workflows unchanged
+- kept `/opt/media-server/rogueforge` as the canonical deployment location
 
 ## Rogue ecosystem
 
-### RogueForge
+| Service | Responsibility |
+| --- | --- |
+| **RogueDashboard** | visibility, health, uptime, incidents and alerts |
+| **RogueForge** | container/stack management, updates, logs and terminal |
+| **RogueMediaValidator** | torrent/media validation and protection |
+| **RogueRoute GPX** | routing and GPX services |
 
-Full Docker/Podman Compose-stack and container management, verified lifecycle operations, configuration editing and runtime troubleshooting.
+RogueDashboard can consume RogueForge's lightweight status information without receiving Docker/Podman socket access or RogueForge administrator credentials.
 
-### RogueDashboard
-
-For fast service visibility, health monitoring, latency and application widgets without giving the dashboard container-engine control:
-
-**[Download / view RogueDashboard on GitHub](https://github.com/RogueAssassin/RogueDashboard)**
-
-Both applications can share the same `media-net` network. RogueDashboard can read RogueForge's lightweight status APIs without receiving RogueForge administrator credentials or direct Docker/Podman engine access.
-
-## Container images
-
-Production:
+## Default layout
 
 ```text
-ghcr.io/rogueassassin/rogueforge:latest
+/opt/media-server/
+├── rogueforge/
+│   ├── compose.yaml
+│   ├── .env
+│   ├── update.sh
+│   ├── setup-auth.py
+│   └── data/
+│       ├── auth.json
+│       └── operations.json
+├── radarr/
+├── sonarr/
+├── bazarr/
+├── qbittorrent/
+├── rogue-dashboard/
+└── ...
 ```
+
+RogueForge's own deployment stays in `/opt/media-server/rogueforge`. Stack discovery remains rooted at `/opt/media-server` so sibling Compose projects remain visible.
+
+## Quick install — Podman
+
+```bash
+mkdir -p /opt/media-server/rogueforge
+cd /opt/media-server/rogueforge
+
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/compose.yaml -o compose.yaml
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/.env.example -o .env
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/setup-auth.py -o setup-auth.py
+chmod 600 .env
+
+# Set ROGUEFORGE_SOCKET_SOURCE to /run/user/$(id -u)/podman/podman.sock
+nano .env
+python3 setup-auth.py --username administrator
+
+podman network inspect media-net >/dev/null 2>&1 || podman network create media-net
+podman compose --env-file .env -f compose.yaml pull
+podman compose --env-file .env -f compose.yaml up -d
+```
+
+Open:
+
+```text
+http://HOST:17810
+```
+
+## Quick install — Docker
+
+```bash
+mkdir -p /opt/media-server/rogueforge
+cd /opt/media-server/rogueforge
+
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/compose.yaml -o compose.yaml
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/.env.example -o .env
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/setup-auth.py -o setup-auth.py
+chmod 600 .env
+```
+
+Set the Docker socket values documented in `.env`, create authentication, then start with:
+
+```bash
+docker network inspect media-net >/dev/null 2>&1 || docker network create media-net
+docker compose --env-file .env -f compose.yaml pull
+docker compose --env-file .env -f compose.yaml up -d
+```
+
+## Updating
+
+Testing:
+
+```bash
+cd /opt/media-server/rogueforge
+./update.sh testing
+```
+
+Pinned version:
+
+```bash
+./update.sh 1.4.0
+```
+
+Production after promotion:
+
+```bash
+./update.sh latest
+```
+
+The updater preserves the existing `.env` and persistent authentication/operation data.
+
+## Performance defaults
+
+```env
+ROGUEFORGE_DISCOVERY_CACHE=10
+ROGUEFORGE_INVENTORY_CACHE=2
+ROGUEFORGE_DASHBOARD_CACHE=3
+ROGUEFORGE_DASHBOARD_STALE=30
+ROGUEFORGE_RESOURCE_CACHE=15
+ROGUEFORGE_ENGINE_DETAIL_CONCURRENCY=4
+ROGUEFORGE_MAX_LOG_STREAMS=6
+ROGUEFORGE_LOG_TAIL=200
+```
+
+The supplied `.env.example` documents every deployment, lifecycle, performance, logging and terminal setting.
+
+## Persistent files
+
+Keep these between upgrades:
+
+```text
+.env
+data/auth.json
+data/operations.json
+```
+
+## Security model
+
+RogueForge:
+
+- requires local administrator authentication for protected operations
+- uses signed sessions, CSRF protection and login throttling
+- protects its own stack from in-app lifecycle actions
+- limits terminal and live-log concurrency
+- validates stack configuration before saving
+- stores backups outside the Compose discovery tree
+- requires intentional Docker/Podman socket access because engine management is its purpose
+
+Keep RogueForge behind a trusted reverse proxy and do not expose the engine socket beyond the RogueForge container.
+
+## Documentation
+
+- [Installation](docs/INSTALL.md)
+- [Container deployment](docs/CONTAINER_DEPLOYMENT.md)
+- [GHCR publishing](docs/GHCR.md)
+- [Security](SECURITY.md)
+- [Roadmap](MILESTONES.md)
+- [Changelog](CHANGELOG.md)
+
+## Release channels
 
 Testing:
 
@@ -67,106 +203,11 @@ Testing:
 ghcr.io/rogueassassin/rogueforge:testing
 ```
 
-The repository uses two persistent branches: `main` is production-only and `testing` is active development. Testing publishes only `:testing` and immutable SHA tags; production publishes `:latest`, semantic version aliases and the immutable release tag.
-
-## Path configuration
-
-RogueForge separates the mounted host root from Compose discovery and `.env` locations:
-
-```env
-ROGUEFORGE_INSTALL_DIR=/opt/media-server/rogueforge
-ROGUEFORGE_DATA_DIR=/opt/media-server/rogueforge/data
-ROGUEFORGE_MEDIA_ROOT=/opt/media-server
-ROGUEFORGE_COMPOSE_ROOT=/opt/media-server
-ROGUEFORGE_ENV_ROOT=/opt/media-server
-ROGUEFORGE_STACKS_DIR=/opt/media-server
-```
-
-RogueForge's own `.env`, `compose.yaml`, scripts and persistent `data/` live in `/opt/media-server/rogueforge`. Managed media stacks live directly below `/opt/media-server/<stack>/`, so Compose and environment discovery default to `/opt/media-server`. `ROGUEFORGE_STACKS_DIR` remains a compatibility alias.
-
-## Performance configuration
-
-```env
-ROGUEFORGE_DISCOVERY_CACHE=10
-ROGUEFORGE_INVENTORY_CACHE=2
-```
-
-Overview, Stacks and Runtime share short-lived engine inventory. The browser can hydrate from its last session snapshot while fresh state loads in the background, and CPU/RAM statistics refresh independently so they do not block initial rendering.
-
-## Install / update
-
-Production update:
-
-```bash
-cd /opt/media-server/rogueforge
-./update.sh latest
-```
-
-Testing channel:
-
-```bash
-cd /opt/media-server/rogueforge
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueForge/testing/update.sh -o update.sh
-chmod +x update.sh
-./update.sh testing
-```
-
-Update/editor backups are kept outside the stack discovery tree under `/tmp/rogueforge/`.
-
-## 1.3.0 stable release
-
-1.3.0 is the stable single-host RogueForge lifecycle and deployment baseline. It adds verified reversible lifecycle control, low-overhead live logging, bounded operation persistence and prerelease-safe packaging on top of the validated RC1 baseline:
-
-- bounded container inspect/stats engine detail work,
-- bounded live terminal and log streaming sessions,
-- dashboard partial-response behavior when one engine query fails,
-- continued dashboard coalescing, stale-while-revalidate caching and latency diagnostics,
-- 0.9.3 frontend/security cleanup retained as the production baseline,
-- verified update recovery and transactional Compose/.env saves retained as the safety baseline.
-
-
-The permanent `testing` branch remains the proving ground for post-1.3 development. Stable releases are promoted to `main` only after regression and host testing.
-
-## Road to production stability
-
-Before the 1.0 single-host release, RogueForge will focus on:
-
-1. **Operation safety** — transactional configuration saves, verified update/rollback paths, bounded subprocesses and recovery reporting.
-2. **Engine efficiency** — shared inventory snapshots, targeted cache invalidation, no blocking CPU/RAM collection and reduced inspect/stats calls.
-3. **Runtime resources** — image, volume and network inventory with guarded destructive operations and useful storage visibility.
-4. **Auditability** — persistent operation history with actor, target, command class, result and duration.
-5. **Compatibility testing** — automated Docker and rootless Podman lifecycle/update regression coverage.
-6. **Upgrade guarantees** — documented backup, migration, rollback and health verification contracts.
-7. **Security hardening** — permissions, rate limiting, reverse-proxy guidance and safe terminal/log handling.
-
-See [MILESTONES.md](MILESTONES.md) for the tracked roadmap.
-
-## Repository layout
+Production after promotion:
 
 ```text
-rogueforge.py          # single application runtime
-VERSION                # canonical release metadata
-setup-auth.py          # administrator password maintenance
-install.sh             # first installation
-update.sh              # production/testing updater
-compose.yaml           # deployment
-Containerfile          # image build
-static/                # canonical web interface and branding
-tests/                 # regression tests
-docs/                  # deployment documentation
+ghcr.io/rogueassassin/rogueforge:latest
+ghcr.io/rogueassassin/rogueforge:1.4.0
 ```
 
-The frontend is intentionally kept version-agnostic: active UI code lives in the canonical `app.js` / `styles.css` assets rather than release-specific compatibility files.
-
-## Documentation
-
-- [Roadmap](MILESTONES.md)
-- [Installation](docs/INSTALL.md)
-- [Container deployment](docs/CONTAINER_DEPLOYMENT.md)
-- [GHCR publishing](docs/GHCR.md)
-- [Security](SECURITY.md)
-- [Release history](CHANGELOG.md)
-
-## Acknowledgements
-
-Dockge and Uptime Kuma are product inspirations. RogueForge is an original implementation and does not copy their source code or branding.
+The permanent `testing` branch is the proving ground. `main` remains production-only.
