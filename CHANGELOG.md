@@ -14,7 +14,7 @@
 - Preserved the 1.4.0 bounded live-log severity filtering, reconnect visibility, operation timing and export behavior.
 - Updated README, installation/deployment documentation, roadmap and release metadata for 1.5.0.
 
-## 1.5.0 (testing)
+## 1.4.0 (testing)
 
 - Advanced RogueForge to the logging and operations-visibility release.
 - Preserved the host-tested verified Start, Stop, Restart, Recreate and Update lifecycle system from 1.3.0.
