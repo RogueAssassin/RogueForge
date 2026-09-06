@@ -82,19 +82,9 @@ set_env ROGUEFORGE_DATA_DIR "$INSTALL_DIR/data"
 set_env ROGUEFORGE_AUTH_FILE "/opt/rogueforge/data/auth.json"
 set_env ROGUEFORGE_OPERATIONS_FILE "/opt/rogueforge/data/operations.json"
 
-append_env_revision(){
-  local rev=$1 version=$2
-  if grep -q "^ROGUEFORGE_ENV_REV=${rev}$" .env; then return 0; fi
-  cat >> .env <<EOF
-
-# ------------------------------------------------------------------------------
-# Rev ${rev} update - RogueForge v${version}
-# ------------------------------------------------------------------------------
-ROGUEFORGE_ENV_REV=${rev}
-EOF
-}
-append_env_revision 150 1.5.0
-append_env_revision 160 1.6.0
+# Environment revisions are intentionally append-only and only exist when a
+# release introduces new runtime settings. v1.5.0-v1.9.0 require no appended
+# environment commands, so the administrator's existing .env remains untouched.
 
 MEDIA_ROOT=$(awk -F= '$1=="ROGUEFORGE_MEDIA_ROOT"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true); [[ -n $MEDIA_ROOT ]] || MEDIA_ROOT=/opt/media-server
 COMPOSE_ROOT=$(awk -F= '$1=="ROGUEFORGE_COMPOSE_ROOT"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true)
