@@ -121,6 +121,16 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('state=_verify_container_state(m["name"],action!="stop")',src)
   self.assertIn('already has a lifecycle operation in progress',src)
   self.assertIn('engine_cli(["inspect",str(identifier)],30)',src)
+ def test_operation_history_persistence_is_bounded_and_serializable(self):
+  src=(ROOT/'rogueforge.py').read_text()
+  self.assertIn('OPERATION_PERSIST_INTERVAL=1.0',src);self.assertIn('OPERATION_PERSIST_OUTPUT=32000',src)
+  self.assertIn('if not force and now-_operation_last_persist<OPERATION_PERSIST_INTERVAL:return',src)
+  self.assertIn('row={k:v for k,v in item.items() if k!="process"}',src)
+  self.assertIn('row["output"]=row["output"][-OPERATION_PERSIST_OUTPUT:]',src)
+  self.assertIn('_save_operations(force=True)',src)
+ def test_prerelease_version_stamping_is_safe(self):
+  wf=(ROOT/'.github/workflows/container.yml').read_text()
+  self.assertIn('([-.][A-Za-z0-9.]+)*',wf);self.assertIn('grep -q "VERSION=\\"${VERSION}\\"" rogueforge.py',wf)
  def test_operation_timeout_and_progress_metadata(self):
   src=(ROOT/'rogueforge.py').read_text();ops=(ROOT/'static/operations.js').read_text();env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text()
   self.assertIn('ROGUEFORGE_OPERATION_TIMEOUT',src);self.assertIn('threading.Timer(timeout,expire)',src);self.assertIn('status="timed_out"',src);self.assertIn('"stepCount"',src);self.assertIn('"currentStep"',src);self.assertIn('"failureReason"',src)
