@@ -3,7 +3,7 @@ set -Eeuo pipefail
 VERSION=1.0.0-rc2
 INSTALL_DIR=${ROGUEFORGE_INSTALL_DIR:-/opt/media-server/rogueforge}
 MEDIA_ROOT=${ROGUEFORGE_MEDIA_ROOT:-/opt/media-server}
-COMPOSE_ROOT=${ROGUEFORGE_COMPOSE_ROOT:-${ROGUEFORGE_STACKS_DIR:-$MEDIA_ROOT/compose}}
+COMPOSE_ROOT=${ROGUEFORGE_COMPOSE_ROOT:-${ROGUEFORGE_STACKS_DIR:-$MEDIA_ROOT}}
 ENV_ROOT=${ROGUEFORGE_ENV_ROOT:-$COMPOSE_ROOT}
 HOST_PORT=${ROGUEFORGE_HOST_PORT:-17810}
 PUBLIC_URL=${ROGUEFORGE_PUBLIC_URL:-https://manage.roguegaming.com.au}
@@ -37,57 +37,58 @@ fi
 [[ -d "$COMPOSE_ROOT" ]] || { echo "Compose root does not exist: $COMPOSE_ROOT" >&2; exit 2; }
 [[ -d "$ENV_ROOT" ]] || { echo "Env root does not exist: $ENV_ROOT" >&2; exit 2; }
 mkdir -p "$INSTALL_DIR/data"; cd "$INSTALL_DIR"
-BASE=https://raw.githubusercontent.com/RogueAssassin/RogueForge/main
-for f in compose.yaml update.sh setup-auth.py; do curl -fsSL "$BASE/$f" -o "$f"; done
+if [[ $VERSION == *-* ]]; then DEFAULT_SOURCE_REF=testing; else DEFAULT_SOURCE_REF=main; fi
+SOURCE_REF=${ROGUEFORGE_SOURCE_REF:-$DEFAULT_SOURCE_REF}
+BASE="https://raw.githubusercontent.com/RogueAssassin/RogueForge/$SOURCE_REF"
+for f in compose.yaml update.sh setup-auth.py .env.example; do curl -fsSL "$BASE/$f" -o "$f"; done
 chmod +x update.sh setup-auth.py
+
+# Fresh installs inherit the full administrator-reference .env, including comments.
+# Existing .env files are never replaced; only required machine-specific values are updated.
+if [[ ! -f .env ]]; then
+  cp .env.example .env
+  chmod 600 .env
+fi
+set_env(){
+  local key=$1 value=$2
+  if grep -q "^${key}=" .env; then
+    sed -i "s#^${key}=.*#${key}=${value}#" .env
+  else
+    printf '\n%s=%s\n' "$key" "$value" >> .env
+  fi
+}
+
+set_env ROGUEFORGE_INSTALL_DIR "$INSTALL_DIR"
+set_env ROGUEFORGE_DATA_DIR "$INSTALL_DIR/data"
+set_env ROGUEFORGE_HOST_PORT "$HOST_PORT"
+set_env ROGUEFORGE_IMAGE "ghcr.io/rogueassassin/rogueforge:$VERSION"
+set_env ROGUEFORGE_DEPLOY_ENGINE "$ENGINE"
+set_env ROGUEFORGE_ENGINE "$ENGINE"
+set_env ROGUEFORGE_MEDIA_ROOT "$MEDIA_ROOT"
+set_env ROGUEFORGE_COMPOSE_ROOT "$COMPOSE_ROOT"
+set_env ROGUEFORGE_ENV_ROOT "$ENV_ROOT"
+set_env ROGUEFORGE_STACKS_DIR "$COMPOSE_ROOT"
+set_env ROGUEFORGE_ICONS_DIR "$MEDIA_ROOT/rogue-dashboard/app/static/icons"
+set_env ROGUEFORGE_SELF_STACK "rogueforge"
+set_env ROGUEFORGE_PUBLIC_URL "$PUBLIC_URL"
+set_env ROGUEFORGE_NETWORK "$NETWORK"
+set_env ROGUEFORGE_AUTH_FILE "/opt/rogueforge/data/auth.json"
+set_env ROGUEFORGE_OPERATIONS_FILE "/opt/rogueforge/data/operations.json"
+
 if [[ $ENGINE == podman ]]; then
   uid=$(id -u); sock="/run/user/$uid/podman/podman.sock"; systemctl --user enable --now podman.socket >/dev/null 2>&1 || true
   [[ -S $sock ]] || { echo "Rootless Podman socket not found: $sock" >&2; exit 2; }
   podman compose version >/dev/null 2>&1 || { echo "Podman Compose provider unavailable" >&2; exit 2; }
-  cat > .env <<EOF
-ROGUEFORGE_HOST_PORT=$HOST_PORT
-ROGUEFORGE_IMAGE=ghcr.io/rogueassassin/rogueforge:$VERSION
-ROGUEFORGE_DEPLOY_ENGINE=podman
-ROGUEFORGE_ENGINE=podman
-ROGUEFORGE_SOCKET_SOURCE=$sock
-ROGUEFORGE_SOCKET_TARGET=/run/podman/podman.sock
-ROGUEFORGE_CONTAINER_HOST=unix:///run/podman/podman.sock
-ROGUEFORGE_PODMAN_REMOTE=true
-ROGUEFORGE_MEDIA_ROOT=$MEDIA_ROOT
-ROGUEFORGE_COMPOSE_ROOT=$COMPOSE_ROOT
-ROGUEFORGE_ENV_ROOT=$ENV_ROOT
-ROGUEFORGE_STACKS_DIR=$COMPOSE_ROOT
-ROGUEFORGE_SCAN_DEPTH=3
-ROGUEFORGE_DISCOVERY_CACHE=10
-ROGUEFORGE_INVENTORY_CACHE=2
-ROGUEFORGE_ICONS_DIR=$MEDIA_ROOT/rogue-dashboard/app/static/icons
-ROGUEFORGE_SELF_STACK=rogueforge
-ROGUEFORGE_PUBLIC_URL=$PUBLIC_URL
-ROGUEFORGE_NETWORK=$NETWORK
-EOF
+  set_env ROGUEFORGE_SOCKET_SOURCE "$sock"
+  set_env ROGUEFORGE_SOCKET_TARGET "/run/podman/podman.sock"
+  set_env ROGUEFORGE_CONTAINER_HOST "unix:///run/podman/podman.sock"
+  set_env ROGUEFORGE_PODMAN_REMOTE "true"
   compose_cmd=(podman compose --env-file "$INSTALL_DIR/.env" -f "$INSTALL_DIR/compose.yaml")
 else
-  cat > .env <<EOF
-ROGUEFORGE_HOST_PORT=$HOST_PORT
-ROGUEFORGE_IMAGE=ghcr.io/rogueassassin/rogueforge:$VERSION
-ROGUEFORGE_DEPLOY_ENGINE=docker
-ROGUEFORGE_ENGINE=docker
-ROGUEFORGE_SOCKET_SOURCE=/var/run/docker.sock
-ROGUEFORGE_SOCKET_TARGET=/var/run/docker.sock
-ROGUEFORGE_CONTAINER_HOST=unix:///var/run/docker.sock
-ROGUEFORGE_PODMAN_REMOTE=false
-ROGUEFORGE_MEDIA_ROOT=$MEDIA_ROOT
-ROGUEFORGE_COMPOSE_ROOT=$COMPOSE_ROOT
-ROGUEFORGE_ENV_ROOT=$ENV_ROOT
-ROGUEFORGE_STACKS_DIR=$COMPOSE_ROOT
-ROGUEFORGE_SCAN_DEPTH=3
-ROGUEFORGE_DISCOVERY_CACHE=10
-ROGUEFORGE_INVENTORY_CACHE=2
-ROGUEFORGE_ICONS_DIR=$MEDIA_ROOT/rogue-dashboard/app/static/icons
-ROGUEFORGE_SELF_STACK=rogueforge
-ROGUEFORGE_PUBLIC_URL=$PUBLIC_URL
-ROGUEFORGE_NETWORK=$NETWORK
-EOF
+  set_env ROGUEFORGE_SOCKET_SOURCE "/var/run/docker.sock"
+  set_env ROGUEFORGE_SOCKET_TARGET "/var/run/docker.sock"
+  set_env ROGUEFORGE_CONTAINER_HOST "unix:///var/run/docker.sock"
+  set_env ROGUEFORGE_PODMAN_REMOTE "false"
   if docker compose version >/dev/null 2>&1; then compose_cmd=(docker compose --env-file "$INSTALL_DIR/.env" -f "$INSTALL_DIR/compose.yaml"); else compose_cmd=(docker-compose --env-file "$INSTALL_DIR/.env" -f "$INSTALL_DIR/compose.yaml"); fi
 fi
 if ! $ENGINE network exists "$NETWORK" >/dev/null 2>&1; then $ENGINE network create "$NETWORK" >/dev/null; fi
