@@ -80,7 +80,7 @@ RogueForge uses:
 - asynchronous CPU/RAM refresh,
 - targeted refresh after lifecycle operations.
 
-The current 1.9.0 testing baseline preserves the validated cache/coalescing model, bounded engine concurrency, on-demand logs and lightweight read-only RogueDashboard integration.
+The current 2.0.0 testing baseline preserves the validated cache/coalescing model, bounded engine concurrency, on-demand logs and lightweight read-only RogueDashboard integration.
 
 ## Network model
 
@@ -114,3 +114,15 @@ http://rogueforge:7810/api/integrations/rogue-dashboard
 ```
 
 This endpoint reuses RogueForge's existing cached dashboard snapshot and in-memory operation history. It does not create a second Docker/Podman polling loop and does not expose the engine socket, filesystem roots, administrator credentials or raw operation output.
+
+
+## 2.0 API and state contract
+
+RogueForge 2.0 publishes API version 2 and state schema version 1. The stable read-only endpoints are:
+
+```text
+/api/v2/status
+/api/v2/contract
+```
+
+They reuse the existing lightweight cached runtime model and do not introduce another engine polling loop.
