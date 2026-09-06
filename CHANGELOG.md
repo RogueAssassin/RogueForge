@@ -1,6 +1,20 @@
 # Changelog
 
-## 1.0.0-rc2 — Lifecycle, logging and persistence tuning
+## 1.3.0 — Stable lifecycle and deployment baseline
+
+- Promoted the tested Start, Stop, Restart and Update lifecycle system to a normal stable release with no RC suffix.
+- Verified lifecycle actions now require stable resulting-state samples instead of trusting Compose exit codes alone.
+- Updates pull images, capture immutable image identity, recreate in place, verify the deployed result and attempt rollback on failure.
+- Added internal per-stack lifecycle serialization, operation timeout/cancellation/progress, and bounded persistent operation history.
+- Strengthened lightweight on-demand live logging with bounded streams and browser-side buffering.
+- Standardised RogueForge deployment files under `/opt/media-server/rogueforge` and persistent data under `/opt/media-server/rogueforge/data`.
+- Standardised media-stack Compose and `.env` discovery at `/opt/media-server`.
+- Expanded `.env.example` into a detailed administrator reference and updated fresh installs to seed that documented configuration.
+- Added pinned prerelease/stable updater handling and preserved existing `.env` files during updates.
+- Retained dashboard/inventory caching, bounded engine detail work, transactional configuration writes, resource inventory and Docker/rootless Podman support.
+- Added a forward roadmap for logging, update intelligence, RogueDashboard integration and future production-platform work.
+
+## 1.3.0 — Lifecycle, logging and persistence tuning
 
 - Reworked stack Stop to use reversible Compose `stop` instead of destructive `down`, preserving container/network definitions for fast recovery.
 - Reworked Restart to use native Compose `restart` first, with verified in-place Compose reconciliation as a fallback instead of tearing the stack down.
@@ -17,10 +31,10 @@
 - Reworked `.env.example` into a RogueMediaValidator-style administrator reference with detailed explanations for deployment, socket, discovery, lifecycle, performance, logs and terminal settings.
 - Standardized RogueForge's host deployment at `/opt/media-server/rogueforge` with persistent state under `/opt/media-server/rogueforge/data`, while Compose/.env discovery correctly defaults to the sibling-stack root `/opt/media-server`.
 - Updated fresh installs to seed the full commented `.env` and preserve it on subsequent installer runs instead of generating a stripped-down environment file.
-- Added pinned prerelease update support such as `./update.sh 1.0.0-rc2` and synchronized deployment documentation with the reversible RC2 lifecycle contract.
+- Added pinned prerelease update support such as `./update.sh 1.3.0` and synchronized deployment documentation with the reversible RC2 lifecycle contract.
 
 
-## 1.0.0-rc1 — First 1.0 release candidate
+## 1.0.0 — First 1.0 release candidate
 
 - Promoted the validated 0.9.4 hardening baseline into the first 1.0 release candidate.
 - Feature scope is frozen for RC1; changes from this point are limited to release-blocking stability, compatibility, recovery and documentation fixes.
