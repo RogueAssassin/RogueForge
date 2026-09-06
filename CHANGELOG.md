@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.0 (testing)
+
+- Advanced the permanent testing branch after successful RogueForge 2.0.0 production promotion.
+- Preserved API version 2 and state schema version 1 as the compatibility baseline.
+- Kept the validated lifecycle, update, logging, terminal and RogueDashboard integration systems unchanged.
+- Updated the testing README and release metadata while retaining 2.0.0 as the stable main/latest production release.
+- Added no environment revision because 2.1.0 introduces no new runtime setting.
+- Reserved 2.1 development for versioned API expansion, structured bounded audit/events, diagnostics and recovery-quality improvements.
+
 ## 2.0.0 (testing)
 
 - Established RogueForge API version 2 and persistent-state schema version 1.
