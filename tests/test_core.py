@@ -88,7 +88,7 @@ class RogueForgeTests(unittest.TestCase):
   html=(ROOT/'static/index.html').read_text();self.assertNotIn('/v080',html)
  def test_detailed_env_reference_and_canonical_layout(self):
   env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text();installer=(ROOT/'install.sh').read_text();update=(ROOT/'update.sh').read_text();docs=(ROOT/'docs/CONTAINER_DEPLOYMENT.md').read_text()
-  self.assertIn('RogueForge v1.0.0-rc2 testing - Environment Configuration',env)
+  self.assertIn('RogueForge v1.3.0 testing - Environment Configuration',env)
   self.assertIn('ROGUEFORGE_INSTALL_DIR=/opt/media-server/rogueforge',env);self.assertIn('ROGUEFORGE_DATA_DIR=/opt/media-server/rogueforge/data',env)
   self.assertIn('ROGUEFORGE_COMPOSE_ROOT=/opt/media-server',env);self.assertIn('ROGUEFORGE_ENV_ROOT=/opt/media-server',env);self.assertIn('ROGUEFORGE_STACKS_DIR=/opt/media-server',env)
   self.assertIn('${ROGUEFORGE_DATA_DIR:-/opt/media-server/rogueforge/data}:/opt/rogueforge/data',compose)
@@ -152,10 +152,10 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('async function refreshRuntimeInventory()',app);self.assertIn('await refreshRuntimeInventory()',app)
   self.assertIn('composePath',src);self.assertIn('directory',src);self.assertIn('Pin operations to the exact Compose path',src)
  def test_current_release_baseline(self):
-  self.assertEqual((ROOT/'VERSION').read_text().strip(),'1.0.0-rc2')
+  self.assertEqual((ROOT/'VERSION').read_text().strip(),'1.3.0')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def _load_containers_uncached()',src);self.assertIn('/api/dashboard',src)
-  self.assertIn('## 1.0.0-rc2 — Tuned release candidate',road)
+  self.assertIn('## 1.3.0 — Stable lifecycle and deployment baseline',road)
  def test_transactional_stack_editor_writes(self):
   src=(ROOT/'rogueforge.py').read_text()
   self.assertIn('def _atomic_write(path,content):',src);self.assertIn('os.fsync(f.fileno())',src);self.assertIn('os.replace(tmp,path)',src)
