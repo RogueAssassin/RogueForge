@@ -162,6 +162,9 @@ def _operation_worker(oid):
         safe_stack(target);lock=_stack_mutation_lock(target)
         if not lock.acquire(blocking=False):raise PermissionError(f"{target} already has a lifecycle operation in progress")
         before=_stack_running_snapshot(target)
+        if action=="update":
+            if not before:raise RuntimeError("Update safety check failed: stack has no running containers to preserve")
+            if any(not x.get("imageId") for x in before):raise RuntimeError("Update safety check failed: unable to resolve immutable image IDs")
         steps={"start":[["up","-d"]],"stop":[["down"]],"restart":[["down"],["up","-d"]],"pull":[["pull"]],"recreate":[["up","-d","--force-recreate"]],"update":[["pull"],["down"],["up","-d"]]}[action]
         with _operation_lock:
             x=_operations[oid];x["stepCount"]=len(steps);_save_operations()
@@ -175,10 +178,7 @@ def _operation_worker(oid):
             if action=="stop":_verify_stack_stopped(target)
             elif action in ("start","restart","recreate"):
                 _verify_stack_running(target,before) if before else _verify_stack_started(target)
-            elif action=="update":
-                if not before:raise RuntimeError("Update safety check failed: stack had no running containers to preserve")
-                if any(not x.get("imageId") for x in before):raise RuntimeError("Update safety check failed: unable to resolve immutable image IDs")
-                _verify_stack_running(target,before)
+            elif action=="update":_verify_stack_running(target,before)
             invalidate_inventory();invalidate_resource_cache();_build_registry(force=True)
             status="success"
         except Exception as action_error:
@@ -550,27 +550,28 @@ def _restore_stack_images(before):
 def update_stack(name):
     safe_stack(name);lock=_stack_mutation_lock(name)
     if not lock.acquire(blocking=False):raise PermissionError(f"{name} already has a lifecycle operation in progress")
-    before=_stack_running_snapshot(name)
-    if not before:lock.release();raise RuntimeError("Update safety check failed: stack has no running containers to preserve")
-    if any(not x.get("imageId") for x in before):lock.release();raise RuntimeError("Update safety check failed: unable to resolve the immutable image ID for every running service")
-    out=run_compose(name,["pull"])
     try:
-        out+="\n"+run_compose(name,["down"])+"\n"+run_compose(name,["up","-d"])
-        after=_verify_stack_running(name,before)
-        invalidate_inventory();invalidate_resource_cache();_discovery_cache["time"]=0.0
-        return {"ok":True,"output":out[-100000:],"verified":True,"rollbackAttempted":False,"before":before,"after":after}
-    except Exception as update_error:
-        rollback_output="";rollback_ok=False;restored=[]
+        before=_stack_running_snapshot(name)
+        if not before:raise RuntimeError("Update safety check failed: stack has no running containers to preserve")
+        if any(not x.get("imageId") for x in before):raise RuntimeError("Update safety check failed: unable to resolve the immutable image ID for every running service")
+        out=run_compose(name,["pull"])
         try:
-            rollback_output+=_restore_stack_images(before)
-            rollback_output+=run_compose(name,["up","-d"])
-            restored=_verify_stack_running(name,before);rollback_ok=True
-        except Exception as rollback_error:
-            rollback_output+=f"\nRollback failed: {rollback_error}"
-        invalidate_inventory();invalidate_resource_cache();_discovery_cache["time"]=0.0
-        e=RuntimeError(f"Update failed: {update_error}. Rollback {'succeeded' if rollback_ok else 'failed'}.")
-        e.rollback={"attempted":True,"succeeded":rollback_ok,"output":rollback_output[-100000:],"restored":restored}
-        raise e
+            out+="\n"+run_compose(name,["down"])+"\n"+run_compose(name,["up","-d"])
+            after=_verify_stack_running(name,before)
+            invalidate_inventory();invalidate_resource_cache();_discovery_cache["time"]=0.0
+            return {"ok":True,"output":out[-100000:],"verified":True,"rollbackAttempted":False,"before":before,"after":after}
+        except Exception as update_error:
+            rollback_output="";rollback_ok=False;restored=[]
+            try:
+                rollback_output+=_restore_stack_images(before)
+                rollback_output+=run_compose(name,["up","-d"])
+                restored=_verify_stack_running(name,before);rollback_ok=True
+            except Exception as rollback_error:
+                rollback_output+=f"\nRollback failed: {rollback_error}"
+            invalidate_inventory();invalidate_resource_cache();_discovery_cache["time"]=0.0
+            e=RuntimeError(f"Update failed: {update_error}. Rollback {'succeeded' if rollback_ok else 'failed'}.")
+            e.rollback={"attempted":True,"succeeded":rollback_ok,"output":rollback_output[-100000:],"restored":restored}
+            raise e
     finally:lock.release()
 
 def stack_env_path(name):
