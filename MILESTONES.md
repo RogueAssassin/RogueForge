@@ -1,79 +1,66 @@
 # RogueForge Roadmap
 
-RogueForge is a lightweight Docker/Podman media-stack operations manager. The roadmap prioritises reliable lifecycle control, excellent live logging, low runtime overhead, and tight RogueDashboard integration.
-
-## 1.3.0 — Stable lifecycle and deployment baseline
-
-Status: **release**
-
-- [x] Verified Start, Stop, Restart, Recreate and Update workflows.
-- [x] In-place stack updates with immutable image verification and rollback protection.
-- [x] Per-stack lifecycle serialization so competing actions cannot race.
-- [x] Operation timeout, cancellation, progress and persistent bounded history.
-- [x] Lightweight on-demand live logs with bounded concurrent streams.
-- [x] Docker and rootless Podman support.
-- [x] Canonical deployment at `/opt/media-server/rogueforge`.
-- [x] Sibling-stack discovery rooted at `/opt/media-server`.
-- [x] Detailed administrator-reference `.env` with documented tuning controls.
-- [x] Persistent authentication and operations data.
-- [x] Dashboard/inventory caching and bounded engine-detail concurrency.
-- [x] Images, volumes and networks inventory.
-- [x] Transactional Compose and `.env` editor writes.
-- [x] User-tested Start, Stop, Restart and Update lifecycle on the media host.
+RogueForge is the lightweight Docker/Podman management and troubleshooting layer for the Rogue media-server ecosystem. New features must preserve verified lifecycle safety and exceptional idle performance.
 
 ## 1.4.0 — Logging and operations visibility
 
-Focus: make RogueForge a stronger lightweight replacement for standalone container-log tooling.
+Status: **testing release**
 
-- [ ] Improve multi-container stack log navigation and filtering.
-- [ ] Add fast search/filter within the active bounded log buffer.
-- [ ] Improve timestamps, stream/source labels and reconnect visibility.
-- [ ] Add clearer operation duration, step timing and failure summaries.
-- [ ] Add export/download of a bounded diagnostic log snapshot without continuous indexing.
-- [ ] Improve interrupted-operation recovery reporting after RogueForge/container restart.
-- [ ] Add diagnostics for socket, Compose provider, discovery roots and stack writability.
+- [x] Preserve the host-tested Start, Stop, Restart, Recreate and Update lifecycle baseline.
+- [x] Keep per-stack lifecycle serialization and update rollback protection.
+- [x] Add fast text search inside the bounded live-log buffer.
+- [x] Add Error, Warning and Info live-log severity filters.
+- [x] Add clearer stream source and reconnect-attempt visibility.
+- [x] Keep pause/resume buffering and bounded log downloads.
+- [x] Keep server-side logging on demand with no persistent log indexer.
+- [x] Show operation duration, current step, step elapsed time, timeout and failure reason.
+- [x] Keep bounded JSON operation-history export.
+- [x] Keep canonical deployment at `/opt/media-server/rogueforge`.
+- [x] Keep detailed administrator `.env` documentation aligned with RogueMediaValidator.
+- [x] Keep GitHub release presentation aligned with RogueDashboard and RogueMediaValidator.
 
 ## 1.5.0 — Stack management and update intelligence
 
-Focus: safer administration without adding background load.
-
-- [ ] Add clearer per-stack image/update state and current image identity.
-- [ ] Improve update preview so administrators can see affected services before applying.
-- [ ] Add optional guarded bulk stack update workflow with strict serialization.
+- [ ] Show clearer current/pulled image identity before applying an update.
+- [ ] Add an update preview showing affected stack services.
+- [ ] Add guarded multi-stack update with strict per-stack serialization.
 - [ ] Improve stopped-stack discovery and recovery edge cases.
-- [ ] Expand Docker/rootless Podman lifecycle regression coverage.
-- [ ] Improve Compose validation feedback before configuration changes are committed.
+- [ ] Expand Docker and rootless Podman lifecycle regression coverage.
+- [ ] Improve Compose validation feedback before transactional saves.
+- [ ] Add clearer update/recovery summaries suitable for RogueDashboard.
 
-## 1.6.0 — RogueDashboard integration
+## 1.6.0 — RogueDashboard integration and migration validation
 
-Focus: make RogueForge and RogueDashboard operate as one clean media-management experience.
+- [ ] Expand compact read-only status endpoints for RogueDashboard.
+- [ ] Surface active operations and recent failures without exposing administrator credentials.
+- [ ] Share consistent Rogue service identity/icon metadata.
+- [ ] Add lightweight event hooks for meaningful lifecycle failures.
+- [ ] Complete live-host validation that RogueForge + RogueDashboard replace normal Dozzle workflows.
+- [ ] Keep Uptime Kuma removal as a separate RogueDashboard monitoring-readiness decision.
 
-- [ ] Expand compact health/status endpoints for RogueDashboard.
-- [ ] Surface lifecycle operation state and recent failures cleanly in RogueDashboard.
-- [ ] Share consistent service identity/icon metadata.
-- [ ] Add lightweight alert/event hooks for meaningful lifecycle failures.
-- [ ] Validate whether RogueForge + RogueDashboard fully replace Dozzle for normal operations.
-- [ ] Validate monitoring coverage before considering removal of Uptime Kuma.
+## 1.7.0 — Operations quality
 
-## 2.0.0 — Production operations platform
+- [ ] Improve stack-level multi-service log navigation without creating a background index.
+- [ ] Add bounded diagnostic bundles for support/troubleshooting.
+- [ ] Improve interrupted-operation recovery reporting after RogueForge restarts.
+- [ ] Add clearer socket, Compose-provider, discovery-root and writability diagnostics.
+- [ ] Review runtime resource inventory for safe guarded maintenance actions.
 
-Focus: only larger changes that justify a major version.
+## 2.0.0 — Stable operations platform
 
-- [ ] Formalise stable API contracts for external integrations.
-- [ ] Add migration/version handling for persistent application state.
-- [ ] Expand audit and role/permission capabilities if multi-user administration is needed.
-- [ ] Evaluate multi-host support without compromising the lightweight single-host baseline.
-- [ ] Publish compatibility/support guarantees for supported Docker and Podman versions.
+- [ ] Formalise stable external API contracts.
+- [ ] Add explicit migration/version handling for persistent application state.
+- [ ] Expand audit/role controls only if multi-user administration requires them.
+- [ ] Evaluate multi-host support without compromising the single-host lightweight baseline.
+- [ ] Publish explicit Docker/Podman compatibility guarantees.
 
 ## Engineering principles
 
-Every roadmap release should preserve these rules:
-
-- no permanent high-frequency polling when event/on-demand work is sufficient;
-- no unbounded log indexing or operation-history growth;
-- lifecycle operations must verify the resulting state rather than trusting command exit codes;
-- updates must retain rollback/recovery protection;
-- RogueForge must never depend on stale external media lock files for its own lifecycle serialization;
-- Docker and rootless Podman remain first-class deployment targets;
-- existing `.env` and persistent administrator data must survive upgrades;
-- new features should earn their runtime cost and keep RogueForge responsive on a media server.
+- no permanent high-frequency engine polling when event/on-demand work is sufficient;
+- no unbounded log indexing, terminal sessions or operation-history growth;
+- lifecycle actions must verify the resulting state rather than trust command exit codes;
+- updates must retain image verification and rollback/recovery protection;
+- RogueForge must use its own lifecycle serialization rather than stale host lock files;
+- Docker and rootless Podman remain first-class;
+- existing `.env`, authentication and operation data survive upgrades;
+- every new feature must justify its CPU, memory, storage and engine-call cost.
