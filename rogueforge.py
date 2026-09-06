@@ -54,6 +54,7 @@ def invalidate_dashboard_cache():
 
 OPERATIONS_FILE=Path(os.environ.get("ROGUEFORGE_OPERATIONS_FILE",Path(__file__).with_name("data")/"operations.json")).resolve()
 _operation_lock=threading.Lock(); _operations={}; MAX_OPERATIONS=120
+OPERATION_PERSIST_INTERVAL=1.0; OPERATION_PERSIST_OUTPUT=32000; _operation_last_persist=0.0
 # RogueForge owns lifecycle serialization internally. It deliberately does not depend on,
 # remove, or wait on external media-server lock files: those belong to host scripts and
 # can be stale after interrupted shell jobs. One mutating operation per stack is enough
@@ -75,12 +76,21 @@ def _load_operations():
         for x in _operations.values():
             if x.get("status")=="running":x["status"]="interrupted";x["ended"]=time.time()
     except Exception:_operations={}
-def _save_operations():
+def _save_operations(force=False):
+    global _operation_last_persist
+    now=time.monotonic()
+    if not force and now-_operation_last_persist<OPERATION_PERSIST_INTERVAL:return
     try:
         OPERATIONS_FILE.parent.mkdir(parents=True,exist_ok=True)
-        rows=sorted(_operations.values(),key=lambda x:x.get("started",0),reverse=True)[:MAX_OPERATIONS]
+        rows=[]
+        for item in sorted(_operations.values(),key=lambda x:x.get("started",0),reverse=True)[:MAX_OPERATIONS]:
+            row={k:v for k,v in item.items() if k!="process"}
+            if isinstance(row.get("output"),str):row["output"]=row["output"][-OPERATION_PERSIST_OUTPUT:]
+            rows.append(row)
         tmp=OPERATIONS_FILE.with_suffix(".tmp");tmp.write_text(json.dumps(rows,indent=2),encoding="utf-8");tmp.replace(OPERATIONS_FILE)
+        _operation_last_persist=now
     except Exception:pass
+
 def _op_public(x):
     return {k:v for k,v in x.items() if k!="process"}
 def operation_list():
@@ -210,12 +220,12 @@ def _operation_worker(oid):
     with _operation_lock:
         x=_operations.get(oid)
         if x:
-            x["status"]=status;x["ended"]=time.time();x["failureReason"]=failure;x["currentStep"]=None;x["stepStarted"]=None;x.pop("process",None);_save_operations()
+            x["status"]=status;x["ended"]=time.time();x["failureReason"]=failure;x["currentStep"]=None;x["stepStarted"]=None;x.pop("process",None);_save_operations(force=True)
 def start_operation(scope,target,action):
     if scope!="stack" or action not in ("start","stop","restart","pull","recreate","update"):raise ValueError("unsupported operation")
     rec=resolve_stack(target);safe_stack(target);d=rec["directory"].resolve();cf=rec["compose"].resolve()
     oid=secrets.token_urlsafe(12);x={"id":oid,"scope":scope,"target":target,"action":action,"directory":str(d),"composePath":str(cf),"status":"running","started":time.time(),"ended":None,"output":"","cancelRequested":False,"timedOut":False,"timeoutSeconds":OPERATION_TIMEOUT,"stepIndex":0,"stepCount":0,"currentStep":None,"stepStarted":None,"failureReason":None}
-    with _operation_lock:_operations[oid]=x;_save_operations()
+    with _operation_lock:_operations[oid]=x;_save_operations(force=True)
     threading.Thread(target=_operation_worker,args=(oid,),daemon=True).start();return _op_public(x)
 def cancel_operation(oid):
     with _operation_lock:
