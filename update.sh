@@ -16,7 +16,7 @@ elif [[ $MODE == testing ]]; then
 else
   TARGET=$MODE
   [[ $TARGET == v* ]] && TARGET=${TARGET#v}
-  [[ $TARGET =~ ^([0-9]+\.[0-9]+\.[0-9]+|latest|main)$ ]] || { echo "Usage: ./update.sh [latest|main|testing|X.Y.Z] | ./update.sh branch <branch-name>" >&2; exit 2; }
+  [[ $TARGET =~ ^([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?|latest|main)$ ]] || { echo "Usage: ./update.sh [latest|main|testing|X.Y.Z|X.Y.Z-rcN] | ./update.sh branch <branch-name>" >&2; exit 2; }
 fi
 
 [[ $EUID -ne 0 ]] || { echo "Run as the container owner, not root/sudo." >&2; exit 1; }
@@ -25,7 +25,7 @@ cd "$INSTALL_DIR"
 [[ -f compose.yaml && -f .env && -f data/auth.json ]] || { echo "Incomplete RogueForge installation at $INSTALL_DIR" >&2; exit 2; }
 
 REF=main; IMAGE_TAG=latest; CHANNEL=production
-if [[ $TARGET =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then IMAGE_TAG="$TARGET"
+if [[ $TARGET =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$ ]]; then IMAGE_TAG="$TARGET"
 elif [[ $TARGET == testing || $TARGET == branch:* ]]; then
   REF="$BRANCH"; CHANNEL=testing
   if [[ $TARGET == testing ]]; then IMAGE_TAG=testing
@@ -77,14 +77,16 @@ install -m 0644 "$BACKUP/compose.download" "$INSTALL_DIR/compose.yaml"
 set_env(){ local key=$1 value=$2; if grep -q "^${key}=" .env; then sed -i "s#^${key}=.*#${key}=${value}#" .env; else printf '%s=%s\n' "$key" "$value" >> .env; fi; }
 set_env ROGUEFORGE_IMAGE "ghcr.io/rogueassassin/rogueforge:$IMAGE_TAG"
 set_env ROGUEFORGE_CHANNEL "$CHANNEL"
+set_env ROGUEFORGE_INSTALL_DIR "$INSTALL_DIR"
+set_env ROGUEFORGE_DATA_DIR "$INSTALL_DIR/data"
+set_env ROGUEFORGE_AUTH_FILE "/opt/rogueforge/data/auth.json"
+set_env ROGUEFORGE_OPERATIONS_FILE "/opt/rogueforge/data/operations.json"
 
 MEDIA_ROOT=$(awk -F= '$1=="ROGUEFORGE_MEDIA_ROOT"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true); [[ -n $MEDIA_ROOT ]] || MEDIA_ROOT=/opt/media-server
 COMPOSE_ROOT=$(awk -F= '$1=="ROGUEFORGE_COMPOSE_ROOT"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true)
 LEGACY_STACKS=$(awk -F= '$1=="ROGUEFORGE_STACKS_DIR"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true)
 if [[ -z $COMPOSE_ROOT ]]; then
-  if [[ ${LEGACY_STACKS:-} == /opt/media-server && -d /opt/media-server/compose ]]; then COMPOSE_ROOT=/opt/media-server/compose
-  elif [[ -n ${LEGACY_STACKS:-} ]]; then COMPOSE_ROOT=$LEGACY_STACKS
-  elif [[ -d "$MEDIA_ROOT/compose" ]]; then COMPOSE_ROOT="$MEDIA_ROOT/compose"
+  if [[ -n ${LEGACY_STACKS:-} ]]; then COMPOSE_ROOT=$LEGACY_STACKS
   else COMPOSE_ROOT=$MEDIA_ROOT; fi
 fi
 ENV_ROOT=$(awk -F= '$1=="ROGUEFORGE_ENV_ROOT"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true); [[ -n $ENV_ROOT ]] || ENV_ROOT=$COMPOSE_ROOT
