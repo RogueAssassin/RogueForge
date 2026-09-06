@@ -112,7 +112,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('LIFECYCLE_VERIFY_INTERVAL',src);self.assertIn('LIFECYCLE_STABLE_SAMPLES',src);self.assertIn('def _stack_snapshot_ready(',src)
   self.assertIn('def _verify_updated_images(',src);self.assertIn('Update image verification failed',src);self.assertIn('expected_images=_local_image_ids(before)',src)
   self.assertIn('["stop"]',src);self.assertIn('["restart"]',src);self.assertIn('["up","-d","--force-recreate"]',src)
-  self.assertIn('LOG_TAIL_DEFAULT',src);self.assertIn('RF_LOG_MAX_LINES = 3000',live);self.assertIn('requestAnimationFrame(flushLiveLines)',live);self.assertIn('Paused · buffering',live);self.assertIn('setTimeout(renderLiveLines,120)',live)
+  self.assertIn('LOG_TAIL_DEFAULT',src);self.assertIn('event: ended',src);self.assertIn('RF_LOG_MAX_LINES = 3000',live);self.assertIn('requestAnimationFrame(flushLiveLines)',live);self.assertIn("addEventListener('ended'",live);self.assertIn('Paused · buffering',live);self.assertIn('setTimeout(renderLiveLines,120)',live)
   self.assertIn('ROGUEFORGE_LIFECYCLE_VERIFY_INTERVAL=0.5',env);self.assertIn('ROGUEFORGE_LOG_TAIL=200',env);self.assertIn('ROGUEFORGE_LOG_TAIL:',compose)
  def test_container_actions_share_lifecycle_lock_and_verify(self):
   src=(ROOT/'rogueforge.py').read_text()
