@@ -144,6 +144,18 @@ Status: **current testing milestone**
 - [ ] Run final production soak with no release-blocking errors.
 - [ ] Final README/CHANGELOG/SECURITY/install/update audit before 1.0.0.
 
+## 1.0.0-rc2 — Tuned release candidate
+
+- [x] Replace destructive stack Stop with reversible Compose stop.
+- [x] Prefer native restart with verified in-place reconciliation fallback.
+- [x] Rework stack Update to pull + force-recreate in place with immutable image verification and rollback.
+- [x] Serialize stack and container lifecycle actions internally without depending on host media lock files.
+- [x] Add stable-sample lifecycle verification with configurable timeout/interval.
+- [x] Batch and bound live-log rendering with clean stream termination and no server-side log indexer.
+- [x] Bound and throttle operation-history persistence to reduce update-time disk I/O.
+- [x] Fix prerelease-safe CI runtime stamping and validate the complete testing image.
+
+RC2 is the final tuned testing candidate before deciding whether the single-host 1.0.0 production promotion gates are satisfied.
 ## 1.0.0 — Stable single-host release
 
 - [ ] Stable API contracts and migration policy.
