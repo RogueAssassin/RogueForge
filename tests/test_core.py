@@ -32,7 +32,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertNotIn('def discover_stacks():\n    reg=_build_registry(force=True)',src)
  def test_media_server_stack_lifecycle(self):
   src=(ROOT/'rogueforge.py').read_text()
-  self.assertIn('elif action=="stop":out=run_compose(stack,["down"])',src);self.assertIn('elif action=="restart":out=run_compose(stack,["down"])+"\\n"+run_compose(stack,["up","-d"])',src)
+  self.assertIn('out=run_compose(stack,["down"]);_verify_stack_stopped(stack)',src);self.assertIn('action in ("restart","recreate")',src);self.assertIn('_verify_stack_running(stack,before)',src)
   self.assertIn('out=run_compose(name,["pull"])',src);self.assertIn('run_compose(name,["down"])',src);self.assertIn('run_compose(name,["up","-d"])',src)
  def test_http_disconnect_and_head_support(self):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('def do_HEAD(self):',src);self.assertIn('except (BrokenPipeError,ConnectionResetError)',src)
@@ -99,6 +99,14 @@ class RogueForgeTests(unittest.TestCase):
   refresh=u.index('install -m 0755 "$BACKUP/update.download" "$INSTALL_DIR/update.sh"')
   self.assertGreater(refresh,health);self.assertGreater(refresh,first)
   self.assertIn('bash -n update.sh',(ROOT/'.github/workflows/container.yml').read_text())
+ def test_stack_lifecycle_uses_internal_serialization_and_recovery(self):
+  src=(ROOT/'rogueforge.py').read_text()
+  self.assertIn('_stack_mutation_lock',src);self.assertIn('already has a lifecycle operation in progress',src)
+  self.assertIn('def _verify_stack_started(',src);self.assertIn('def _verify_stack_stopped(',src)
+  self.assertIn('Recovery: restoring stack after',src);self.assertIn('Recovery: restoring previous image references and stack state',src)
+  self.assertIn('if action=="update":\n            if not before:raise RuntimeError("Update safety check failed',src)
+  self.assertIn('finally:lock.release()',src)
+  self.assertIn('does not depend on,',src);self.assertIn('external media-server lock files',src)
  def test_operation_timeout_and_progress_metadata(self):
   src=(ROOT/'rogueforge.py').read_text();ops=(ROOT/'static/operations.js').read_text();env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text()
   self.assertIn('ROGUEFORGE_OPERATION_TIMEOUT',src);self.assertIn('threading.Timer(timeout,expire)',src);self.assertIn('status="timed_out"',src);self.assertIn('"stepCount"',src);self.assertIn('"currentStep"',src);self.assertIn('"failureReason"',src)
