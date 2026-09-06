@@ -1,172 +1,79 @@
 # RogueForge Roadmap
 
-## 0.8.7 — Dashboard performance and verified lifecycle
+RogueForge is a lightweight Docker/Podman media-stack operations manager. The roadmap prioritises reliable lifecycle control, excellent live logging, low runtime overhead, and tight RogueDashboard integration.
 
-Status: **validated testing baseline**
+## 1.3.0 — Stable lifecycle and deployment baseline
 
-- [x] Unified initial dashboard snapshot.
-- [x] Immediate browser session snapshot hydration with background refresh.
-- [x] CPU/RAM refresh isolated from initial dashboard rendering.
-- [x] Shared short-lived Podman inventory cache and reduced redundant engine calls.
-- [x] Configurable media, Compose and environment roots.
-- [x] Deterministic Podman Compose Start/Stop/Restart/Recreate/Update lifecycle.
-- [x] Immutable image verification for update/replacement flows.
-- [x] Permanent `main` / `testing` branch model and isolated GHCR testing channel.
-- [x] CI validation, unit tests, local container build and GHCR `:testing` publish.
+Status: **release**
 
-## 0.9.0 — Operations quality, performance and production readiness
+- [x] Verified Start, Stop, Restart, Recreate and Update workflows.
+- [x] In-place stack updates with immutable image verification and rollback protection.
+- [x] Per-stack lifecycle serialization so competing actions cannot race.
+- [x] Operation timeout, cancellation, progress and persistent bounded history.
+- [x] Lightweight on-demand live logs with bounded concurrent streams.
+- [x] Docker and rootless Podman support.
+- [x] Canonical deployment at `/opt/media-server/rogueforge`.
+- [x] Sibling-stack discovery rooted at `/opt/media-server`.
+- [x] Detailed administrator-reference `.env` with documented tuning controls.
+- [x] Persistent authentication and operations data.
+- [x] Dashboard/inventory caching and bounded engine-detail concurrency.
+- [x] Images, volumes and networks inventory.
+- [x] Transactional Compose and `.env` editor writes.
+- [x] User-tested Start, Stop, Restart and Update lifecycle on the media host.
 
-Status: **validated 0.9.0 baseline**
+## 1.4.0 — Logging and operations visibility
 
-### Operations and recovery
-- [ ] Stream Pull/Update/Recreate output incrementally into the Operations drawer.
-- [x] Add bounded operation timeouts and explicit timeout/recovery states.
-- [x] Cancel supported long-running operations safely.
-- [x] Persist operation/audit history server-side so it survives browser/container restarts.
-- [x] Record target, operation type, start/end time, duration, result and concise failure reason.
-- [ ] Add verified rollback/recovery UX when an update or recreate fails.
-- [ ] Keep immediate targeted UI refresh after stack operations without a full dashboard reload.
+Focus: make RogueForge a stronger lightweight replacement for standalone container-log tooling.
 
-### Stack authoring
-- [x] Unified Dockge-style Compose / `.env` editor with validation, automatic backups and save feedback.
-- [x] Make Compose + `.env` saves transactional: validate, write atomically, and restore the previous file on failure.
-- [ ] Stack create/import/clone workflows.
-- [ ] Compose templates with preview before creation.
-- [ ] Backup/rollback browser for recent stack configuration revisions.
+- [ ] Improve multi-container stack log navigation and filtering.
+- [ ] Add fast search/filter within the active bounded log buffer.
+- [ ] Improve timestamps, stream/source labels and reconnect visibility.
+- [ ] Add clearer operation duration, step timing and failure summaries.
+- [ ] Add export/download of a bounded diagnostic log snapshot without continuous indexing.
+- [ ] Improve interrupted-operation recovery reporting after RogueForge/container restart.
+- [ ] Add diagnostics for socket, Compose provider, discovery roots and stack writability.
 
-### Repository and runtime consolidation
-- [x] Consolidate version-named frontend assets into canonical `app.js` / `styles.css`.
-- [x] Remove obsolete release-note/banner artifacts from the active repository tree.
-- [x] Fold the remaining build-time runtime preparation transformations into canonical source and retire `tools/prepare_runtime.py`.
+## 1.5.0 — Stack management and update intelligence
 
-### Performance and reliability
-- [x] Coalesce simultaneous dashboard refreshes so only one dashboard/engine refresh is in flight.
-- [x] Add stale-while-revalidate server snapshots for Overview/Stacks/Runtime.
-- [ ] Invalidate only affected stack/container cache entries after operations.
-- [x] Cap concurrent inspect/stats engine-detail work (0.9.4).
-- [x] Add timing diagnostics for dashboard build/request, container inventory and stats.
-- [x] Return partial dashboard snapshots with degraded/error metadata when one engine/discovery query fails (0.9.4).
+Focus: safer administration without adding background load.
 
-### Security and production hardening
-- [x] Bound terminal/log sessions with idle/lifetime cleanup and per-process limits (0.9.4).
-- [ ] Review authentication/session cookie defaults for reverse-proxy deployments.
-- [ ] Add security headers and document trusted-proxy behaviour.
-- [ ] Add explicit destructive-operation confirmation/guardrails for remove/prune workflows.
-- [ ] Expand regression tests for rootless Podman and Docker lifecycle/update paths.
+- [ ] Add clearer per-stack image/update state and current image identity.
+- [ ] Improve update preview so administrators can see affected services before applying.
+- [ ] Add optional guarded bulk stack update workflow with strict serialization.
+- [ ] Improve stopped-stack discovery and recovery edge cases.
+- [ ] Expand Docker/rootless Podman lifecycle regression coverage.
+- [ ] Improve Compose validation feedback before configuration changes are committed.
 
-### Runtime resources
+## 1.6.0 — RogueDashboard integration
 
-- [x] Image inventory foundation with container usage relationships.
-- [ ] Image update awareness and guarded prune tools.
-- [x] Volume inventory foundation with container mount relationships.
-- [ ] Volume usage, backup/export and guarded deletion.
-- [x] Network inventory foundation with container membership relationships.
-- [ ] Network membership management and guarded lifecycle controls.
-- [ ] Disk/storage visibility and cleanup recommendations.
-- [x] Resource pages reuse cached engine snapshots and explicit refresh bypasses the resource cache.
+Focus: make RogueForge and RogueDashboard operate as one clean media-management experience.
 
-## 0.9.1 — Safety, recovery and observability
+- [ ] Expand compact health/status endpoints for RogueDashboard.
+- [ ] Surface lifecycle operation state and recent failures cleanly in RogueDashboard.
+- [ ] Share consistent service identity/icon metadata.
+- [ ] Add lightweight alert/event hooks for meaningful lifecycle failures.
+- [ ] Validate whether RogueForge + RogueDashboard fully replace Dozzle for normal operations.
+- [ ] Validate monitoring coverage before considering removal of Uptime Kuma.
 
-Status: **validated 0.9.1 baseline**
+## 2.0.0 — Production operations platform
 
-- [x] Roll testing version to 0.9.1.
-- [x] Persist server-backed Operations history with explicit duration/result/failure metadata.
-- [x] Transactional Compose/.env save + automatic restore on validation/write failure.
-- [x] Verified stack update rollback backend foundation; recovery status is returned to Operations/API callers.
-- [x] Coalesced dashboard refresh and stale-while-revalidate snapshots (completed in 0.9.2).
-- [x] Security header foundation completed in 0.9.3; session/proxy and destructive-action guardrails remain.
-- [ ] Guarded Images/Volumes/Networks lifecycle actions.
+Focus: only larger changes that justify a major version.
 
-### Automation and observability
+- [ ] Formalise stable API contracts for external integrations.
+- [ ] Add migration/version handling for persistent application state.
+- [ ] Expand audit and role/permission capabilities if multi-user administration is needed.
+- [ ] Evaluate multi-host support without compromising the lightweight single-host baseline.
+- [ ] Publish compatibility/support guarantees for supported Docker and Podman versions.
 
-- [ ] Optional maintenance windows and scheduled stack update policies.
-- [ ] Notification hooks for failed operations and unhealthy stacks.
-- [ ] Exportable diagnostics bundle with secrets redacted.
-- [ ] Lightweight health/event history for troubleshooting without becoming a monitoring platform.
+## Engineering principles
 
-## 0.9.2 — Performance, cache coherence and diagnostics
+Every roadmap release should preserve these rules:
 
-Status: **validated 0.9.2 baseline**
-
-- [x] Roll testing version to 0.9.2.
-- [x] Coalesce simultaneous browser dashboard requests into one in-flight request.
-- [x] Add server-side dashboard stale-while-revalidate snapshots for Overview/Stacks/Runtime.
-- [x] Force-refresh controls explicitly bypass the dashboard snapshot.
-- [x] Lifecycle inventory invalidation expires dashboard/resource snapshots.
-- [x] Add rolling dashboard-build, dashboard-request, container-inventory and stats timing diagnostics.
-- [ ] Add targeted stack/container cache invalidation instead of full inventory expiry.
-- [x] Add partial dashboard responses when an engine/discovery query fails (0.9.4).
-- [x] Bound concurrent stats/inspect work (0.9.4).
-- [ ] Continue security/session hardening and guarded runtime-resource actions.
-
-## 0.9.3 — Frontend consolidation and security hardening
-
-Status: **validated 0.9.3 baseline**
-
-- [x] Roll testing version to 0.9.3.
-- [x] Replace duplicate dynamic operations/quality loading with one explicit frontend asset graph.
-- [x] Fold runtime icon identity resolution into the canonical operations layer and remove the redundant quality script.
-- [x] Remove active v0.8-era frontend labels/placeholders from canonical JavaScript.
-- [x] Add security headers for framing, referrer leakage, browser permissions and cross-origin opener isolation.
-- [x] Add regression guards for duplicate asset loading, stale active-script version labels and release metadata.
-- [ ] Add graceful partial dashboard responses when one engine query exceeds its latency budget.
-- [ ] Bound concurrent stats/inspect work.
-- [ ] Harden reverse-proxy/session behavior and document trusted proxy expectations.
-- [ ] Begin guarded Images/Volumes/Networks lifecycle controls after the safety contract is complete.
-
-## 0.9.4 — Final production hardening
-
-Status: **validated 0.9.4 baseline**
-
-- [x] Roll testing version to 0.9.4.
-- [x] Bound concurrent container inspect/stats engine-detail work.
-- [x] Bound live terminal sessions with configurable idle and maximum lifetime limits.
-- [x] Bound concurrent live-log streams and return an explicit 429 when capacity is exhausted.
-- [x] Return partial dashboard data with degraded/error metadata when an engine/discovery query fails.
-- [ ] Harden reverse-proxy/session behavior and document trusted proxy expectations.
-- [ ] Add guarded Images/Volumes/Networks lifecycle actions.
-- [ ] Add automated Docker and rootless Podman lifecycle compatibility checks.
-- [ ] Finalize backup/recovery, upgrade and rollback guarantees for 1.0.
-
-## 1.0.0-rc1 — Release candidate
-
-Status: **current testing milestone**
-
-- [x] Freeze the validated 0.9.4 feature baseline.
-- [x] Roll testing version and deployment metadata to 1.0.0-rc1.
-- [ ] Validate clean install on rootless Podman.
-- [ ] Validate upgrade from 0.9.4 testing with configuration/data preservation.
-- [ ] Validate rollback/recovery from RC1 to the previous known-good release.
-- [ ] Validate Docker lifecycle parity for start/stop/restart/update/recreate.
-- [ ] Validate rootless Podman lifecycle parity for start/stop/restart/update/recreate.
-- [ ] Complete reverse-proxy/session deployment review.
-- [ ] Complete guarded Images/Volumes/Networks lifecycle safety review.
-- [ ] Run final production soak with no release-blocking errors.
-- [ ] Final README/CHANGELOG/SECURITY/install/update audit before 1.0.0.
-
-## 1.0.0-rc2 — Tuned release candidate
-
-- [x] Replace destructive stack Stop with reversible Compose stop.
-- [x] Prefer native restart with verified in-place reconciliation fallback.
-- [x] Rework stack Update to pull + force-recreate in place with immutable image verification and rollback.
-- [x] Serialize stack and container lifecycle actions internally without depending on host media lock files.
-- [x] Add stable-sample lifecycle verification with configurable timeout/interval.
-- [x] Batch and bound live-log rendering with clean stream termination and no server-side log indexer.
-- [x] Bound and throttle operation-history persistence to reduce update-time disk I/O.
-- [x] Fix prerelease-safe CI runtime stamping and validate the complete testing image.
-
-RC2 is the final tuned testing candidate before deciding whether the single-host 1.0.0 production promotion gates are satisfied.
-## 1.0.0 — Stable single-host release
-
-- [ ] Stable API contracts and migration policy.
-- [ ] Automated Docker and rootless Podman compatibility matrix.
-- [ ] Documented backup/recovery, upgrade and rollback guarantees.
-- [ ] Persistent audit history and recovery workflows.
-- [ ] Hardened permissions, rate limiting and reverse-proxy guidance.
-- [ ] Release-candidate soak testing on the permanent `testing` channel.
-
-## Post-1.0
-
-- Multi-host RogueForge agents.
-- Multiple users, roles and permissions.
-- Broader notification/integration ecosystem.
+- no permanent high-frequency polling when event/on-demand work is sufficient;
+- no unbounded log indexing or operation-history growth;
+- lifecycle operations must verify the resulting state rather than trusting command exit codes;
+- updates must retain rollback/recovery protection;
+- RogueForge must never depend on stale external media lock files for its own lifecycle serialization;
+- Docker and rootless Podman remain first-class deployment targets;
+- existing `.env` and persistent administrator data must survive upgrades;
+- new features should earn their runtime cost and keep RogueForge responsive on a media server.
