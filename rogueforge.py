@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RogueForge 1.0.0 — single-file Docker/Podman Compose operations runtime."""
+"""RogueForge 2.0.0 — single-file Docker/Podman Compose operations runtime."""
 from __future__ import annotations
 
 import base64, hashlib, hmac, json, mimetypes, os, re, secrets, socket, subprocess, sys, threading, time
@@ -9,7 +9,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-VERSION="1.0.0"
+VERSION="2.0.0"
+API_VERSION="2"; STATE_SCHEMA_VERSION=1
 PORT=int(os.environ.get("ROGUEFORGE_PORT","7810")); BIND=os.environ.get("ROGUEFORGE_BIND","127.0.0.1")
 MEDIA_ROOT=Path(os.environ.get("ROGUEFORGE_MEDIA_ROOT","/opt/media-server")).resolve()
 COMPOSE_ROOT=Path(os.environ.get("ROGUEFORGE_COMPOSE_ROOT",os.environ.get("ROGUEFORGE_STACKS_DIR",str(MEDIA_ROOT)))).resolve()
@@ -54,8 +55,24 @@ def invalidate_dashboard_cache():
 
 OPERATIONS_FILE=Path(os.environ.get("ROGUEFORGE_OPERATIONS_FILE",Path(__file__).with_name("data")/"operations.json")).resolve()
 _operation_lock=threading.Lock(); _operations={}; MAX_OPERATIONS=120
+OPERATION_PERSIST_INTERVAL=1.0; OPERATION_PERSIST_OUTPUT=32000; _operation_last_persist=0.0
+# RogueForge owns lifecycle serialization internally. It deliberately does not depend on,
+# remove, or wait on external media-server lock files: those belong to host scripts and
+# can be stale after interrupted shell jobs. One mutating operation per stack is enough
+# to prevent competing Compose down/up/update sequences from racing each other.
+_stack_mutation_guard=threading.Lock(); _stack_mutation_locks={}
+def _stack_mutation_lock(name):
+    key=str(name).strip().lower()
+    with _stack_mutation_guard:return _stack_mutation_locks.setdefault(key,threading.Lock())
 OPERATION_TIMEOUT=max(60,min(7200,int(os.environ.get("ROGUEFORGE_OPERATION_TIMEOUT","900"))))
 OPERATION_TERMINATE_GRACE=max(2,min(60,int(os.environ.get("ROGUEFORGE_OPERATION_TERMINATE_GRACE","10"))))
+LIFECYCLE_VERIFY_TIMEOUT=max(5,min(120,int(os.environ.get("ROGUEFORGE_LIFECYCLE_VERIFY_TIMEOUT","30"))))
+LIFECYCLE_VERIFY_INTERVAL=max(.2,min(2.0,float(os.environ.get("ROGUEFORGE_LIFECYCLE_VERIFY_INTERVAL","0.5"))))
+LIFECYCLE_STABLE_SAMPLES=max(1,min(5,int(os.environ.get("ROGUEFORGE_LIFECYCLE_STABLE_SAMPLES","2"))))
+LOG_TAIL_DEFAULT=max(25,min(1000,int(os.environ.get("ROGUEFORGE_LOG_TAIL","200"))))
+def state_contract():
+    return {"apiVersion":API_VERSION,"stateSchemaVersion":STATE_SCHEMA_VERSION,"operationsFile":str(OPERATIONS_FILE.name),"backwardCompatibleFrom":"1.9.0"}
+
 def _load_operations():
     global _operations
     try:
@@ -63,12 +80,21 @@ def _load_operations():
         for x in _operations.values():
             if x.get("status")=="running":x["status"]="interrupted";x["ended"]=time.time()
     except Exception:_operations={}
-def _save_operations():
+def _save_operations(force=False):
+    global _operation_last_persist
+    now=time.monotonic()
+    if not force and now-_operation_last_persist<OPERATION_PERSIST_INTERVAL:return
     try:
         OPERATIONS_FILE.parent.mkdir(parents=True,exist_ok=True)
-        rows=sorted(_operations.values(),key=lambda x:x.get("started",0),reverse=True)[:MAX_OPERATIONS]
+        rows=[]
+        for item in sorted(_operations.values(),key=lambda x:x.get("started",0),reverse=True)[:MAX_OPERATIONS]:
+            row={k:v for k,v in item.items() if k!="process"}
+            if isinstance(row.get("output"),str):row["output"]=row["output"][-OPERATION_PERSIST_OUTPUT:]
+            rows.append(row)
         tmp=OPERATIONS_FILE.with_suffix(".tmp");tmp.write_text(json.dumps(rows,indent=2),encoding="utf-8");tmp.replace(OPERATIONS_FILE)
+        _operation_last_persist=now
     except Exception:pass
+
 def _op_public(x):
     return {k:v for k,v in x.items() if k!="process"}
 def operation_list():
@@ -148,33 +174,62 @@ def _op_compose(oid,stack,args,timeout=None):
             if oid in _operations:_operations[oid].pop("process",None);_save_operations()
 def _operation_worker(oid):
     with _operation_lock:x=_operations[oid];scope=x["scope"];target=x["target"];action=x["action"]
-    status="failed";failure=None
+    status="failed";failure=None;lock=None
     try:
         if scope!="stack":raise ValueError("unsupported operation scope")
-        steps={"start":[["up","-d"]],"stop":[["down"]],"restart":[["down"],["up","-d"]],"pull":[["pull"]],"recreate":[["up","-d","--force-recreate"]],"update":[["pull"],["down"],["up","-d"]]}[action]
-        safe_stack(target)
+        safe_stack(target);lock=_stack_mutation_lock(target)
+        if not lock.acquire(blocking=False):raise PermissionError(f"{target} already has a lifecycle operation in progress")
+        before=_stack_running_snapshot(target)
+        if action=="update":
+            if not before:raise RuntimeError("Update safety check failed: stack has no running containers to preserve")
+            if any(not x.get("imageId") for x in before):raise RuntimeError("Update safety check failed: unable to resolve immutable image IDs")
+        steps={"start":[["up","-d"]],"stop":[["stop"]],"restart":[["restart"]],"pull":[["pull"]],"recreate":[["up","-d","--force-recreate"]],"update":[["pull"],["up","-d","--force-recreate"]]}[action]
         with _operation_lock:
             x=_operations[oid];x["stepCount"]=len(steps);_save_operations()
-        for index,args in enumerate(steps,1):
-            with _operation_lock:
-                x=_operations[oid]
-                if x.get("cancelRequested"):raise InterruptedError("operation cancelled")
-                x["stepIndex"]=index;x["currentStep"]=" ".join(args);x["stepStarted"]=time.time();_save_operations()
-            _op_append(oid,f"$ compose {' '.join(args)}\n");_op_compose(oid,target,args)
-        invalidate_inventory();_build_registry(force=True)
-        status="success"
+        try:
+            expected_images={}
+            for index,args in enumerate(steps,1):
+                with _operation_lock:
+                    x=_operations[oid]
+                    if x.get("cancelRequested"):raise InterruptedError("operation cancelled")
+                    x["stepIndex"]=index;x["currentStep"]=" ".join(args);x["stepStarted"]=time.time();_save_operations()
+                _op_append(oid,f"$ compose {' '.join(args)}\n");_op_compose(oid,target,args)
+                if action=="update" and args==["pull"]:expected_images=_local_image_ids(before)
+            if action=="stop":_verify_stack_stopped(target)
+            elif action in ("start","restart","recreate"):
+                _verify_stack_running(target,before) if before else _verify_stack_started(target)
+            elif action=="update":
+                after=_verify_stack_running(target,before);_verify_updated_images(after,expected_images)
+            invalidate_inventory();invalidate_resource_cache();_build_registry(force=True)
+            status="success"
+        except Exception as action_error:
+            if action in ("restart","recreate") and before:
+                _op_append(oid,f"Recovery: restoring stack after {action} failure\n")
+                try:_op_compose(oid,target,["up","-d"]);_verify_stack_running(target,before)
+                except Exception as recovery_error:raise RuntimeError(f"{action} failed: {action_error}; recovery failed: {recovery_error}") from action_error
+                raise RuntimeError(f"{action} failed: {action_error}; previous stack state was restored") from action_error
+            if action=="update" and before:
+                _op_append(oid,"Recovery: restoring previous image references and stack state\n")
+                rollback_ok=False
+                try:
+                    _op_append(oid,_restore_stack_images(before));_op_compose(oid,target,["up","-d","--force-recreate"]);_verify_stack_running(target,before);rollback_ok=True
+                except Exception as rollback_error:_op_append(oid,f"Rollback failed: {rollback_error}\n")
+                raise RuntimeError(f"Update failed: {action_error}; rollback {'succeeded' if rollback_ok else 'failed'}") from action_error
+            raise
     except TimeoutError as e:failure=str(e);_op_append(oid,"ERROR: "+failure+"\n");status="timed_out"
     except InterruptedError as e:failure=str(e);_op_append(oid,failure+"\n");status="cancelled"
     except Exception as e:failure=str(e);_op_append(oid,"ERROR: "+failure+"\n");status="failed"
+    finally:
+        if lock and lock.locked():lock.release()
     with _operation_lock:
         x=_operations.get(oid)
         if x:
-            x["status"]=status;x["ended"]=time.time();x["failureReason"]=failure;x["currentStep"]=None;x["stepStarted"]=None;x.pop("process",None);_save_operations()
+            x["status"]=status;x["ended"]=time.time();x["failureReason"]=failure;x["currentStep"]=None;x["stepStarted"]=None;x.pop("process",None);_save_operations(force=True)
 def start_operation(scope,target,action):
     if scope!="stack" or action not in ("start","stop","restart","pull","recreate","update"):raise ValueError("unsupported operation")
     rec=resolve_stack(target);safe_stack(target);d=rec["directory"].resolve();cf=rec["compose"].resolve()
     oid=secrets.token_urlsafe(12);x={"id":oid,"scope":scope,"target":target,"action":action,"directory":str(d),"composePath":str(cf),"status":"running","started":time.time(),"ended":None,"output":"","cancelRequested":False,"timedOut":False,"timeoutSeconds":OPERATION_TIMEOUT,"stepIndex":0,"stepCount":0,"currentStep":None,"stepStarted":None,"failureReason":None}
-    with _operation_lock:_operations[oid]=x;_save_operations()
+    with _operation_lock:_operations[oid]=x;_save_operations(force=True)
     threading.Thread(target=_operation_worker,args=(oid,),daemon=True).start();return _op_public(x)
 def cancel_operation(oid):
     with _operation_lock:
@@ -451,15 +506,41 @@ def validate_stack(name,timeout=60):
     if p.returncode:raise RuntimeError(o or f"Compose validation failed ({p.returncode})")
     return o
 def run_stack_action(stack,action):
-    safe_stack(stack)
-    if action=="start":out=run_compose(stack,["up","-d"])
-    elif action=="stop":out=run_compose(stack,["down"])
-    elif action=="restart":out=run_compose(stack,["down"])+"\n"+run_compose(stack,["up","-d"])
-    elif action=="pull":out=run_compose(stack,["pull"])
-    elif action=="recreate":out=run_compose(stack,["down"])+"\n"+run_compose(stack,["up","-d"])
-    else:raise ValueError("unsupported action")
-    invalidate_inventory();_discovery_cache["time"]=0.0
-    return {"ok":True,"output":out[-100000:]}
+    safe_stack(stack);lock=_stack_mutation_lock(stack)
+    if not lock.acquire(blocking=False):raise PermissionError(f"{stack} already has a lifecycle operation in progress")
+    before=_stack_running_snapshot(stack);out=""
+    try:
+        if action=="start":
+            out=run_compose(stack,["up","-d"]);after=_verify_stack_running(stack,before) if before else _verify_stack_started(stack)
+        elif action=="stop":
+            out=run_compose(stack,["stop"]);after=[];_verify_stack_stopped(stack)
+        elif action=="restart":
+            try:
+                out=run_compose(stack,["restart"]);after=_verify_stack_running(stack,before) if before else _verify_stack_started(stack)
+            except Exception as action_error:
+                if not before:raise
+                # Native restart is the cheapest path. If the provider cannot recover it,
+                # reconcile from Compose without tearing down networks/volumes.
+                try:
+                    out+=f"\nRestart fallback after: {action_error}\n"+run_compose(stack,["up","-d","--force-recreate"])
+                    after=_verify_stack_running(stack,before)
+                except Exception as recovery_error:raise RuntimeError(f"restart failed: {action_error}; reconcile failed: {recovery_error}") from action_error
+        elif action=="recreate":
+            try:
+                out=run_compose(stack,["up","-d","--force-recreate"]);after=_verify_stack_running(stack,before) if before else _verify_stack_started(stack)
+            except Exception as action_error:
+                if before:
+                    try:out+="\nRecovery:\n"+run_compose(stack,["up","-d"]);after=_verify_stack_running(stack,before)
+                    except Exception as recovery_error:raise RuntimeError(f"recreate failed: {action_error}; recovery failed: {recovery_error}") from action_error
+                    raise RuntimeError(f"recreate failed: {action_error}; previous stack state was restored") from action_error
+                raise
+        elif action=="pull":
+            out=run_compose(stack,["pull"]);after=before
+        else:raise ValueError("unsupported action")
+        invalidate_inventory();invalidate_resource_cache();_discovery_cache["time"]=0.0
+        return {"ok":True,"output":out[-100000:],"verified":action!="pull","before":before,"after":after}
+    finally:lock.release()
+
 def _stack_running_snapshot(name):
     rec=resolve_stack(name);aliases={str(rec["key"]),str(rec.get("project") or ""),rec["directory"].name};snapshot=[]
     for c in containers():
@@ -468,17 +549,69 @@ def _stack_running_snapshot(name):
         if not image_id:
             try:image_id=str(inspect_container(c["id"]).get("imageId") or "")
             except Exception:pass
-        snapshot.append({"id":c.get("id"),"name":c.get("name"),"image":c.get("image"),"imageId":image_id,"service":c.get("service"),"state":c.get("state")})
+        snapshot.append({"id":c.get("id"),"name":c.get("name"),"image":c.get("image"),"imageId":image_id,"service":c.get("service"),"state":c.get("state"),"status":c.get("status")})
     return snapshot
-def _verify_stack_running(name,before,timeout=45):
-    required={str(x.get("service") or x.get("name")) for x in before}
-    deadline=time.monotonic()+timeout;last=[]
+def _stack_snapshot_ready(rows,required=None):
+    current={str(x.get("service") or x.get("name")) for x in rows}
+    if required and not required.issubset(current):return False
+    for x in rows:
+        status=str(x.get("status") or "").lower()
+        if "unhealthy" in status:return False
+    return bool(rows)
+def _verify_stack_started(name,timeout=None):
+    timeout=LIFECYCLE_VERIFY_TIMEOUT if timeout is None else timeout
+    deadline=time.monotonic()+timeout;last=[];stable=0
     while time.monotonic()<deadline:
         invalidate_inventory();last=_stack_running_snapshot(name)
-        current={str(x.get("service") or x.get("name")) for x in last}
-        if required.issubset(current):return last
-        time.sleep(1)
-    raise RuntimeError(f"Stack verification failed; expected running services {sorted(required)}, observed {[x.get('service') or x.get('name') for x in last]}")
+        stable=stable+1 if _stack_snapshot_ready(last) else 0
+        if stable>=LIFECYCLE_STABLE_SAMPLES:return last
+        time.sleep(LIFECYCLE_VERIFY_INTERVAL)
+    raise RuntimeError("Stack verification failed; no stable running services observed after start")
+def _verify_stack_stopped(name,timeout=None):
+    timeout=LIFECYCLE_VERIFY_TIMEOUT if timeout is None else timeout
+    deadline=time.monotonic()+timeout;last=[];stable=0
+    while time.monotonic()<deadline:
+        invalidate_inventory();last=_stack_running_snapshot(name)
+        stable=stable+1 if not last else 0
+        if stable>=LIFECYCLE_STABLE_SAMPLES:return True
+        time.sleep(LIFECYCLE_VERIFY_INTERVAL)
+    raise RuntimeError(f"Stack verification failed; services still running: {[x.get('service') or x.get('name') for x in last]}")
+def _verify_stack_running(name,before,timeout=None):
+    timeout=LIFECYCLE_VERIFY_TIMEOUT if timeout is None else timeout
+    required={str(x.get("service") or x.get("name")) for x in before}
+    deadline=time.monotonic()+timeout;last=[];stable=0
+    while time.monotonic()<deadline:
+        invalidate_inventory();last=_stack_running_snapshot(name)
+        stable=stable+1 if _stack_snapshot_ready(last,required) else 0
+        if stable>=LIFECYCLE_STABLE_SAMPLES:return last
+        time.sleep(LIFECYCLE_VERIFY_INTERVAL)
+    raise RuntimeError(f"Stack verification failed; expected stable services {sorted(required)}, observed {[x.get('service') or x.get('name') for x in last]}")
+def _local_image_ids(before):
+    result={}
+    for x in before:
+        ref=str(x.get("image") or "")
+        if not ref or ref=="unknown" or ref in result:continue
+        try:
+            raw=json.loads(engine_cli(["image","inspect",ref],60) or "[]");obj=raw[0] if isinstance(raw,list) and raw else raw
+            result[ref]=str(obj.get("Id") or obj.get("ID") or "")
+        except Exception:result[ref]=""
+    return result
+def _verify_updated_images(after,expected):
+    mismatches=[]
+    for x in after:
+        ref=str(x.get("image") or "");want=expected.get(ref);running=str(x.get("imageId") or "")
+        if want and running and want!=running:mismatches.append(f"{x.get('service') or x.get('name')}: expected {want[:19]}, running {running[:19]}")
+    if mismatches:raise RuntimeError("Update image verification failed: "+"; ".join(mismatches))
+    return True
+
+def stack_update_preview(name):
+    safe_stack(name);before=_stack_running_snapshot(name);local=_local_image_ids(before)
+    services=[]
+    for x in before:
+        ref=str(x.get("image") or "");running=str(x.get("imageId") or "");tagged=str(local.get(ref) or "")
+        services.append({"service":x.get("service") or x.get("name"),"container":x.get("name"),"image":ref,"runningImageId":running,"localImageId":tagged,"localUpdatePending":bool(running and tagged and running!=tagged)})
+    return {"stack":name,"runningServices":len(before),"services":services,"localUpdatesPending":sum(1 for x in services if x["localUpdatePending"]),"remoteChecked":False,"note":"Preview does not pull images. Update performs the remote pull, immutable image verification and rollback protection."}
+
 def _restore_stack_images(before):
     output=""
     for old in before:
@@ -487,27 +620,33 @@ def _restore_stack_images(before):
             output+=engine_cli(["tag",image_id,image_ref],60)+"\n"
     return output
 def update_stack(name):
-    safe_stack(name);before=_stack_running_snapshot(name)
-    if not before:raise RuntimeError("Update safety check failed: stack has no running containers to preserve")
-    if any(not x.get("imageId") for x in before):raise RuntimeError("Update safety check failed: unable to resolve the immutable image ID for every running service")
-    out=run_compose(name,["pull"])
+    safe_stack(name);lock=_stack_mutation_lock(name)
+    if not lock.acquire(blocking=False):raise PermissionError(f"{name} already has a lifecycle operation in progress")
     try:
-        out+="\n"+run_compose(name,["down"])+"\n"+run_compose(name,["up","-d"])
-        after=_verify_stack_running(name,before)
-        invalidate_inventory();invalidate_resource_cache();_discovery_cache["time"]=0.0
-        return {"ok":True,"output":out[-100000:],"verified":True,"rollbackAttempted":False,"before":before,"after":after}
-    except Exception as update_error:
-        rollback_output="";rollback_ok=False;restored=[]
+        before=_stack_running_snapshot(name)
+        if not before:raise RuntimeError("Update safety check failed: stack has no running containers to preserve")
+        if any(not x.get("imageId") for x in before):raise RuntimeError("Update safety check failed: unable to resolve the immutable image ID for every running service")
+        out=run_compose(name,["pull"]);expected=_local_image_ids(before)
         try:
-            rollback_output+=_restore_stack_images(before)
-            rollback_output+=run_compose(name,["up","-d"])
-            restored=_verify_stack_running(name,before);rollback_ok=True
-        except Exception as rollback_error:
-            rollback_output+=f"\nRollback failed: {rollback_error}"
-        invalidate_inventory();invalidate_resource_cache();_discovery_cache["time"]=0.0
-        e=RuntimeError(f"Update failed: {update_error}. Rollback {'succeeded' if rollback_ok else 'failed'}.")
-        e.rollback={"attempted":True,"succeeded":rollback_ok,"output":rollback_output[-100000:],"restored":restored}
-        raise e
+            # Reconcile in place. This preserves Compose networks/volumes and removes the
+            # large down/up failure window while still forcing containers onto pulled images.
+            out+="\n"+run_compose(name,["up","-d","--force-recreate"])
+            after=_verify_stack_running(name,before);_verify_updated_images(after,expected)
+            invalidate_inventory();invalidate_resource_cache();_discovery_cache["time"]=0.0
+            return {"ok":True,"output":out[-100000:],"verified":True,"imageVerified":True,"rollbackAttempted":False,"before":before,"after":after}
+        except Exception as update_error:
+            rollback_output="";rollback_ok=False;restored=[]
+            try:
+                rollback_output+=_restore_stack_images(before)
+                rollback_output+=run_compose(name,["up","-d","--force-recreate"])
+                restored=_verify_stack_running(name,before);rollback_ok=True
+            except Exception as rollback_error:
+                rollback_output+=f"\nRollback failed: {rollback_error}"
+            invalidate_inventory();invalidate_resource_cache();_discovery_cache["time"]=0.0
+            e=RuntimeError(f"Update failed: {update_error}. Rollback {'succeeded' if rollback_ok else 'failed'}.")
+            e.rollback={"attempted":True,"succeeded":rollback_ok,"output":rollback_output[-100000:],"restored":restored}
+            raise e
+    finally:lock.release()
 
 def stack_env_path(name):
     d=safe_stack(name)
@@ -588,10 +727,12 @@ def image_status(cid,pull=False):
     return {"id":m["id"],"name":m["name"],"image":m["image"],"containerImageId":before,"localImageId":current,"updateAvailable":bool(before and current and before!=current),"checkedByPull":pull,"output":output[-100000:]}
 def _mutable(m,action):
     if m["selfProtected"]:raise PermissionError(f"RogueForge cannot {action} its own container from inside itself")
-def container_action(cid,action):
+def _container_action_unlocked(cid,action):
     m=_container_meta(cid);_mutable(m,action)
     if action in ("start","stop","restart"):
-        engine_cli(([action,"--time","10",m["id"]] if action in ("stop","restart") and runtime()["engine"]=="podman" else [action,m["id"]]),60);return {"ok":True}
+        engine_cli(([action,"--time","10",m["id"]] if action in ("stop","restart") and runtime()["engine"]=="podman" else [action,m["id"]]),60)
+        state=_verify_container_state(m["name"],action!="stop")
+        return {"ok":True,"verified":True,"state":state}
     if action=="check-update":return image_status(cid,True)
     if action=="update":
         before=inspect_container(cid).get("imageId")
@@ -625,10 +766,39 @@ def container_action(cid,action):
         return {"ok":True,"output":(pulled+"\n"+recreated)[-100000:],"recreated":True,"beforeImageId":before,"pulledImageId":expected,"runningImageId":running,"verified":bool(expected and running==expected)}
     if action=="recreate":
         if not m["composeManaged"]:raise RuntimeError("Recreate is only available for Compose-managed containers")
-        return {"ok":True,"output":run_compose(m["project"],["up","-d","--no-deps","--force-recreate",m["service"]])}
+        output=run_compose(m["project"],["up","-d","--no-deps","--force-recreate",m["service"]]);state=_verify_container_state(m["name"],True)
+        return {"ok":True,"output":output,"verified":True,"state":state}
     if action=="remove":
         return {"ok":True,"output":run_compose(m["project"],["rm","-s","-f",m["service"]],300) if m["composeManaged"] else engine_cli(["rm","-f",m["id"]],300)}
     raise ValueError("unsupported action")
+def _verify_container_state(identifier,running,timeout=20):
+    deadline=time.monotonic()+timeout;last=None;stable=0
+    while time.monotonic()<deadline:
+        invalidate_inventory()
+        try:
+            raw=json.loads(engine_cli(["inspect",str(identifier)],30) or "[]");obj=raw[0] if isinstance(raw,list) and raw else raw
+            state=obj.get("State") or {};is_running=bool(state.get("Running")) if isinstance(state,dict) else str(state).lower()=="running"
+            last={"name":str(identifier),"running":is_running,"status":state.get("Status") if isinstance(state,dict) else state}
+            ok=is_running is bool(running)
+        except Exception:
+            last=None;ok=not running
+        stable=stable+1 if ok else 0
+        if stable>=LIFECYCLE_STABLE_SAMPLES:return last or {"name":str(identifier),"running":False,"status":"missing"}
+        time.sleep(LIFECYCLE_VERIFY_INTERVAL)
+    raise RuntimeError(f"Container verification failed; expected {'running' if running else 'stopped'} state")
+
+
+def container_action(cid,action):
+    m=_container_meta(cid);_mutable(m,action)
+    # Compose-managed container actions share the stack lifecycle lock, preventing
+    # a service restart/update from racing a stack update. Standalone containers
+    # get their own lightweight lock key.
+    lock_key=m["project"] if m.get("composeManaged") else f"container:{m['id']}"
+    lock=_stack_mutation_lock(lock_key)
+    if not lock.acquire(blocking=False):raise PermissionError(f"{m['name']} already has a lifecycle operation in progress")
+    try:return _container_action_unlocked(cid,action)
+    finally:lock.release()
+
 def bulk_container_action(ids,action):
     if action not in ("start","stop","restart","update","recreate","remove") or not isinstance(ids,list) or not ids or len(ids)>100:raise ValueError("invalid bulk operation")
     results=[]
@@ -742,7 +912,9 @@ def resource_networks(force=False):
         return sorted(out,key=lambda x:(not x["inUse"],x["name"].lower()))
     return _resource_cached("networks",force,build)
 
-def container_logs(cid):return engine_cli(["logs","--tail","250","--timestamps",_container_meta(cid)["id"]],30)
+def container_logs(cid,tail=None):
+    tail=LOG_TAIL_DEFAULT if tail is None else max(25,min(1000,int(tail)))
+    return engine_cli(["logs","--tail",str(tail),"--timestamps",_container_meta(cid)["id"]],30)
 
 def _engine_prefix():
     if runtime()["engine"]=="podman":return [os.environ.get("ROGUEFORGE_PODMAN","/usr/bin/podman"),"--remote","--url",f"unix://{runtime()['socket']}"],os.environ.copy()
@@ -816,9 +988,10 @@ def stream_logs(h,cid):
         h.send_json({"error":f"Live log stream limit reached ({MAX_LOG_STREAMS})"},429);return
     p=None
     try:
-        p=_popen_engine(["logs","--follow","--tail","150","--timestamps",_container_meta(cid)["id"]]);h.send_response(200);h.send_header("content-type","text/event-stream");h.send_header("cache-control","no-cache, no-store");h.send_header("connection","keep-alive");h.send_header("x-accel-buffering","no");h.send_security_headers();h.end_headers()
-        h.wfile.write(b"event: ready\ndata: {}\n\n");h.wfile.flush()
+        p=_popen_engine(["logs","--follow","--tail",str(LOG_TAIL_DEFAULT),"--timestamps",_container_meta(cid)["id"]]);h.send_response(200);h.send_header("content-type","text/event-stream");h.send_header("cache-control","no-cache, no-store");h.send_header("connection","keep-alive");h.send_header("x-accel-buffering","no");h.send_security_headers();h.end_headers()
+        h.wfile.write(b"retry: 3000\nevent: ready\ndata: {}\n\n");h.wfile.flush()
         for line in iter(p.stdout.readline,""):h.wfile.write(b"data: "+json.dumps({"line":line.rstrip("\n")}).encode()+b"\n\n");h.wfile.flush()
+        h.wfile.write(b"event: ended\ndata: {}\n\n");h.wfile.flush()
     except (BrokenPipeError,ConnectionResetError):pass
     finally:
         if p and p.poll() is None:p.terminate()
@@ -872,7 +1045,23 @@ def dashboard_snapshot(force=False):
     return {**data,"cache":{"state":"refreshed","ageMs":0.0}}
 
 def diagnostics():
-    rt=runtime();age=max(0,time.monotonic()-float(_dashboard_cache.get("time") or 0));return {"timings":timing_snapshot(),"dashboardCache":{"ageMs":round(age*1000,1),"hasSnapshot":_dashboard_cache.get("snapshot") is not None,"refreshing":bool(_dashboard_cache.get("refreshing"))},"limits":{"engineDetailConcurrency":ENGINE_DETAIL_CONCURRENCY,"maxTerminals":MAX_TERMINAL_SESSIONS,"terminalIdleSeconds":TERMINAL_TTL,"terminalMaxLifetimeSeconds":TERMINAL_MAX_LIFETIME,"maxLogStreams":MAX_LOG_STREAMS},"auth":auth_diagnostics(),"runtime":{"engine":rt["engine"],"socket":rt["socket"],"socketExists":Path(rt["socket"]).exists(),"context":rt.get("context")},"paths":{"mediaRoot":str(MEDIA_ROOT),"composeRoot":str(COMPOSE_ROOT),"envRoot":str(ENV_ROOT)},"stacks":{"path":str(COMPOSE_ROOT),"exists":COMPOSE_ROOT.is_dir(),"readable":os.access(COMPOSE_ROOT,os.R_OK),"selfStack":SELF_STACK},"discovery":discovery_diagnostics()}
+    rt=runtime();age=max(0,time.monotonic()-float(_dashboard_cache.get("time") or 0));return {"timings":timing_snapshot(),"dashboardCache":{"ageMs":round(age*1000,1),"hasSnapshot":_dashboard_cache.get("snapshot") is not None,"refreshing":bool(_dashboard_cache.get("refreshing"))},"limits":{"engineDetailConcurrency":ENGINE_DETAIL_CONCURRENCY,"maxTerminals":MAX_TERMINAL_SESSIONS,"terminalIdleSeconds":TERMINAL_TTL,"terminalMaxLifetimeSeconds":TERMINAL_MAX_LIFETIME,"maxLogStreams":MAX_LOG_STREAMS,"logTail":LOG_TAIL_DEFAULT,"lifecycleVerifySeconds":LIFECYCLE_VERIFY_TIMEOUT,"lifecycleVerifyInterval":LIFECYCLE_VERIFY_INTERVAL,"lifecycleStableSamples":LIFECYCLE_STABLE_SAMPLES},"auth":auth_diagnostics(),"runtime":{"engine":rt["engine"],"socket":rt["socket"],"socketExists":Path(rt["socket"]).exists(),"context":rt.get("context")},"paths":{"mediaRoot":str(MEDIA_ROOT),"composeRoot":str(COMPOSE_ROOT),"envRoot":str(ENV_ROOT)},"stacks":{"path":str(COMPOSE_ROOT),"exists":COMPOSE_ROOT.is_dir(),"readable":os.access(COMPOSE_ROOT,os.R_OK),"selfStack":SELF_STACK},"discovery":discovery_diagnostics()}
+def rogue_dashboard_status():
+    # Read-only integration payload. Reuse RogueForge's existing cached dashboard
+    # snapshot and in-memory operation history so RogueDashboard does not create a
+    # second engine polling loop.
+    snap=dashboard_snapshot(force=False);rt=runtime();stacks=list(snap.get("stacks") or []);items=list(snap.get("containers") or [])
+    stack_states={"running":0,"partial":0,"stopped":0}
+    for x in stacks:
+        state=str(x.get("state") or "stopped");stack_states[state]=stack_states.get(state,0)+1
+    with _operation_lock:
+        ops=sorted(_operations.values(),key=lambda x:x.get("started",0),reverse=True)
+        active=[x for x in ops if x.get("status")=="running"]
+        failures=[x for x in ops if x.get("status") in ("failed","timed_out","cancelled")][:5]
+    def compact_op(x):
+        return {"id":x.get("id"),"target":x.get("target"),"action":x.get("action"),"status":x.get("status"),"started":x.get("started"),"ended":x.get("ended"),"failureReason":x.get("failureReason")}
+    return {"ok":True,"service":"RogueForge","version":VERSION,"apiVersion":API_VERSION,"stateSchemaVersion":STATE_SCHEMA_VERSION,"engine":rt.get("engine"),"capabilities":{"lifecycle":True,"verifiedUpdates":True,"rollback":True,"liveLogs":True,"terminal":True},"stacks":{"total":len(stacks),**stack_states},"containers":{"total":len(items),"running":sum(1 for x in items if x.get("state")=="running")},"operations":{"active":len(active),"activeItems":[compact_op(x) for x in active[:5]],"recentFailures":[compact_op(x) for x in failures]},"degraded":bool(snap.get("degraded")),"errors":list((snap.get("errors") or {}).keys()),"cache":snap.get("cache") or {},"generatedAt":time.time()}
+
 class Handler(BaseHTTPRequestHandler):
     server_version=f"RogueForge/{VERSION}"
     def log_message(self,fmt,*args):sys.stderr.write("%s - %s\n"%(self.log_date_time_string(),fmt%args))
@@ -925,6 +1114,9 @@ class Handler(BaseHTTPRequestHandler):
                 status={"appVersion":VERSION,"engine":rt["engine"],"version":rt["version"],"apiVersion":rt["apiVersion"],"context":rt.get("context"),"demo":DEMO_MODE,"publicUrl":PUBLIC_URL,"authConfigured":bool(load_auth()),"socket":rt["socket"] if session else "Protected","stacksDir":str(STACKS_DIR) if session else "Protected","composeRoot":str(COMPOSE_ROOT) if session else "Protected","envRoot":str(ENV_ROOT) if session else "Protected","mediaRoot":str(MEDIA_ROOT) if session else "Protected","iconsDir":str(ICONS_DIR) if session else "Protected"}
                 record_timing("dashboardRequest",time.monotonic()-started)
                 self.send_json({"status":status,"stacks":snap["stacks"],"containers":snap["containers"],"cache":snap.get("cache"),"degraded":bool(snap.get("degraded")),"errors":snap.get("errors") or {},"auth":{"configured":bool(load_auth()),"authenticated":bool(session),"user":session.get("user") if session else None,"csrf":session.get("csrf") if session else None,"auth":auth_diagnostics()}});return
+            if path=="/api/integrations/rogue-dashboard":self.send_json(rogue_dashboard_status());return
+            if path=="/api/v2/status":self.send_json(rogue_dashboard_status());return
+            if path=="/api/v2/contract":self.send_json(state_contract());return
             if path=="/api/stacks":self.send_json(discover_stacks());return
             if path=="/api/containers":self.send_json(containers());return
             if path=="/api/images":
@@ -947,6 +1139,10 @@ class Handler(BaseHTTPRequestHandler):
             if path in ("/api/diagnostics","/api/discovery"):
                 if not self.require_auth():return
                 self.send_json(diagnostics() if path.endswith("diagnostics") else discovery_diagnostics());return
+            m=re.fullmatch(r"/api/stacks/([^/]+)/update-preview",path)
+            if m:
+                if not self.require_auth():return
+                self.send_json(stack_update_preview(m.group(1)));return
             m=re.fullmatch(r"/api/stacks/([^/]+)/(compose|env)",path)
             if m:
                 if not self.require_auth():return
