@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0-rc1 — Lifecycle and live-log hardening
+
+- Reworked stack Stop to use reversible Compose `stop` instead of destructive `down`, preserving container/network definitions for fast recovery.
+- Reworked Restart to use native Compose `restart` first, with verified in-place Compose reconciliation as a fallback instead of tearing the stack down.
+- Reworked Stack Update to pull and force-recreate in place, preserving networks and volumes and removing the broad `down -> up` failure window.
+- Added immutable image-ID verification after stack updates plus automatic retag/recreate rollback if verification or startup fails.
+- Added configurable, stable-sample lifecycle verification with health-aware rejection and sub-second polling only while an operation is actively being verified.
+- Kept lifecycle concurrency internal to RogueForge and independent from host media lock files.
+- Optimized live logs with animation-frame batching, a bounded 3,000-line browser buffer, buffered pause/resume, debounced filtering and lightweight error/warning counts.
+- Kept logging on-demand with no server-side log database, indexer or background polling process, preserving exceptional idle performance.
+- Reduced terminal polling frequency slightly to lower steady browser/API churn while retaining responsive interactive shells.
+
+
 ## 1.0.0-rc1 — First 1.0 release candidate
 
 - Promoted the validated 0.9.4 hardening baseline into the first 1.0 release candidate.
