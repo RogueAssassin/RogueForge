@@ -111,7 +111,7 @@ Testing:
 ./update.sh testing
 ```
 
-The updater backs up deployment files under `/tmp/rogueforge/update-backups/`, pulls the requested image, recreates RogueForge when the immutable image ID changed, verifies the new running image ID, and then verifies `/health`. It does not overwrite `.env` or `data/auth.json`. Environment additions are appended as clearly labelled revision blocks such as `Rev 160 update`.
+The updater backs up deployment files under `/tmp/rogueforge/update-backups/`, pulls the requested image, recreates RogueForge when the immutable image ID changed, verifies the new running image ID, and then verifies `/health`. It does not overwrite `.env` or `data/auth.json`. Environment additions are appended only when a release introduces actual new settings; version-only releases do not modify `.env`.
 
 ## Verification
 
@@ -169,7 +169,7 @@ For application-managed stacks, RogueForge uses the deterministic lifecycle cont
 
 ## RogueDashboard integration
 
-RogueForge 1.6.0 exposes a compact read-only endpoint for RogueDashboard:
+RogueForge 1.9.0 exposes a compact read-only endpoint for RogueDashboard:
 
 ```text
 /api/integrations/rogue-dashboard
