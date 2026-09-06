@@ -1042,6 +1042,22 @@ def dashboard_snapshot(force=False):
 
 def diagnostics():
     rt=runtime();age=max(0,time.monotonic()-float(_dashboard_cache.get("time") or 0));return {"timings":timing_snapshot(),"dashboardCache":{"ageMs":round(age*1000,1),"hasSnapshot":_dashboard_cache.get("snapshot") is not None,"refreshing":bool(_dashboard_cache.get("refreshing"))},"limits":{"engineDetailConcurrency":ENGINE_DETAIL_CONCURRENCY,"maxTerminals":MAX_TERMINAL_SESSIONS,"terminalIdleSeconds":TERMINAL_TTL,"terminalMaxLifetimeSeconds":TERMINAL_MAX_LIFETIME,"maxLogStreams":MAX_LOG_STREAMS,"logTail":LOG_TAIL_DEFAULT,"lifecycleVerifySeconds":LIFECYCLE_VERIFY_TIMEOUT,"lifecycleVerifyInterval":LIFECYCLE_VERIFY_INTERVAL,"lifecycleStableSamples":LIFECYCLE_STABLE_SAMPLES},"auth":auth_diagnostics(),"runtime":{"engine":rt["engine"],"socket":rt["socket"],"socketExists":Path(rt["socket"]).exists(),"context":rt.get("context")},"paths":{"mediaRoot":str(MEDIA_ROOT),"composeRoot":str(COMPOSE_ROOT),"envRoot":str(ENV_ROOT)},"stacks":{"path":str(COMPOSE_ROOT),"exists":COMPOSE_ROOT.is_dir(),"readable":os.access(COMPOSE_ROOT,os.R_OK),"selfStack":SELF_STACK},"discovery":discovery_diagnostics()}
+def rogue_dashboard_status():
+    # Read-only integration payload. Reuse RogueForge's existing cached dashboard
+    # snapshot and in-memory operation history so RogueDashboard does not create a
+    # second engine polling loop.
+    snap=dashboard_snapshot(force=False);rt=runtime();stacks=list(snap.get("stacks") or []);items=list(snap.get("containers") or [])
+    stack_states={"running":0,"partial":0,"stopped":0}
+    for x in stacks:
+        state=str(x.get("state") or "stopped");stack_states[state]=stack_states.get(state,0)+1
+    with _operation_lock:
+        ops=sorted(_operations.values(),key=lambda x:x.get("started",0),reverse=True)
+        active=[x for x in ops if x.get("status")=="running"]
+        failures=[x for x in ops if x.get("status") in ("failed","timed_out","cancelled")][:5]
+    def compact_op(x):
+        return {"id":x.get("id"),"target":x.get("target"),"action":x.get("action"),"status":x.get("status"),"started":x.get("started"),"ended":x.get("ended"),"failureReason":x.get("failureReason")}
+    return {"ok":True,"service":"RogueForge","version":VERSION,"engine":rt.get("engine"),"capabilities":{"lifecycle":True,"verifiedUpdates":True,"rollback":True,"liveLogs":True,"terminal":True},"stacks":{"total":len(stacks),**stack_states},"containers":{"total":len(items),"running":sum(1 for x in items if x.get("state")=="running")},"operations":{"active":len(active),"activeItems":[compact_op(x) for x in active[:5]],"recentFailures":[compact_op(x) for x in failures]},"degraded":bool(snap.get("degraded")),"errors":list((snap.get("errors") or {}).keys()),"cache":snap.get("cache") or {},"generatedAt":time.time()}
+
 class Handler(BaseHTTPRequestHandler):
     server_version=f"RogueForge/{VERSION}"
     def log_message(self,fmt,*args):sys.stderr.write("%s - %s\n"%(self.log_date_time_string(),fmt%args))
@@ -1094,6 +1110,7 @@ class Handler(BaseHTTPRequestHandler):
                 status={"appVersion":VERSION,"engine":rt["engine"],"version":rt["version"],"apiVersion":rt["apiVersion"],"context":rt.get("context"),"demo":DEMO_MODE,"publicUrl":PUBLIC_URL,"authConfigured":bool(load_auth()),"socket":rt["socket"] if session else "Protected","stacksDir":str(STACKS_DIR) if session else "Protected","composeRoot":str(COMPOSE_ROOT) if session else "Protected","envRoot":str(ENV_ROOT) if session else "Protected","mediaRoot":str(MEDIA_ROOT) if session else "Protected","iconsDir":str(ICONS_DIR) if session else "Protected"}
                 record_timing("dashboardRequest",time.monotonic()-started)
                 self.send_json({"status":status,"stacks":snap["stacks"],"containers":snap["containers"],"cache":snap.get("cache"),"degraded":bool(snap.get("degraded")),"errors":snap.get("errors") or {},"auth":{"configured":bool(load_auth()),"authenticated":bool(session),"user":session.get("user") if session else None,"csrf":session.get("csrf") if session else None,"auth":auth_diagnostics()}});return
+            if path=="/api/integrations/rogue-dashboard":self.send_json(rogue_dashboard_status());return
             if path=="/api/stacks":self.send_json(discover_stacks());return
             if path=="/api/containers":self.send_json(containers());return
             if path=="/api/images":
