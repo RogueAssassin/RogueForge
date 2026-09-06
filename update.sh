@@ -94,6 +94,7 @@ ROGUEFORGE_ENV_REV=${rev}
 EOF
 }
 append_env_revision 150 1.5.0
+append_env_revision 160 1.6.0
 
 MEDIA_ROOT=$(awk -F= '$1=="ROGUEFORGE_MEDIA_ROOT"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true); [[ -n $MEDIA_ROOT ]] || MEDIA_ROOT=/opt/media-server
 COMPOSE_ROOT=$(awk -F= '$1=="ROGUEFORGE_COMPOSE_ROOT"{print substr($0,index($0,"=")+1)}' .env | tail -n1 | tr -d '\r' || true)
