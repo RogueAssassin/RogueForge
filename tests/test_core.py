@@ -164,7 +164,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('localUpdatePending',src);self.assertIn('remoteChecked',src)
   self.assertIn('/update-preview',app);self.assertIn('Affected services:',app);self.assertIn('immutable image IDs',app)
   self.assertNotIn('Rev 150 update',env);self.assertNotIn('ROGUEFORGE_ENV_REV=150',env)
-  self.assertNotIn('append_env_revision 150',update);self.assertIn('Existing installations keep their current',road)
+  self.assertNotIn('append_env_revision 150',update);self.assertIn('Existing installs keep their current',road)
   self.assertNotIn('cp .env.example .env\nfi\nset_env',update)
  def test_pre20_rogue_dashboard_integration(self):
   src=(ROOT/'rogueforge.py').read_text();env=(ROOT/'.env.example').read_text();update=(ROOT/'update.sh').read_text();road=(ROOT/'MILESTONES.md').read_text();readme=(ROOT/'README.md').read_text()
