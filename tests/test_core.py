@@ -88,7 +88,7 @@ class RogueForgeTests(unittest.TestCase):
   html=(ROOT/'static/index.html').read_text();self.assertNotIn('/v080',html)
  def test_detailed_env_reference_and_canonical_layout(self):
   env=(ROOT/'.env.example').read_text();compose=(ROOT/'compose.yaml').read_text();installer=(ROOT/'install.sh').read_text();update=(ROOT/'update.sh').read_text();docs=(ROOT/'docs/CONTAINER_DEPLOYMENT.md').read_text()
-  self.assertIn('RogueForge v1.5.0 testing - Environment Configuration',env)
+  self.assertIn('RogueForge Default Environment Configuration',env)
   self.assertIn('ROGUEFORGE_INSTALL_DIR=/opt/media-server/rogueforge',env);self.assertIn('ROGUEFORGE_DATA_DIR=/opt/media-server/rogueforge/data',env)
   self.assertIn('ROGUEFORGE_COMPOSE_ROOT=/opt/media-server',env);self.assertIn('ROGUEFORGE_ENV_ROOT=/opt/media-server',env);self.assertIn('ROGUEFORGE_STACKS_DIR=/opt/media-server',env)
   self.assertIn('${ROGUEFORGE_DATA_DIR:-/opt/media-server/rogueforge/data}:/opt/rogueforge/data',compose)
@@ -156,8 +156,8 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('id="liveLogLevel"',html);self.assertIn('option value="error"',html);self.assertIn('option value="warn"',html)
   self.assertIn("const level=$('#liveLogLevel')?.value||'all'",live);self.assertIn('rfLive.reconnects++',live);self.assertIn('reconnect',live)
   self.assertIn('stepElapsed=',ops);self.assertIn('current step',ops)
-  self.assertIn('RELEASE-1.5.0%20TESTING',readme);self.assertIn('## Rogue ecosystem',readme)
-  self.assertIn('## 1.5.0 — Stack management and update intelligence',road);self.assertIn('## 1.5.0 (testing)',change)
+  self.assertIn('RELEASE-1.6.0%20TESTING',readme);self.assertIn('## Rogue ecosystem',readme)
+  self.assertIn('## 1.6.0 — RogueDashboard integration and migration validation',road);self.assertIn('## 1.4.0 (testing)',change)
  def test_v150_update_preview_and_env_revision_policy(self):
   src=(ROOT/'rogueforge.py').read_text();app=(ROOT/'static/app.js').read_text();env=(ROOT/'.env.example').read_text();update=(ROOT/'update.sh').read_text();road=(ROOT/'MILESTONES.md').read_text()
   self.assertIn('def stack_update_preview(name):',src);self.assertIn('/update-preview',src)
@@ -166,8 +166,17 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('Rev 150 update - RogueForge v1.5.0',env);self.assertIn('ROGUEFORGE_ENV_REV=150',env)
   self.assertIn('append_env_revision 150 1.5.0',update);self.assertIn('Existing installations keep their current',road)
   self.assertNotIn('cp .env.example .env\nfi\nset_env',update)
+ def test_v160_rogue_dashboard_integration(self):
+  src=(ROOT/'rogueforge.py').read_text();env=(ROOT/'.env.example').read_text();update=(ROOT/'update.sh').read_text();road=(ROOT/'MILESTONES.md').read_text();readme=(ROOT/'README.md').read_text()
+  self.assertIn('def rogue_dashboard_status():',src);self.assertIn('/api/integrations/rogue-dashboard',src)
+  block=src[src.index('def rogue_dashboard_status():'):src.index('class Handler')]
+  self.assertIn('"capabilities"',block);self.assertIn('"recentFailures"',block);self.assertIn('dashboard_snapshot(force=False)',block)
+  self.assertNotIn('"socket"',block);self.assertNotIn('"composeRoot"',block);self.assertNotIn('"output"',block)
+  self.assertIn('RogueForge Default Environment Configuration',env)
+  self.assertIn('Rev 150 update - RogueForge v1.5.0',env);self.assertIn('Rev 160 update - RogueForge v1.6.0',env);self.assertIn('ROGUEFORGE_ENV_REV=160',env)
+  self.assertIn('append_env_revision 160 1.6.0',update);self.assertIn('RogueDashboard integration',readme);self.assertIn('## 1.6.0 — RogueDashboard integration and migration validation',road)
  def test_current_release_baseline(self):
-  self.assertEqual((ROOT/'VERSION').read_text().strip(),'1.5.0')
+  self.assertEqual((ROOT/'VERSION').read_text().strip(),'1.6.0')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def _load_containers_uncached()',src);self.assertIn('/api/dashboard',src)
   self.assertIn('## 1.5.0 — Stack management and update intelligence',road)
