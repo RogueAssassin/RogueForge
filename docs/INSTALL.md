@@ -14,27 +14,29 @@ A typical media-server deployment uses:
 │   ├── setup-auth.py
 │   ├── .env
 │   └── data/
-│       └── auth.json
-└── compose/
-    ├── bazarr/
-    │   ├── compose.yaml
-    │   └── .env
-    ├── dozzle/
-    │   ├── compose.yaml
-    │   └── .env
-    └── ...
+│       ├── auth.json
+│       └── operations.json
+├── bazarr/
+│   ├── compose.yaml
+│   └── .env
+├── radarr/
+├── sonarr/
+├── qbittorrent/
+└── ...
 ```
 
 The locations are configurable:
 
 ```env
+ROGUEFORGE_INSTALL_DIR=/opt/media-server/rogueforge
+ROGUEFORGE_DATA_DIR=/opt/media-server/rogueforge/data
 ROGUEFORGE_MEDIA_ROOT=/opt/media-server
-ROGUEFORGE_COMPOSE_ROOT=/opt/media-server/compose
-ROGUEFORGE_ENV_ROOT=/opt/media-server/compose
-ROGUEFORGE_STACKS_DIR=/opt/media-server/compose
+ROGUEFORGE_COMPOSE_ROOT=/opt/media-server
+ROGUEFORGE_ENV_ROOT=/opt/media-server
+ROGUEFORGE_STACKS_DIR=/opt/media-server
 ```
 
-If Compose projects live directly below `/opt/media-server`, point the Compose and environment roots there instead.
+This is the canonical media-server layout: RogueForge's own files stay in `/opt/media-server/rogueforge`, while Compose discovery remains rooted at `/opt/media-server` so sibling stacks are visible.
 
 ## Rootless Podman prerequisites
 
@@ -72,7 +74,7 @@ chmod +x install.sh
 ./install.sh --engine podman
 ```
 
-The installer validates the runtime and Compose provider, checks the configured roots, provisions the rootless socket mapping, creates authentication when needed, pulls the GHCR image, starts RogueForge and waits for `/health`.
+The installer validates the runtime and Compose provider, checks the configured roots, provisions the rootless socket mapping, copies the fully commented `.env.example` to `/opt/media-server/rogueforge/.env` on fresh installs, patches only machine-specific values, creates authentication when needed, pulls the GHCR image, starts RogueForge and waits for `/health`. Existing `.env` files are preserved.
 
 ## Testing install / switch
 
@@ -96,10 +98,11 @@ cd /opt/media-server/rogueforge
 ./update.sh latest
 ```
 
-Pinned production version:
+Pinned production or release-candidate version:
 
 ```bash
 ./update.sh X.Y.Z
+./update.sh X.Y.Z-rcN
 ```
 
 Testing:
@@ -108,7 +111,7 @@ Testing:
 ./update.sh testing
 ```
 
-The updater backs up deployment files under `/tmp/rogueforge/update-backups/`, pulls the requested image, recreates RogueForge when the immutable image ID changed, verifies the new running image ID, and then verifies `/health`. It does not overwrite `.env` or `data/auth.json`.
+The updater backs up deployment files under `/tmp/rogueforge/update-backups/`, pulls the requested image, recreates RogueForge when the immutable image ID changed, verifies the new running image ID, and then verifies `/health`. It does not overwrite `.env` or `data/auth.json`. Environment additions are appended only when a release introduces actual new settings; version-only releases do not modify `.env`.
 
 ## Verification
 
@@ -162,3 +165,26 @@ podman logs -f rogueforge
 ```
 
 For application-managed stacks, RogueForge uses the deterministic lifecycle contract documented in [CONTAINER_DEPLOYMENT.md](CONTAINER_DEPLOYMENT.md).
+
+
+## RogueDashboard integration
+
+RogueForge 2.0.0 exposes a compact read-only endpoint for RogueDashboard:
+
+```text
+/api/integrations/rogue-dashboard
+```
+
+The payload contains version, engine type, stack/container counts, active operations, recent failure summaries and capability flags. It deliberately omits engine socket paths, Compose paths, credentials and operation output.
+
+
+## RogueForge 2.0 API contract
+
+RogueForge 2.0 introduces stable read-only integration endpoints:
+
+```text
+/api/v2/status
+/api/v2/contract
+```
+
+The contract reports API version 2 and persistent-state schema version 1. The 2.0 testing candidate is backward-compatible with the validated 1.9 state baseline and does not require an environment-file revision.
