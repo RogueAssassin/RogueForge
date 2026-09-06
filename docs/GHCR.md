@@ -17,7 +17,9 @@ ghcr.io/rogueassassin/rogueforge:<compact-version>
 ghcr.io/rogueassassin/rogueforge:sha-<commit>
 ```
 
-For 2.0.0 the compact tag is `200`. Production CI may create the immutable Git tag `v<VERSION>` after a successful publish.
+For the current stable production release 2.0.0 the compact tag is `200`. Production CI may create the immutable Git tag `v<VERSION>` after a successful publish.
+
+Current testing development version: `2.1.0`.
 
 ## Testing channel
 
