@@ -54,6 +54,14 @@ def invalidate_dashboard_cache():
 
 OPERATIONS_FILE=Path(os.environ.get("ROGUEFORGE_OPERATIONS_FILE",Path(__file__).with_name("data")/"operations.json")).resolve()
 _operation_lock=threading.Lock(); _operations={}; MAX_OPERATIONS=120
+# RogueForge owns lifecycle serialization internally. It deliberately does not depend on,
+# remove, or wait on external media-server lock files: those belong to host scripts and
+# can be stale after interrupted shell jobs. One mutating operation per stack is enough
+# to prevent competing Compose down/up/update sequences from racing each other.
+_stack_mutation_guard=threading.Lock(); _stack_mutation_locks={}
+def _stack_mutation_lock(name):
+    key=str(name).strip().lower()
+    with _stack_mutation_guard:return _stack_mutation_locks.setdefault(key,threading.Lock())
 OPERATION_TIMEOUT=max(60,min(7200,int(os.environ.get("ROGUEFORGE_OPERATION_TIMEOUT","900"))))
 OPERATION_TERMINATE_GRACE=max(2,min(60,int(os.environ.get("ROGUEFORGE_OPERATION_TERMINATE_GRACE","10"))))
 def _load_operations():
@@ -148,24 +156,50 @@ def _op_compose(oid,stack,args,timeout=None):
             if oid in _operations:_operations[oid].pop("process",None);_save_operations()
 def _operation_worker(oid):
     with _operation_lock:x=_operations[oid];scope=x["scope"];target=x["target"];action=x["action"]
-    status="failed";failure=None
+    status="failed";failure=None;lock=None
     try:
         if scope!="stack":raise ValueError("unsupported operation scope")
+        safe_stack(target);lock=_stack_mutation_lock(target)
+        if not lock.acquire(blocking=False):raise PermissionError(f"{target} already has a lifecycle operation in progress")
+        before=_stack_running_snapshot(target)
         steps={"start":[["up","-d"]],"stop":[["down"]],"restart":[["down"],["up","-d"]],"pull":[["pull"]],"recreate":[["up","-d","--force-recreate"]],"update":[["pull"],["down"],["up","-d"]]}[action]
-        safe_stack(target)
         with _operation_lock:
             x=_operations[oid];x["stepCount"]=len(steps);_save_operations()
-        for index,args in enumerate(steps,1):
-            with _operation_lock:
-                x=_operations[oid]
-                if x.get("cancelRequested"):raise InterruptedError("operation cancelled")
-                x["stepIndex"]=index;x["currentStep"]=" ".join(args);x["stepStarted"]=time.time();_save_operations()
-            _op_append(oid,f"$ compose {' '.join(args)}\n");_op_compose(oid,target,args)
-        invalidate_inventory();_build_registry(force=True)
-        status="success"
+        try:
+            for index,args in enumerate(steps,1):
+                with _operation_lock:
+                    x=_operations[oid]
+                    if x.get("cancelRequested"):raise InterruptedError("operation cancelled")
+                    x["stepIndex"]=index;x["currentStep"]=" ".join(args);x["stepStarted"]=time.time();_save_operations()
+                _op_append(oid,f"$ compose {' '.join(args)}\n");_op_compose(oid,target,args)
+            if action=="stop":_verify_stack_stopped(target)
+            elif action in ("start","restart","recreate"):
+                _verify_stack_running(target,before) if before else _verify_stack_started(target)
+            elif action=="update":
+                if not before:raise RuntimeError("Update safety check failed: stack had no running containers to preserve")
+                if any(not x.get("imageId") for x in before):raise RuntimeError("Update safety check failed: unable to resolve immutable image IDs")
+                _verify_stack_running(target,before)
+            invalidate_inventory();invalidate_resource_cache();_build_registry(force=True)
+            status="success"
+        except Exception as action_error:
+            if action in ("restart","recreate") and before:
+                _op_append(oid,f"Recovery: restoring stack after {action} failure\n")
+                try:_op_compose(oid,target,["up","-d"]);_verify_stack_running(target,before)
+                except Exception as recovery_error:raise RuntimeError(f"{action} failed: {action_error}; recovery failed: {recovery_error}") from action_error
+                raise RuntimeError(f"{action} failed: {action_error}; previous stack state was restored") from action_error
+            if action=="update" and before:
+                _op_append(oid,"Recovery: restoring previous image references and stack state\n")
+                rollback_ok=False
+                try:
+                    _op_append(oid,_restore_stack_images(before));_op_compose(oid,target,["up","-d"]);_verify_stack_running(target,before);rollback_ok=True
+                except Exception as rollback_error:_op_append(oid,f"Rollback failed: {rollback_error}\n")
+                raise RuntimeError(f"Update failed: {action_error}; rollback {'succeeded' if rollback_ok else 'failed'}") from action_error
+            raise
     except TimeoutError as e:failure=str(e);_op_append(oid,"ERROR: "+failure+"\n");status="timed_out"
     except InterruptedError as e:failure=str(e);_op_append(oid,failure+"\n");status="cancelled"
     except Exception as e:failure=str(e);_op_append(oid,"ERROR: "+failure+"\n");status="failed"
+    finally:
+        if lock and lock.locked():lock.release()
     with _operation_lock:
         x=_operations.get(oid)
         if x:
@@ -451,15 +485,28 @@ def validate_stack(name,timeout=60):
     if p.returncode:raise RuntimeError(o or f"Compose validation failed ({p.returncode})")
     return o
 def run_stack_action(stack,action):
-    safe_stack(stack)
-    if action=="start":out=run_compose(stack,["up","-d"])
-    elif action=="stop":out=run_compose(stack,["down"])
-    elif action=="restart":out=run_compose(stack,["down"])+"\n"+run_compose(stack,["up","-d"])
-    elif action=="pull":out=run_compose(stack,["pull"])
-    elif action=="recreate":out=run_compose(stack,["down"])+"\n"+run_compose(stack,["up","-d"])
-    else:raise ValueError("unsupported action")
-    invalidate_inventory();_discovery_cache["time"]=0.0
-    return {"ok":True,"output":out[-100000:]}
+    safe_stack(stack);lock=_stack_mutation_lock(stack)
+    if not lock.acquire(blocking=False):raise PermissionError(f"{stack} already has a lifecycle operation in progress")
+    before=_stack_running_snapshot(stack);out=""
+    try:
+        if action=="start":
+            out=run_compose(stack,["up","-d"]);_verify_stack_running(stack,before) if before else _verify_stack_started(stack)
+        elif action=="stop":
+            out=run_compose(stack,["down"]);_verify_stack_stopped(stack)
+        elif action in ("restart","recreate"):
+            try:
+                out=run_compose(stack,["down"])+"\n"+run_compose(stack,["up","-d"]);_verify_stack_running(stack,before) if before else _verify_stack_started(stack)
+            except Exception as action_error:
+                if before:
+                    try:out+="\nRecovery:\n"+run_compose(stack,["up","-d"]);_verify_stack_running(stack,before)
+                    except Exception as recovery_error:raise RuntimeError(f"{action} failed: {action_error}; recovery failed: {recovery_error}") from action_error
+                    raise RuntimeError(f"{action} failed: {action_error}; previous stack state was restored") from action_error
+                raise
+        elif action=="pull":out=run_compose(stack,["pull"])
+        else:raise ValueError("unsupported action")
+        invalidate_inventory();invalidate_resource_cache();_discovery_cache["time"]=0.0
+        return {"ok":True,"output":out[-100000:],"verified":action!="pull"}
+    finally:lock.release()
 def _stack_running_snapshot(name):
     rec=resolve_stack(name);aliases={str(rec["key"]),str(rec.get("project") or ""),rec["directory"].name};snapshot=[]
     for c in containers():
@@ -470,6 +517,20 @@ def _stack_running_snapshot(name):
             except Exception:pass
         snapshot.append({"id":c.get("id"),"name":c.get("name"),"image":c.get("image"),"imageId":image_id,"service":c.get("service"),"state":c.get("state")})
     return snapshot
+def _verify_stack_started(name,timeout=45):
+    deadline=time.monotonic()+timeout;last=[]
+    while time.monotonic()<deadline:
+        invalidate_inventory();last=_stack_running_snapshot(name)
+        if last:return last
+        time.sleep(1)
+    raise RuntimeError("Stack verification failed; no running services observed after start")
+def _verify_stack_stopped(name,timeout=45):
+    deadline=time.monotonic()+timeout;last=[]
+    while time.monotonic()<deadline:
+        invalidate_inventory();last=_stack_running_snapshot(name)
+        if not last:return True
+        time.sleep(1)
+    raise RuntimeError(f"Stack verification failed; services still running: {[x.get('service') or x.get('name') for x in last]}")
 def _verify_stack_running(name,before,timeout=45):
     required={str(x.get("service") or x.get("name")) for x in before}
     deadline=time.monotonic()+timeout;last=[]
@@ -487,9 +548,11 @@ def _restore_stack_images(before):
             output+=engine_cli(["tag",image_id,image_ref],60)+"\n"
     return output
 def update_stack(name):
-    safe_stack(name);before=_stack_running_snapshot(name)
-    if not before:raise RuntimeError("Update safety check failed: stack has no running containers to preserve")
-    if any(not x.get("imageId") for x in before):raise RuntimeError("Update safety check failed: unable to resolve the immutable image ID for every running service")
+    safe_stack(name);lock=_stack_mutation_lock(name)
+    if not lock.acquire(blocking=False):raise PermissionError(f"{name} already has a lifecycle operation in progress")
+    before=_stack_running_snapshot(name)
+    if not before:lock.release();raise RuntimeError("Update safety check failed: stack has no running containers to preserve")
+    if any(not x.get("imageId") for x in before):lock.release();raise RuntimeError("Update safety check failed: unable to resolve the immutable image ID for every running service")
     out=run_compose(name,["pull"])
     try:
         out+="\n"+run_compose(name,["down"])+"\n"+run_compose(name,["up","-d"])
@@ -508,6 +571,7 @@ def update_stack(name):
         e=RuntimeError(f"Update failed: {update_error}. Rollback {'succeeded' if rollback_ok else 'failed'}.")
         e.rollback={"attempted":True,"succeeded":rollback_ok,"output":rollback_output[-100000:],"restored":restored}
         raise e
+    finally:lock.release()
 
 def stack_env_path(name):
     d=safe_stack(name)
