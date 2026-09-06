@@ -45,8 +45,6 @@ RogueForge 2.1.0 is the active post-2.0 testing baseline.
 
 ## Rogue ecosystem
 
-| Service | Responsibility |
-| --- | --- |
 | Service | What it does |
 | --- | --- |
 | [**RogueDashboard**](https://github.com/RogueAssassin/RogueDashboard) | Lightweight media-server visibility, health, uptime, incidents, alerts and service overview. |
@@ -203,11 +201,11 @@ Testing:
 ghcr.io/rogueassassin/rogueforge:testing
 ```
 
-Production after promotion:
+Current stable production:
 
 ```text
 ghcr.io/rogueassassin/rogueforge:latest
-ghcr.io/rogueassassin/rogueforge:2.1.0
+ghcr.io/rogueassassin/rogueforge:2.0.0
 ```
 
-The permanent `testing` branch is the proving ground. `main` remains production-only.
+The permanent `testing` branch is now on 2.1.0 development. `main` remains the stable 2.0.0 production branch.
