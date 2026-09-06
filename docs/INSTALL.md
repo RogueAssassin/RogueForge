@@ -169,10 +169,22 @@ For application-managed stacks, RogueForge uses the deterministic lifecycle cont
 
 ## RogueDashboard integration
 
-RogueForge 1.9.0 exposes a compact read-only endpoint for RogueDashboard:
+RogueForge 2.0.0 exposes a compact read-only endpoint for RogueDashboard:
 
 ```text
 /api/integrations/rogue-dashboard
 ```
 
 The payload contains version, engine type, stack/container counts, active operations, recent failure summaries and capability flags. It deliberately omits engine socket paths, Compose paths, credentials and operation output.
+
+
+## RogueForge 2.0 API contract
+
+RogueForge 2.0 introduces stable read-only integration endpoints:
+
+```text
+/api/v2/status
+/api/v2/contract
+```
+
+The contract reports API version 2 and persistent-state schema version 1. The 2.0 testing candidate is backward-compatible with the validated 1.9 state baseline and does not require an environment-file revision.
