@@ -170,7 +170,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertEqual((ROOT/'VERSION').read_text().strip(),'1.5.0')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def _load_containers_uncached()',src);self.assertIn('/api/dashboard',src)
-  self.assertIn('## 1.5.0 — Logging and operations visibility',road)
+  self.assertIn('## 1.5.0 — Stack management and update intelligence',road)
  def test_transactional_stack_editor_writes(self):
   src=(ROOT/'rogueforge.py').read_text()
   self.assertIn('def _atomic_write(path,content):',src);self.assertIn('os.fsync(f.fileno())',src);self.assertIn('os.replace(tmp,path)',src)
