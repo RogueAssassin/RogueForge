@@ -174,7 +174,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertNotIn('"socket"',block);self.assertNotIn('"composeRoot"',block);self.assertNotIn('"output"',block)
   self.assertIn('RogueForge Default Environment Configuration',env)
   self.assertNotIn('Rev 150 update',env);self.assertNotIn('Rev 160 update',env);self.assertNotIn('ROGUEFORGE_ENV_REV=',env)
-  self.assertNotIn('append_env_revision 160',update);self.assertIn('stable operations platform',readme);self.assertIn('## 2.0.0 — Stable operations platform',road)
+  self.assertNotIn('append_env_revision 160',update);self.assertIn('testing development baseline',readme);self.assertIn('## 2.0.0 — Stable operations platform',road)
  def test_v200_contract_baseline(self):
   env=(ROOT/'.env.example').read_text();update=(ROOT/'update.sh').read_text();road=(ROOT/'MILESTONES.md').read_text();change=(ROOT/'CHANGELOG.md').read_text();readme=(ROOT/'README.md').read_text()
   self.assertIn('Environment Revision Policy',env)
@@ -182,7 +182,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertNotIn('append_env_revision',update)
   self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.1.0 — Post-2.0 development',road)
   self.assertIn('## 2.1.0 (testing)',change);self.assertIn('## 2.0.0 (testing)',change)
-  self.assertIn('RELEASE-2.1.0%20TESTING',readme);self.assertIn('stable operations platform',readme)
+  self.assertIn('RELEASE-2.1.0%20TESTING',readme);self.assertIn('testing development baseline',readme)
  def test_v200_api_and_state_contract(self):
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text();env=(ROOT/'.env.example').read_text();readme=(ROOT/'README.md').read_text()
   self.assertIn('API_VERSION="2"; STATE_SCHEMA_VERSION=1',src)
@@ -190,7 +190,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('"apiVersion":API_VERSION',src);self.assertIn('"stateSchemaVersion":STATE_SCHEMA_VERSION',src)
   self.assertIn('"backwardCompatibleFrom":"1.9.0"',src)
   self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.1.0 — Post-2.0 development',road)
-  self.assertNotIn('ROGUEFORGE_ENV_REV=',env);self.assertIn('stable operations platform',readme)
+  self.assertNotIn('ROGUEFORGE_ENV_REV=',env);self.assertIn('testing development baseline',readme)
  def test_current_release_baseline(self):
   self.assertEqual((ROOT/'VERSION').read_text().strip(),'2.1.0')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
