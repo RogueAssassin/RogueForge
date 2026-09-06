@@ -6,7 +6,7 @@
 
 **Local-first Docker and Podman stack management, verified updates and live troubleshooting.**
 
-[![Release](https://img.shields.io/badge/RELEASE-1.9.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
+[![Release](https://img.shields.io/badge/RELEASE-2.0.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/testing)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueForge/container.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/actions/workflows/container.yml?query=branch%3Atesting)
 ![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
 ![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
@@ -32,20 +32,18 @@ RogueForge deliberately stays separate from **RogueDashboard**, which owns monit
 - canonical deployment under `/opt/media-server/rogueforge`
 - no permanent log indexer and no high-frequency background engine polling
 
-## 1.9.0 pre-2.0 production cleanup
+## 2.0.0 stable operations platform
 
-RogueForge 1.9.0 is the final 1.x cleanup baseline before the 2.0 architecture line.
+RogueForge 2.0.0 is the testing candidate for the first stable 2.x operations contract.
 
-- preserves the host-tested verified Start, Stop, Restart, Recreate and Update lifecycle
-- preserves update preview, immutable image verification and rollback protection
-- preserves bounded on-demand logs, terminal limits and operation history
-- preserves the lightweight read-only RogueDashboard integration endpoint
-- removes meaningless environment revision markers that introduced no new settings
-- keeps the uploaded/default `.env` structure as the single fresh-install reference
-- keeps `/opt/media-server/rogueforge` as the canonical deployment directory
-- keeps Docker and rootless Podman as first-class targets
-- removes stale pre-2.0 wording and aligns GitHub/release documentation for promotion to main
-- freezes new 1.x feature work so 2.0 can begin from a clean baseline
+- preserves the host-tested 1.9 lifecycle, update-preview, rollback, logging and terminal systems
+- introduces explicit `API_VERSION=2` and `STATE_SCHEMA_VERSION=1`
+- adds stable read-only `/api/v2/status` and `/api/v2/contract` endpoints
+- keeps the RogueDashboard integration payload aligned with the v2 contract
+- defines persistent-state compatibility metadata without forcing a migration for the existing 1.9 data
+- keeps the default `.env` unchanged because 2.0 adds no new runtime setting
+- keeps Docker and rootless Podman first-class and retains the lightweight single-host architecture
+- 2.0 remains on `testing` until live-host validation is complete; only then should it move to `main/latest`
 
 ## Rogue ecosystem
 
@@ -138,7 +136,7 @@ cd /opt/media-server/rogueforge
 Pinned version:
 
 ```bash
-./update.sh 1.9.0
+./update.sh 2.0.0
 ```
 
 Production after promotion:
@@ -209,7 +207,7 @@ Production after promotion:
 
 ```text
 ghcr.io/rogueassassin/rogueforge:latest
-ghcr.io/rogueassassin/rogueforge:1.9.0
+ghcr.io/rogueassassin/rogueforge:2.0.0
 ```
 
 The permanent `testing` branch is the proving ground. `main` remains production-only.
