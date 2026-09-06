@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.6.0 (testing)
+
+- Advanced RogueForge to the RogueDashboard integration release.
+- Added `/api/integrations/rogue-dashboard` as a compact read-only status endpoint.
+- The integration reports RogueForge version, engine type, stack/container totals, capability flags, active operations and recent failure summaries.
+- The endpoint reuses RogueForge's existing cached dashboard snapshot and in-memory operations history, adding no second engine polling loop.
+- Sensitive engine socket paths, filesystem roots, administrator credentials and raw operation output are not exposed.
+- Preserved the tested 1.5 update preview, verified lifecycle, image verification, rollback and lightweight logging systems.
+- Adopted the user-supplied default environment layout as the canonical `.env.example`.
+- Preserved Rev 150 history and added `Rev 160 update` with `ROGUEFORGE_ENV_REV=160`; 1.6 adds no new required runtime environment variable.
+- Existing `.env` files remain preserved during updates.
+
 ## 1.5.0 (testing)
 
 - Advanced RogueForge to the stack-management and update-intelligence release.
