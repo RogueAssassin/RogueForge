@@ -113,9 +113,9 @@ chmod +x update.sh
 
 Update/editor backups are kept outside the stack discovery tree under `/tmp/rogueforge/`.
 
-## 1.0.0-rc2 release candidate
+## 1.3.0 stable release
 
-1.0.0-rc2 is the tuned second release candidate for the stable single-host RogueForge 1.0 line. It adds verified reversible lifecycle control, low-overhead live logging, bounded operation persistence and prerelease-safe packaging on top of the validated RC1 baseline:
+1.3.0 is the stable single-host RogueForge lifecycle and deployment baseline. It adds verified reversible lifecycle control, low-overhead live logging, bounded operation persistence and prerelease-safe packaging on top of the validated RC1 baseline:
 
 - bounded container inspect/stats engine detail work,
 - bounded live terminal and log streaming sessions,
@@ -125,7 +125,7 @@ Update/editor backups are kept outside the stack discovery tree under `/tmp/rogu
 - verified update recovery and transactional Compose/.env saves retained as the safety baseline.
 
 
-The permanent `testing` branch remains the proving ground. Changes are promoted to `main` only after regression testing.
+The permanent `testing` branch remains the proving ground for post-1.3 development. Stable releases are promoted to `main` only after regression and host testing.
 
 ## Road to production stability
 
