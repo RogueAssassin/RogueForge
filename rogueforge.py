@@ -705,10 +705,12 @@ def image_status(cid,pull=False):
     return {"id":m["id"],"name":m["name"],"image":m["image"],"containerImageId":before,"localImageId":current,"updateAvailable":bool(before and current and before!=current),"checkedByPull":pull,"output":output[-100000:]}
 def _mutable(m,action):
     if m["selfProtected"]:raise PermissionError(f"RogueForge cannot {action} its own container from inside itself")
-def container_action(cid,action):
+def _container_action_unlocked(cid,action):
     m=_container_meta(cid);_mutable(m,action)
     if action in ("start","stop","restart"):
-        engine_cli(([action,"--time","10",m["id"]] if action in ("stop","restart") and runtime()["engine"]=="podman" else [action,m["id"]]),60);return {"ok":True}
+        engine_cli(([action,"--time","10",m["id"]] if action in ("stop","restart") and runtime()["engine"]=="podman" else [action,m["id"]]),60)
+        state=_verify_container_state(m["id"],action!="stop")
+        return {"ok":True,"verified":True,"state":state}
     if action=="check-update":return image_status(cid,True)
     if action=="update":
         before=inspect_container(cid).get("imageId")
@@ -742,10 +744,34 @@ def container_action(cid,action):
         return {"ok":True,"output":(pulled+"\n"+recreated)[-100000:],"recreated":True,"beforeImageId":before,"pulledImageId":expected,"runningImageId":running,"verified":bool(expected and running==expected)}
     if action=="recreate":
         if not m["composeManaged"]:raise RuntimeError("Recreate is only available for Compose-managed containers")
-        return {"ok":True,"output":run_compose(m["project"],["up","-d","--no-deps","--force-recreate",m["service"]])}
+        output=run_compose(m["project"],["up","-d","--no-deps","--force-recreate",m["service"]]);state=_verify_container_state(m["id"],True)
+        return {"ok":True,"output":output,"verified":True,"state":state}
     if action=="remove":
         return {"ok":True,"output":run_compose(m["project"],["rm","-s","-f",m["service"]],300) if m["composeManaged"] else engine_cli(["rm","-f",m["id"]],300)}
     raise ValueError("unsupported action")
+def _verify_container_state(cid,running,timeout=20):
+    deadline=time.monotonic()+timeout;last=None;stable=0
+    while time.monotonic()<deadline:
+        invalidate_inventory()
+        try:last=inspect_container(cid);ok=bool(last.get("running")) is bool(running)
+        except FileNotFoundError:last=None;ok=not running
+        except Exception:last=None;ok=False
+        stable=stable+1 if ok else 0
+        if stable>=LIFECYCLE_STABLE_SAMPLES:return last or {"running":False}
+        time.sleep(LIFECYCLE_VERIFY_INTERVAL)
+    raise RuntimeError(f"Container verification failed; expected {'running' if running else 'stopped'} state")
+
+def container_action(cid,action):
+    m=_container_meta(cid);_mutable(m,action)
+    # Compose-managed container actions share the stack lifecycle lock, preventing
+    # a service restart/update from racing a stack update. Standalone containers
+    # get their own lightweight lock key.
+    lock_key=m["project"] if m.get("composeManaged") else f"container:{m['id']}"
+    lock=_stack_mutation_lock(lock_key)
+    if not lock.acquire(blocking=False):raise PermissionError(f"{m['name']} already has a lifecycle operation in progress")
+    try:return _container_action_unlocked(cid,action)
+    finally:lock.release()
+
 def bulk_container_action(ids,action):
     if action not in ("start","stop","restart","update","recreate","remove") or not isinstance(ids,list) or not ids or len(ids)>100:raise ValueError("invalid bulk operation")
     results=[]
