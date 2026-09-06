@@ -18,19 +18,21 @@ Runtime inventory and container actions use the remote Podman socket. Compose-ma
 The mount root, Compose discovery root and environment-file root are independent:
 
 ```env
+ROGUEFORGE_INSTALL_DIR=/opt/media-server/rogueforge
+ROGUEFORGE_DATA_DIR=/opt/media-server/rogueforge/data
 ROGUEFORGE_MEDIA_ROOT=/opt/media-server
-ROGUEFORGE_COMPOSE_ROOT=/opt/media-server/compose
-ROGUEFORGE_ENV_ROOT=/opt/media-server/compose
+ROGUEFORGE_COMPOSE_ROOT=/opt/media-server
+ROGUEFORGE_ENV_ROOT=/opt/media-server
 ```
 
-For a stack named `dozzle`, that layout resolves to:
+For a stack named `radarr`, that layout resolves to:
 
 ```text
-/opt/media-server/compose/dozzle/compose.yaml
-/opt/media-server/compose/dozzle/.env
+/opt/media-server/radarr/compose.yaml
+/opt/media-server/radarr/.env
 ```
 
-Administrators can point all roots at the same directory when their layout is flatter.
+RogueForge's own deployment remains isolated at `/opt/media-server/rogueforge` while the discovery root stays at `/opt/media-server`.
 
 ## Mounts
 
@@ -39,7 +41,7 @@ A typical Podman deployment mounts:
 ```text
 /run/user/<UID>/podman/podman.sock -> /run/podman/podman.sock
 /opt/media-server                  -> /opt/media-server
-./data                             -> /opt/rogueforge/data
+/opt/media-server/rogueforge/data -> /opt/rogueforge/data
 ```
 
 The installer derives the current UID rather than assuming UID 1000.
@@ -49,11 +51,11 @@ The installer derives the current UID rather than assuming UID 1000.
 RogueForge deliberately uses deterministic Compose lifecycle operations:
 
 ```text
-Start     -> up -d
-Stop      -> down
-Restart   -> down, then up -d
-Recreate  -> down, then up -d
-Update    -> pull, down, then up -d
+Start     -> up -d, then verify stable running state
+Stop      -> stop, then verify stopped state
+Restart   -> restart, verify, then in-place reconcile if needed
+Recreate  -> up -d --force-recreate, then verify
+Update    -> pull, verify target image IDs, force-recreate in place, then verify/rollback
 ```
 
 Update/replacement flows verify immutable image identity rather than treating a successful pull as a successful deployment.
