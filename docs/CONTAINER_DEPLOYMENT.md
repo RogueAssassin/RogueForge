@@ -80,7 +80,7 @@ RogueForge uses:
 - asynchronous CPU/RAM refresh,
 - targeted refresh after lifecycle operations.
 
-The current 1.6.0 testing baseline preserves the validated cache/coalescing model, bounded engine concurrency, on-demand logs and lightweight read-only RogueDashboard integration.
+The current 1.9.0 testing baseline preserves the validated cache/coalescing model, bounded engine concurrency, on-demand logs and lightweight read-only RogueDashboard integration.
 
 ## Network model
 
