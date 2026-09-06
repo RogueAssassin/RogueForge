@@ -1,6 +1,20 @@
 # Changelog
 
-## 1.4.0 (testing)
+## 1.5.0 (testing)
+
+- Advanced RogueForge to the stack-management and update-intelligence release.
+- Added authenticated stack update previews before confirmation.
+- Update previews show affected running services, image references, current running image IDs and locally tagged image IDs.
+- Preview checks remain lightweight and do not pull remote images or add background polling.
+- Kept the verified update execution path: remote pull, in-place force recreate, stable service verification, immutable image verification and rollback protection.
+- Preserved strict per-stack/container lifecycle serialization.
+- Introduced environment schema revision tracking with `ROGUEFORGE_ENV_REV=150`.
+- Kept `.env.example` as the complete default configuration for fresh installations.
+- Existing `.env` files are preserved; `update.sh` appends only missing revision blocks such as `Rev 150 update` instead of replacing administrator configuration.
+- Preserved the 1.4.0 bounded live-log severity filtering, reconnect visibility, operation timing and export behavior.
+- Updated README, installation/deployment documentation, roadmap and release metadata for 1.5.0.
+
+## 1.5.0 (testing)
 
 - Advanced RogueForge to the logging and operations-visibility release.
 - Preserved the host-tested verified Start, Stop, Restart, Recreate and Update lifecycle system from 1.3.0.
