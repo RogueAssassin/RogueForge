@@ -2,32 +2,21 @@
 
 RogueForge is the lightweight Docker/Podman management and troubleshooting layer for the Rogue media-server ecosystem. New features must preserve verified lifecycle safety and exceptional idle performance.
 
-## 1.4.0 — Logging and operations visibility
+## 1.5.0 — Stack management and update intelligence
 
 Status: **testing release**
 
 - [x] Preserve the host-tested Start, Stop, Restart, Recreate and Update lifecycle baseline.
-- [x] Keep per-stack lifecycle serialization and update rollback protection.
-- [x] Add fast text search inside the bounded live-log buffer.
-- [x] Add Error, Warning and Info live-log severity filters.
-- [x] Add clearer stream source and reconnect-attempt visibility.
-- [x] Keep pause/resume buffering and bounded log downloads.
-- [x] Keep server-side logging on demand with no persistent log indexer.
-- [x] Show operation duration, current step, step elapsed time, timeout and failure reason.
-- [x] Keep bounded JSON operation-history export.
-- [x] Keep canonical deployment at `/opt/media-server/rogueforge`.
-- [x] Keep detailed administrator `.env` documentation aligned with RogueMediaValidator.
-- [x] Keep GitHub release presentation aligned with RogueDashboard and RogueMediaValidator.
-
-## 1.5.0 — Stack management and update intelligence
-
-- [ ] Show clearer current/pulled image identity before applying an update.
-- [ ] Add an update preview showing affected stack services.
-- [ ] Add guarded multi-stack update with strict per-stack serialization.
-- [ ] Improve stopped-stack discovery and recovery edge cases.
-- [ ] Expand Docker and rootless Podman lifecycle regression coverage.
-- [ ] Improve Compose validation feedback before transactional saves.
-- [ ] Add clearer update/recovery summaries suitable for RogueDashboard.
+- [x] Show a pre-update preview before stack updates.
+- [x] Show affected running services and their configured image references.
+- [x] Show current running image IDs and locally tagged image IDs.
+- [x] Highlight locally available image changes without background pulling.
+- [x] Keep the actual update path protected by pull, in-place recreate, verification and rollback.
+- [x] Keep strict per-stack lifecycle serialization.
+- [x] Preserve lightweight 1.4 live logging and bounded operation history.
+- [x] Keep `.env.example` as the complete fresh-install default.
+- [x] Introduce append-only environment revision blocks beginning with `Rev 150 update`.
+- [x] Preserve existing administrator `.env` files during upgrades.
 
 ## 1.6.0 — RogueDashboard integration and migration validation
 
@@ -35,6 +24,7 @@ Status: **testing release**
 - [ ] Surface active operations and recent failures without exposing administrator credentials.
 - [ ] Share consistent Rogue service identity/icon metadata.
 - [ ] Add lightweight event hooks for meaningful lifecycle failures.
+- [ ] Add clearer update/recovery summaries suitable for RogueDashboard.
 - [ ] Complete live-host validation that RogueForge + RogueDashboard replace normal Dozzle workflows.
 - [ ] Keep Uptime Kuma removal as a separate RogueDashboard monitoring-readiness decision.
 
@@ -44,7 +34,9 @@ Status: **testing release**
 - [ ] Add bounded diagnostic bundles for support/troubleshooting.
 - [ ] Improve interrupted-operation recovery reporting after RogueForge restarts.
 - [ ] Add clearer socket, Compose-provider, discovery-root and writability diagnostics.
-- [ ] Review runtime resource inventory for safe guarded maintenance actions.
+- [ ] Improve stopped-stack discovery and recovery edge cases.
+- [ ] Expand Docker and rootless Podman lifecycle regression coverage.
+- [ ] Improve Compose validation feedback before transactional saves.
 
 ## 2.0.0 — Stable operations platform
 
@@ -53,6 +45,22 @@ Status: **testing release**
 - [ ] Expand audit/role controls only if multi-user administration requires them.
 - [ ] Evaluate multi-host support without compromising the single-host lightweight baseline.
 - [ ] Publish explicit Docker/Podman compatibility guarantees.
+
+## Environment revision policy
+
+`.env.example` is always the complete default configuration for a fresh install.
+
+Existing installations keep their current `.env`. If a later release introduces new environment commands, the release notes and updater add only a clearly labelled block:
+
+```env
+# ------------------------------------------------------------------------------
+# Rev 160 update - RogueForge v1.6.0
+# ------------------------------------------------------------------------------
+NEW_SETTING=value
+ROGUEFORGE_ENV_REV=160
+```
+
+This avoids replacing working administrator configuration just to introduce new settings.
 
 ## Engineering principles
 
@@ -63,4 +71,5 @@ Status: **testing release**
 - RogueForge must use its own lifecycle serialization rather than stale host lock files;
 - Docker and rootless Podman remain first-class;
 - existing `.env`, authentication and operation data survive upgrades;
+- new environment settings use append-only revision blocks;
 - every new feature must justify its CPU, memory, storage and engine-call cost.
