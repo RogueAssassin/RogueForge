@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RogueForge 1.9.0 — single-file Docker/Podman Compose operations runtime."""
+"""RogueForge 2.0.0 — single-file Docker/Podman Compose operations runtime."""
 from __future__ import annotations
 
 import base64, hashlib, hmac, json, mimetypes, os, re, secrets, socket, subprocess, sys, threading, time
@@ -9,7 +9,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-VERSION="1.9.0"
+VERSION="2.0.0"
+API_VERSION="2"; STATE_SCHEMA_VERSION=1
 PORT=int(os.environ.get("ROGUEFORGE_PORT","7810")); BIND=os.environ.get("ROGUEFORGE_BIND","127.0.0.1")
 MEDIA_ROOT=Path(os.environ.get("ROGUEFORGE_MEDIA_ROOT","/opt/media-server")).resolve()
 COMPOSE_ROOT=Path(os.environ.get("ROGUEFORGE_COMPOSE_ROOT",os.environ.get("ROGUEFORGE_STACKS_DIR",str(MEDIA_ROOT)))).resolve()
@@ -69,6 +70,9 @@ LIFECYCLE_VERIFY_TIMEOUT=max(5,min(120,int(os.environ.get("ROGUEFORGE_LIFECYCLE_
 LIFECYCLE_VERIFY_INTERVAL=max(.2,min(2.0,float(os.environ.get("ROGUEFORGE_LIFECYCLE_VERIFY_INTERVAL","0.5"))))
 LIFECYCLE_STABLE_SAMPLES=max(1,min(5,int(os.environ.get("ROGUEFORGE_LIFECYCLE_STABLE_SAMPLES","2"))))
 LOG_TAIL_DEFAULT=max(25,min(1000,int(os.environ.get("ROGUEFORGE_LOG_TAIL","200"))))
+def state_contract():
+    return {"apiVersion":API_VERSION,"stateSchemaVersion":STATE_SCHEMA_VERSION,"operationsFile":str(OPERATIONS_FILE.name),"backwardCompatibleFrom":"1.9.0"}
+
 def _load_operations():
     global _operations
     try:
@@ -1056,7 +1060,7 @@ def rogue_dashboard_status():
         failures=[x for x in ops if x.get("status") in ("failed","timed_out","cancelled")][:5]
     def compact_op(x):
         return {"id":x.get("id"),"target":x.get("target"),"action":x.get("action"),"status":x.get("status"),"started":x.get("started"),"ended":x.get("ended"),"failureReason":x.get("failureReason")}
-    return {"ok":True,"service":"RogueForge","version":VERSION,"engine":rt.get("engine"),"capabilities":{"lifecycle":True,"verifiedUpdates":True,"rollback":True,"liveLogs":True,"terminal":True},"stacks":{"total":len(stacks),**stack_states},"containers":{"total":len(items),"running":sum(1 for x in items if x.get("state")=="running")},"operations":{"active":len(active),"activeItems":[compact_op(x) for x in active[:5]],"recentFailures":[compact_op(x) for x in failures]},"degraded":bool(snap.get("degraded")),"errors":list((snap.get("errors") or {}).keys()),"cache":snap.get("cache") or {},"generatedAt":time.time()}
+    return {"ok":True,"service":"RogueForge","version":VERSION,"apiVersion":API_VERSION,"stateSchemaVersion":STATE_SCHEMA_VERSION,"engine":rt.get("engine"),"capabilities":{"lifecycle":True,"verifiedUpdates":True,"rollback":True,"liveLogs":True,"terminal":True},"stacks":{"total":len(stacks),**stack_states},"containers":{"total":len(items),"running":sum(1 for x in items if x.get("state")=="running")},"operations":{"active":len(active),"activeItems":[compact_op(x) for x in active[:5]],"recentFailures":[compact_op(x) for x in failures]},"degraded":bool(snap.get("degraded")),"errors":list((snap.get("errors") or {}).keys()),"cache":snap.get("cache") or {},"generatedAt":time.time()}
 
 class Handler(BaseHTTPRequestHandler):
     server_version=f"RogueForge/{VERSION}"
@@ -1111,6 +1115,8 @@ class Handler(BaseHTTPRequestHandler):
                 record_timing("dashboardRequest",time.monotonic()-started)
                 self.send_json({"status":status,"stacks":snap["stacks"],"containers":snap["containers"],"cache":snap.get("cache"),"degraded":bool(snap.get("degraded")),"errors":snap.get("errors") or {},"auth":{"configured":bool(load_auth()),"authenticated":bool(session),"user":session.get("user") if session else None,"csrf":session.get("csrf") if session else None,"auth":auth_diagnostics()}});return
             if path=="/api/integrations/rogue-dashboard":self.send_json(rogue_dashboard_status());return
+            if path=="/api/v2/status":self.send_json(rogue_dashboard_status());return
+            if path=="/api/v2/contract":self.send_json(state_contract());return
             if path=="/api/stacks":self.send_json(discover_stacks());return
             if path=="/api/containers":self.send_json(containers());return
             if path=="/api/images":
