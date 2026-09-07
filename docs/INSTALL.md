@@ -172,7 +172,7 @@ For application-managed stacks, RogueForge uses the deterministic lifecycle cont
 RogueForge 2.0.0 exposes a compact read-only endpoint for RogueDashboard:
 
 ```text
-/api/integrations/rogue-dashboard
+/api/integrations/roguedashboard
 ```
 
 The payload contains version, engine type, stack/container counts, active operations, recent failure summaries and capability flags. It deliberately omits engine socket paths, Compose paths, credentials and operation output.
