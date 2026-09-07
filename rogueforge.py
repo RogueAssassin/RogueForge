@@ -19,7 +19,7 @@ ENV_ROOT=Path(os.environ.get("ROGUEFORGE_ENV_ROOT",str(COMPOSE_ROOT))).resolve()
 STACKS_DIR=COMPOSE_ROOT
 STATIC_DIR=Path(os.environ.get("ROGUEFORGE_STATIC_DIR",Path(__file__).with_name("static"))).resolve()
 ENGINE=os.environ.get("ROGUEFORGE_ENGINE","auto").strip().lower(); SOCKET_PATH=os.environ.get("ROGUEFORGE_SOCKET","").strip(); PODMAN_REMOTE=os.environ.get("ROGUEFORGE_PODMAN_REMOTE","").strip().lower() in ("1","true","yes")
-PUBLIC_URL=os.environ.get("ROGUEFORGE_PUBLIC_URL","").strip(); ICONS_DIR=Path(os.environ.get("ROGUEFORGE_ICONS_DIR","/opt/media-server/rogue-dashboard/app/static/icons")).resolve(); AUTH_FILE=Path(os.environ.get("ROGUEFORGE_AUTH_FILE",Path(__file__).with_name("data")/"auth.json")).resolve()
+PUBLIC_URL=os.environ.get("ROGUEFORGE_PUBLIC_URL","").strip(); ICONS_DIR=Path(os.environ.get("ROGUEFORGE_ICONS_DIR","/opt/media-server/roguedashboard/app/static/icons")).resolve(); AUTH_FILE=Path(os.environ.get("ROGUEFORGE_AUTH_FILE",Path(__file__).with_name("data")/"auth.json")).resolve()
 SELF_STACK=os.environ.get("ROGUEFORGE_SELF_STACK","rogueforge").strip(); SESSION_TTL=int(os.environ.get("ROGUEFORGE_SESSION_TTL","43200")); DEMO_MODE=os.environ.get("ROGUEFORGE_DEMO","").strip().lower() in ("1","true","yes")
 SCAN_DEPTH=max(1,min(12,int(os.environ.get("ROGUEFORGE_SCAN_DEPTH","4")))); CACHE_SECONDS=max(2,min(300,int(os.environ.get("ROGUEFORGE_DISCOVERY_CACHE","10"))))
 COMPOSE_NAMES=("podman-compose.yaml","compose.podman.yaml","docker-compose.yaml","docker-compose.yml","compose.yaml","compose.yml")
@@ -1114,7 +1114,7 @@ class Handler(BaseHTTPRequestHandler):
                 status={"appVersion":VERSION,"engine":rt["engine"],"version":rt["version"],"apiVersion":rt["apiVersion"],"context":rt.get("context"),"demo":DEMO_MODE,"publicUrl":PUBLIC_URL,"authConfigured":bool(load_auth()),"socket":rt["socket"] if session else "Protected","stacksDir":str(STACKS_DIR) if session else "Protected","composeRoot":str(COMPOSE_ROOT) if session else "Protected","envRoot":str(ENV_ROOT) if session else "Protected","mediaRoot":str(MEDIA_ROOT) if session else "Protected","iconsDir":str(ICONS_DIR) if session else "Protected"}
                 record_timing("dashboardRequest",time.monotonic()-started)
                 self.send_json({"status":status,"stacks":snap["stacks"],"containers":snap["containers"],"cache":snap.get("cache"),"degraded":bool(snap.get("degraded")),"errors":snap.get("errors") or {},"auth":{"configured":bool(load_auth()),"authenticated":bool(session),"user":session.get("user") if session else None,"csrf":session.get("csrf") if session else None,"auth":auth_diagnostics()}});return
-            if path=="/api/integrations/rogue-dashboard":self.send_json(rogue_dashboard_status());return
+            if path=="/api/integrations/roguedashboard":self.send_json(rogue_dashboard_status());return
             if path=="/api/v2/status":self.send_json(rogue_dashboard_status());return
             if path=="/api/v2/contract":self.send_json(state_contract());return
             if path=="/api/stacks":self.send_json(discover_stacks());return
