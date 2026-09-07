@@ -72,7 +72,7 @@ RogueDashboard can consume RogueForge's lightweight status information without r
 ├── sonarr/
 ├── bazarr/
 ├── qbittorrent/
-├── rogue-dashboard/
+├── roguedashboard/
 └── ...
 ```
 
