@@ -37,7 +37,9 @@ fi
 [[ -d "$COMPOSE_ROOT" ]] || { echo "Compose root does not exist: $COMPOSE_ROOT" >&2; exit 2; }
 [[ -d "$ENV_ROOT" ]] || { echo "Env root does not exist: $ENV_ROOT" >&2; exit 2; }
 mkdir -p "$INSTALL_DIR/data"; cd "$INSTALL_DIR"
-if [[ $VERSION == *-* ]]; then DEFAULT_SOURCE_REF=testing; else DEFAULT_SOURCE_REF=main; fi
+# The permanent testing branch uses plain semantic development versions (for
+# example 2.1.0), so version shape alone cannot determine the source channel.
+DEFAULT_SOURCE_REF=testing
 SOURCE_REF=${ROGUEFORGE_SOURCE_REF:-$DEFAULT_SOURCE_REF}
 BASE="https://raw.githubusercontent.com/RogueAssassin/RogueForge/$SOURCE_REF"
 for f in compose.yaml update.sh setup-auth.py .env.example; do curl -fsSL "$BASE/$f" -o "$f"; done
