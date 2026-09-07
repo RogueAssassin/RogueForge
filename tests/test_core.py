@@ -168,7 +168,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertNotIn('cp .env.example .env\nfi\nset_env',update)
  def test_pre20_rogue_dashboard_integration(self):
   src=(ROOT/'rogueforge.py').read_text();env=(ROOT/'.env.example').read_text();update=(ROOT/'update.sh').read_text();road=(ROOT/'MILESTONES.md').read_text();readme=(ROOT/'README.md').read_text()
-  self.assertIn('def rogue_dashboard_status():',src);self.assertIn('/api/integrations/rogue-dashboard',src)
+  self.assertIn('def rogue_dashboard_status():',src);self.assertIn('/api/integrations/roguedashboard',src)
   block=src[src.index('def rogue_dashboard_status():'):src.index('class Handler')]
   self.assertIn('"capabilities"',block);self.assertIn('"recentFailures"',block);self.assertIn('dashboard_snapshot(force=False)',block)
   self.assertNotIn('"socket"',block);self.assertNotIn('"composeRoot"',block);self.assertNotIn('"output"',block)
