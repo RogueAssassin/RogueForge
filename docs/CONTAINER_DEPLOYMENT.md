@@ -110,7 +110,7 @@ Do not use `sudo podman` for a rootless deployment.
 RogueDashboard can query:
 
 ```text
-http://rogueforge:7810/api/integrations/rogue-dashboard
+http://rogueforge:7810/api/integrations/roguedashboard
 ```
 
 This endpoint reuses RogueForge's existing cached dashboard snapshot and in-memory operation history. It does not create a second Docker/Podman polling loop and does not expose the engine socket, filesystem roots, administrator credentials or raw operation output.
