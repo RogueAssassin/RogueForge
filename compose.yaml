@@ -53,3 +53,6 @@ networks:
   media-net:
     external: true
     name: ${ROGUEFORGE_NETWORK:-media-net}
+
+x-podman:
+  in_pod: false
