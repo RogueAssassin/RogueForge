@@ -94,6 +94,30 @@ Shared network:    media-net
 
 A reverse proxy can forward HTTPS traffic to `rogueforge:7810` on the shared network.
 
+RogueForge controls the container engine, so limit who can reach the published port. When the
+reverse proxy is the only client, set `ROGUEFORGE_HOST_BIND=127.0.0.1` in `.env` and recreate the
+container; `rogueforge:7810` stays reachable on the shared network.
+
+## Container runtime behaviour
+
+- `tini` runs as PID 1, so `podman stop`/`docker stop` end RogueForge immediately and finished
+  engine or Compose child processes are reaped.
+- `compose.yaml` defines the health check itself, so it is reported the same way under Podman
+  and Docker. `/health` fails when the engine socket cannot be reached.
+- The image bundles the Podman remote client with `podman-compose`, and a static Docker CLI with
+  the Compose v2 plugin, so in-app stack actions work against either engine.
+- `no-new-privileges`, a memory ceiling, a PID ceiling and log rotation are applied by default.
+  `ROGUEFORGE_MEM_LIMIT` and `ROGUEFORGE_PIDS_LIMIT` adjust the ceilings.
+- RogueForge runs as root inside its container because it must use the engine socket and edit
+  stack files. Under rootless Podman that maps to the unprivileged account that owns the
+  containers.
+
+## Updates and rollback
+
+`./update.sh` pulls the requested image before it changes any deployment file, so an unpublished
+tag leaves the installation untouched. If the recreated container fails verification or its
+health check, the previous `compose.yaml`, `.env` and image are restored automatically.
+
 ## Manual diagnostics
 
 ```bash

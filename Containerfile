@@ -1,3 +1,8 @@
+# Static Docker CLI and Compose v2 plugin for Docker hosts. Debian bookworm only packages the
+# legacy Python docker-compose v1, which does not provide the `docker compose` subcommand
+# RogueForge calls, and its docker.io package drags the whole daemon into the image.
+FROM docker:28.3.3-cli AS docker-cli
+
 FROM debian:bookworm-slim
 
 LABEL org.opencontainers.image.source="https://github.com/RogueAssassin/RogueForge" \
@@ -5,8 +10,11 @@ LABEL org.opencontainers.image.source="https://github.com/RogueAssassin/RogueFor
       org.opencontainers.image.description="Self-hosted operations console for Docker and Podman Compose stacks"
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates docker.io docker-compose podman podman-compose python3 \
+    && apt-get install -y --no-install-recommends ca-certificates podman podman-compose python3 tini \
     && rm -rf /var/lib/apt/lists/*
+
+COPY --from=docker-cli /usr/local/bin/docker /usr/bin/docker
+COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins/docker-compose /usr/libexec/docker/cli-plugins/docker-compose
 
 WORKDIR /opt/rogueforge
 COPY rogueforge.py setup-auth.py VERSION ./
@@ -34,6 +42,11 @@ ENV ROGUEFORGE_BIND=0.0.0.0 \
     CONTAINER_HOST=unix:///run/podman/podman.sock
 
 EXPOSE 7810
+STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7810/health', timeout=3)" || exit 1
+
+# tini is PID 1 so SIGTERM stops RogueForge immediately (Python as PID 1 ignores it and
+# waits for SIGKILL) and orphaned engine/compose child processes are reaped.
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["python3", "/opt/rogueforge/rogueforge.py"]
