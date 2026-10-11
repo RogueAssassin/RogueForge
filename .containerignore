@@ -1,4 +1,10 @@
+# Podman/Buildah reads this file; Docker/BuildKit reads .dockerignore. Keep both in sync.
 .git
+.github
+.env
+.env.*
+!.env.example
+data
 __pycache__
 tests
 docs
