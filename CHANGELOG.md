@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.0.1
+
+- Made `tini` PID 1 so `podman stop`/`docker stop` end RogueForge immediately and engine or Compose child processes are reaped.
+- Bundled a static Docker CLI with the Compose v2 plugin so in-app stack actions work on Docker hosts; removed the unused Docker daemon from the image. The Podman remote client is unchanged.
+- Defined the health check in `compose.yaml` and added `no-new-privileges`, memory and PID ceilings, log rotation and a stop grace period.
+- Added the optional `ROGUEFORGE_HOST_BIND`, `ROGUEFORGE_MEM_LIMIT` and `ROGUEFORGE_PIDS_LIMIT` settings; existing `.env` files keep working without them.
+- Made `update.sh` pull before changing deployment files, take a lock, read the health port from `.env`, prune old backups and roll back the deployment files and image on failure.
+- Fixed `install.sh` on Docker hosts where the shared network already exists.
+- Added `.dockerignore`, Dependabot, least-privilege CI permissions, an image smoke test, build provenance and SBOM.
+
 ## 2.0.0 (testing)
 
 - Established RogueForge API version 2 and persistent-state schema version 1.
