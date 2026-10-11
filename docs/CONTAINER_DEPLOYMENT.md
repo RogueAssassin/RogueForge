@@ -104,7 +104,7 @@ container; `rogueforge:7810` stays reachable on the shared network.
   engine or Compose child processes are reaped.
 - `compose.yaml` defines the health check itself, so it is reported the same way under Podman
   and Docker. `/health` fails when the engine socket cannot be reached.
-- The image bundles the Podman remote client with `podman-compose`, and a static Docker CLI with
+- The image bundles the Podman remote client with a current `podman-compose`, and a static Docker CLI with
   the Compose v2 plugin, so in-app stack actions work against either engine.
 - `no-new-privileges`, a memory ceiling, a PID ceiling and log rotation are applied by default.
   `ROGUEFORGE_MEM_LIMIT` and `ROGUEFORGE_PIDS_LIMIT` adjust the ceilings.

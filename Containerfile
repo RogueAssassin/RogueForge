@@ -10,8 +10,18 @@ LABEL org.opencontainers.image.source="https://github.com/RogueAssassin/RogueFor
       org.opencontainers.image.description="Self-hosted operations console for Docker and Podman Compose stacks"
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates podman podman-compose python3 tini \
+    && apt-get install -y --no-install-recommends ca-certificates podman python3 python3-dotenv python3-yaml tini \
     && rm -rf /var/lib/apt/lists/*
+
+# Debian bookworm packages podman-compose 1.0.3, which rejects any stack whose service
+# networks use the mapping form (for example `aliases:`) with "missing networks", and
+# ignores `x-podman` and the PODMAN_COMPOSE_* settings RogueForge passes. Bundle a current
+# upstream release instead; it is a single script with the two Python dependencies above.
+ARG PODMAN_COMPOSE_VERSION=1.5.0
+ARG PODMAN_COMPOSE_SHA256=7a39883eda17dbf8473e8ebdfd7d27a893bd518ea9583eeaaafee3cca7e50338
+ADD --checksum=sha256:${PODMAN_COMPOSE_SHA256} --chmod=0755 \
+    https://raw.githubusercontent.com/containers/podman-compose/v${PODMAN_COMPOSE_VERSION}/podman_compose.py \
+    /usr/bin/podman-compose
 
 COPY --from=docker-cli /usr/local/bin/docker /usr/bin/docker
 COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins/docker-compose /usr/libexec/docker/cli-plugins/docker-compose
