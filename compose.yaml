@@ -4,8 +4,19 @@ services:
     container_name: rogueforge
     hostname: rogueforge
     restart: unless-stopped
+    stop_grace_period: 20s
+    healthcheck:
+      # Defined here as well as in the image because OCI-format images built with Podman/Buildah
+      # do not carry HEALTHCHECK. /health also fails when the engine socket is unreachable.
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7810/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     ports:
-      - "${ROGUEFORGE_HOST_PORT:-17810}:7810"
+      # RogueForge controls the container engine. Set ROGUEFORGE_HOST_BIND=127.0.0.1 when a
+      # reverse proxy on the same host or on media-net is the only client.
+      - "${ROGUEFORGE_HOST_BIND:-0.0.0.0}:${ROGUEFORGE_HOST_PORT:-17810}:7810"
     environment:
       ROGUEFORGE_BIND: 0.0.0.0
       ROGUEFORGE_PORT: 7810
@@ -47,6 +58,14 @@ services:
       - ${ROGUEFORGE_DATA_DIR:-/opt/media-server/rogueforge/data}:/opt/rogueforge/data
     security_opt:
       - label=disable
+      - no-new-privileges:true
+    mem_limit: ${ROGUEFORGE_MEM_LIMIT:-1g}
+    pids_limit: ${ROGUEFORGE_PIDS_LIMIT:-1024}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - media-net
 networks:

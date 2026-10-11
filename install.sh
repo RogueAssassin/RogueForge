@@ -93,7 +93,8 @@ else
   set_env ROGUEFORGE_PODMAN_REMOTE "false"
   if docker compose version >/dev/null 2>&1; then compose_cmd=(docker compose --env-file "$INSTALL_DIR/.env" -f "$INSTALL_DIR/compose.yaml"); else compose_cmd=(docker-compose --env-file "$INSTALL_DIR/.env" -f "$INSTALL_DIR/compose.yaml"); fi
 fi
-if ! $ENGINE network exists "$NETWORK" >/dev/null 2>&1; then $ENGINE network create "$NETWORK" >/dev/null; fi
+# `network inspect` works on both engines; `network exists` is Podman-only.
+if ! $ENGINE network inspect "$NETWORK" >/dev/null 2>&1; then $ENGINE network create "$NETWORK" >/dev/null; fi
 if [[ ! -f data/auth.json ]]; then python3 setup-auth.py --username "$USERNAME"; fi
 $ENGINE pull "ghcr.io/rogueassassin/rogueforge:$VERSION"
 "${compose_cmd[@]}" up -d --remove-orphans

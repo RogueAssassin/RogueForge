@@ -1,2 +1,15 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Files executed or parsed inside Linux containers/WSL must keep LF endings even when the
+# repository is checked out on Windows.
+*.sh text eol=lf
+*.py text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+Containerfile text eol=lf
+Dockerfile text eol=lf
+.containerignore text eol=lf
+.dockerignore text eol=lf
+.env.example text eol=lf
+VERSION text eol=lf
