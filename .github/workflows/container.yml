@@ -6,12 +6,17 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
+
+concurrency:
+  group: container-${{ github.ref }}
+  # Never cancel a publish half-way through a multi-arch push.
+  cancel-in-progress: ${{ github.ref_name != 'main' && github.ref_name != 'testing' }}
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - name: Stamp packaged runtime version
@@ -60,19 +65,54 @@ jobs:
 
       - name: Run unit tests
         run: python3 -m unittest discover -s tests -v
+      - name: Validate Compose
+        run: |
+          cp .env.example .env
+          docker compose --env-file .env -f compose.yaml config -q
       - name: Validate container build locally
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Containerfile
           platforms: linux/amd64
           push: false
+          load: true
           tags: rogueforge:validation
+      - name: Smoke test image (engine clients, health, graceful stop)
+        shell: bash
+        run: |
+          # Both engine clients RogueForge shells out to must exist and run.
+          docker run --rm rogueforge:validation docker --version
+          docker run --rm rogueforge:validation docker compose version
+          docker run --rm rogueforge:validation podman --version
+          docker run --rm rogueforge:validation podman-compose --version
+          # Demo mode needs no engine socket; run with the same limits compose.yaml applies.
+          docker run -d --name rf -e ROGUEFORGE_DEMO=true -p 17810:7810 \
+            --security-opt no-new-privileges:true --memory 1g --pids-limit 1024 rogueforge:validation
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:17810/health && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:17810/health | grep -q '"ok": *true'
+          for _ in $(seq 1 30); do
+            [[ "$(docker inspect rf --format '{{.State.Health.Status}}')" == healthy ]] && break
+            sleep 2
+          done
+          test "$(docker inspect rf --format '{{.State.Health.Status}}')" = healthy
+          start=$(date +%s)
+          docker stop -t 20 rf
+          elapsed=$(( $(date +%s) - start ))
+          echo "docker stop took ${elapsed}s"
+          test "$elapsed" -lt 10   # SIGTERM must stop the service; an ignored SIGTERM waits for SIGKILL
 
   publish:
     needs: validate
     if: github.ref_name == 'main' || github.ref_name == 'testing'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write   # creates the immutable release tag
+      packages: write
     steps:
       - uses: actions/checkout@v5
         with:
@@ -94,9 +134,9 @@ jobs:
           sed -E -i "s/VERSION=\"[0-9]+\.[0-9]+\.[0-9]+([-.][A-Za-z0-9.]+)*\"/VERSION=\"${VERSION}\"/" rogueforge.py
           grep -q "VERSION=\"${VERSION}\"" rogueforge.py
       - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       - name: Sign in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -104,7 +144,7 @@ jobs:
       - name: Production metadata
         if: steps.version.outputs.channel == 'production'
         id: meta_prod
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/rogueassassin/rogueforge
           tags: |
@@ -116,7 +156,7 @@ jobs:
       - name: Testing metadata
         if: steps.version.outputs.channel == 'testing'
         id: meta_test
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/rogueassassin/rogueforge
           tags: |
@@ -124,7 +164,7 @@ jobs:
             type=sha
       - name: Build and publish production
         if: steps.version.outputs.channel == 'production'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Containerfile
@@ -132,9 +172,11 @@ jobs:
           push: true
           tags: ${{ steps.meta_prod.outputs.tags }}
           labels: ${{ steps.meta_prod.outputs.labels }}
+          provenance: mode=max
+          sbom: true
       - name: Build and publish testing
         if: steps.version.outputs.channel == 'testing'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Containerfile
@@ -142,6 +184,8 @@ jobs:
           push: true
           tags: ${{ steps.meta_test.outputs.tags }}
           labels: ${{ steps.meta_test.outputs.labels }}
+          provenance: mode=max
+          sbom: true
       - name: Create immutable production release tag
         if: steps.version.outputs.channel == 'production'
         shell: bash
