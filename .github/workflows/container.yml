@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Stamp packaged runtime version
         shell: bash
         run: |
@@ -136,7 +136,7 @@ jobs:
       contents: write   # creates the immutable release tag
       packages: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Resolve version and channel
