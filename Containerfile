@@ -1,7 +1,7 @@
 # Static Docker CLI and Compose v2 plugin for Docker hosts. Debian bookworm only packages the
 # legacy Python docker-compose v1, which does not provide the `docker compose` subcommand
 # RogueForge calls, and its docker.io package drags the whole daemon into the image.
-FROM docker:28.3.3-cli AS docker-cli
+FROM docker:29.8.2-cli AS docker-cli
 
 FROM debian:bookworm-slim
 
