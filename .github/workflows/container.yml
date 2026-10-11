@@ -86,6 +86,28 @@ jobs:
           docker run --rm rogueforge:validation docker compose version
           docker run --rm rogueforge:validation podman --version
           docker run --rm rogueforge:validation podman-compose --version
+          # The bundled podman-compose must accept the mapping form of service networks
+          # (aliases) used by the Rogue stacks; 1.0.3 failed with "missing networks".
+          mkdir -p /tmp/rf-stack
+          cat > /tmp/rf-stack/compose.yaml <<'YAML'
+          services:
+            app:
+              image: docker.io/library/busybox:stable
+              networks:
+                media-net:
+                  aliases:
+                    - app
+                    - app-alias
+          networks:
+            media-net:
+              external: true
+              name: media-net
+          x-podman:
+            in_pod: false
+          YAML
+          rendered=$(docker run --rm -v /tmp/rf-stack:/stack:ro rogueforge:validation \
+            podman-compose -f /stack/compose.yaml config)
+          grep -q 'app-alias' <<<"$rendered"
           # Demo mode needs no engine socket; run with the same limits compose.yaml applies.
           docker run -d --name rf -e ROGUEFORGE_DEMO=true -p 17810:7810 \
             --security-opt no-new-privileges:true --memory 1g --pids-limit 1024 rogueforge:validation
