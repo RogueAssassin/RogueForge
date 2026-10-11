@@ -84,7 +84,10 @@ jobs:
           # Both engine clients RogueForge shells out to must exist and run.
           docker run --rm rogueforge:validation docker --version
           docker run --rm rogueforge:validation docker compose version
-          docker run --rm rogueforge:validation podman --version
+          podman_version=$(docker run --rm rogueforge:validation podman --version | awk '{print $NF}')
+          echo "bundled podman client: $podman_version"
+          # podman-compose only waits on depends_on health conditions with a 4.6+ client.
+          test "$(printf '%s\n' 4.6.0 "$podman_version" | sort -V | head -n1)" = 4.6.0
           docker run --rm rogueforge:validation podman-compose --version
           # The bundled podman-compose must accept the mapping form of service networks
           # (aliases) used by the Rogue stacks; 1.0.3 failed with "missing networks".
