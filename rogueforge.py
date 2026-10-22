@@ -39,6 +39,12 @@ _inventory_cache={"time":0.0,"items":[]}; _inventory_lock=threading.Lock()
 DASHBOARD_CACHE_SECONDS=max(1,min(30,int(os.environ.get("ROGUEFORGE_DASHBOARD_CACHE","3"))))
 DASHBOARD_STALE_SECONDS=max(DASHBOARD_CACHE_SECONDS,min(120,int(os.environ.get("ROGUEFORGE_DASHBOARD_STALE","30"))))
 _dashboard_cache={"time":0.0,"snapshot":None,"refreshing":False};_dashboard_lock=threading.Condition()
+# "api" reads the inventory over the engine socket (fast, same for Docker and Podman); "cli" spawns
+# `podman --remote ps` first, which costs a client process start per scan. Either falls back to the other.
+INVENTORY_SOURCE=os.environ.get("ROGUEFORGE_INVENTORY_SOURCE","api").strip().lower()
+_inventory_fetch_lock=threading.Lock()
+# Background refresh interval that keeps the dashboard snapshot inside the stale window; 0 disables it.
+DASHBOARD_WARM_SECONDS=max(0,min(300,int(os.environ.get("ROGUEFORGE_DASHBOARD_WARM","15"))))
 _timing_lock=threading.Lock();_timings={}
 def record_timing(name,seconds):
     ms=round(max(0,float(seconds))*1000,2)
@@ -304,13 +310,22 @@ def engine_cli(args,timeout=900):
     if p.returncode:raise RuntimeError(o or "Docker command failed")
     return o
 
+def _load_containers_cli():
+    d=json.loads(podman_remote_command(["ps","-a","--format","json"],30) or "[]")
+    if not isinstance(d,list):raise RuntimeError("remote Podman inventory returned a non-list response")
+    return d
 def _load_containers_uncached():
     if DEMO_MODE:return []
-    if runtime()["engine"]=="podman" and PODMAN_REMOTE:
-        try:
-            d=json.loads(podman_remote_command(["ps","-a","--format","json"],30) or "[]");
-            if isinstance(d,list):return d
+    cli=runtime()["engine"]=="podman" and PODMAN_REMOTE
+    if cli and INVENTORY_SOURCE=="cli":
+        try:return _load_containers_cli()
         except Exception as e:sys.stderr.write(f"remote Podman inventory failed; API fallback: {e}\n")
+    try:return _load_containers_api()
+    except Exception as e:
+        if not cli or INVENTORY_SOURCE=="cli":raise
+        sys.stderr.write(f"engine API inventory failed; remote Podman fallback: {e}\n")
+        return _load_containers_cli()
+def _load_containers_api():
     eps=["/containers/json?all=1"]
     if runtime()["engine"]=="podman":
         v=runtime()["version"].split("-")[0];a=runtime()["apiVersion"];eps=[f"/v{v}/libpod/containers/json?all=true",f"/v{a}/libpod/containers/json?all=true","/libpod/containers/json?all=true"]+eps
@@ -321,14 +336,20 @@ def _load_containers_uncached():
             if d is not None:return d
         except Exception as e:errors.append(str(e))
     raise RuntimeError("Unable to list containers: "+"; ".join(errors))
-def load_containers(force=False):
-    now=time.monotonic()
+def _inventory_cached():
     with _inventory_lock:
-        if not force and _inventory_cache["items"] and now-_inventory_cache["time"]<INVENTORY_CACHE_SECONDS:
+        if _inventory_cache["items"] and time.monotonic()-_inventory_cache["time"]<INVENTORY_CACHE_SECONDS:
             return list(_inventory_cache["items"])
-    started=time.monotonic();items=list(_load_containers_uncached() or []);record_timing("containerInventory",time.monotonic()-started)
-    with _inventory_lock:
-        _inventory_cache["time"]=now;_inventory_cache["items"]=items
+    return None
+def load_containers(force=False):
+    if not force and (cached:=_inventory_cached()) is not None:return cached
+    # Single flight: concurrent callers share one engine query. The cache is stamped when the
+    # query finishes, so a slow engine no longer expires the entry before it is ever reused.
+    with _inventory_fetch_lock:
+        if not force and (cached:=_inventory_cached()) is not None:return cached
+        started=time.monotonic();items=list(_load_containers_uncached() or []);record_timing("containerInventory",time.monotonic()-started)
+        with _inventory_lock:
+            _inventory_cache["time"]=time.monotonic();_inventory_cache["items"]=items
     return list(items)
 def invalidate_inventory():
     with _inventory_lock:_inventory_cache["time"]=0.0;_inventory_cache["items"]=[]
@@ -1043,6 +1064,16 @@ def dashboard_snapshot(force=False):
     with _dashboard_lock:
         _dashboard_cache.update(time=time.monotonic(),snapshot=data,refreshing=False);_dashboard_lock.notify_all()
     return {**data,"cache":{"state":"refreshed","ageMs":0.0}}
+def _dashboard_warmer():
+    # Refresh ahead of the stale window so a visitor never waits for a cold engine scan.
+    while True:
+        try:
+            with _dashboard_lock:
+                busy=_dashboard_cache["refreshing"]
+                if not busy:_dashboard_cache["refreshing"]=True
+            if not busy:_dashboard_refresh_background()
+        except Exception as e:sys.stderr.write(f"dashboard warm-up failed: {e}\n")
+        time.sleep(DASHBOARD_WARM_SECONDS)
 
 def diagnostics():
     rt=runtime();age=max(0,time.monotonic()-float(_dashboard_cache.get("time") or 0));return {"timings":timing_snapshot(),"dashboardCache":{"ageMs":round(age*1000,1),"hasSnapshot":_dashboard_cache.get("snapshot") is not None,"refreshing":bool(_dashboard_cache.get("refreshing"))},"limits":{"engineDetailConcurrency":ENGINE_DETAIL_CONCURRENCY,"maxTerminals":MAX_TERMINAL_SESSIONS,"terminalIdleSeconds":TERMINAL_TTL,"terminalMaxLifetimeSeconds":TERMINAL_MAX_LIFETIME,"maxLogStreams":MAX_LOG_STREAMS,"logTail":LOG_TAIL_DEFAULT,"lifecycleVerifySeconds":LIFECYCLE_VERIFY_TIMEOUT,"lifecycleVerifyInterval":LIFECYCLE_VERIFY_INTERVAL,"lifecycleStableSamples":LIFECYCLE_STABLE_SAMPLES},"auth":auth_diagnostics(),"runtime":{"engine":rt["engine"],"socket":rt["socket"],"socketExists":Path(rt["socket"]).exists(),"context":rt.get("context")},"paths":{"mediaRoot":str(MEDIA_ROOT),"composeRoot":str(COMPOSE_ROOT),"envRoot":str(ENV_ROOT)},"stacks":{"path":str(COMPOSE_ROOT),"exists":COMPOSE_ROOT.is_dir(),"readable":os.access(COMPOSE_ROOT,os.R_OK),"selfStack":SELF_STACK},"discovery":discovery_diagnostics()}
@@ -1237,7 +1268,9 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     rt=runtime();a=auth_diagnostics()
     if not a["valid"]:sys.stderr.write(f"WARNING: authentication is not ready: {a}\n")
-    srv=ThreadingHTTPServer((BIND,PORT),Handler);print(f"RogueForge {VERSION} listening on http://{BIND}:{PORT} ({rt['engine']}, {rt.get('context')})")
+    srv=ThreadingHTTPServer((BIND,PORT),Handler)
+    if DASHBOARD_WARM_SECONDS and not DEMO_MODE:threading.Thread(target=_dashboard_warmer,name="dashboard-warmer",daemon=True).start()
+    print(f"RogueForge {VERSION} listening on http://{BIND}:{PORT} ({rt['engine']}, {rt.get('context')})")
     try:srv.serve_forever()
     except KeyboardInterrupt:pass
     finally:srv.server_close()

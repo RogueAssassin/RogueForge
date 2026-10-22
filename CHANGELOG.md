@@ -2,6 +2,10 @@
 
 ## 2.1.0 (testing)
 
+- Service icons: RogueDashboard now shows its own dashboard-icons logo instead of the generic one, Pi-hole maps to `pi-hole`, PNG-only icons are tried after SVG, and RogueForge uses its bundled logo. Dropped the dead `/api/icons` and duplicate raw-GitHub fallbacks, and failed icon URLs are no longer re-requested on every re-render.
+- Faster connects: container inventory now reads the engine API socket first (Docker and Podman alike) instead of spawning `podman --remote ps` per scan; set `ROGUEFORGE_INVENTORY_SOURCE=cli` to restore the old order. Each source falls back to the other.
+- Fixed the inventory cache being stamped before the engine query ran, so a slow query expired it immediately and one dashboard build ran the query up to three times (about 4.4 s cold). Concurrent callers now share a single query.
+- Added a background warmer (`ROGUEFORGE_DASHBOARD_WARM`, default 15 s, 0 disables) that keeps the dashboard snapshot inside the stale window, so the first visit after idle no longer waits for a cold scan.
 - Advanced the permanent testing branch after successful RogueForge 2.0.0 production promotion.
 - Preserved API version 2 and state schema version 1 as the compatibility baseline.
 - Kept the validated lifecycle, update, logging, terminal and RogueDashboard integration systems unchanged.

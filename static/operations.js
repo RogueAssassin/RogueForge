@@ -1,13 +1,19 @@
 // RogueForge canonical operations and runtime-quality layer.
 (()=>{
-  const CDN='https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg';
-  const RAW='https://raw.githubusercontent.com/homarr-labs/dashboard-icons/main/svg';
+  const CDN='https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons';
+  // Icons not published on dashboard-icons yet, served by RogueForge itself.
+  const LOCAL_ICONS={'rogueforge':'/branding/rogueforge.svg'};
+  // Sources that failed this session; re-renders skip them instead of re-requesting a 404.
+  const failedIcons=new Set();
   const ICON_ALIASES={
     'nginx-proxy-manager':'nginx-proxy-manager','nginxproxymanager':'nginx-proxy-manager','npm':'nginx-proxy-manager','jc21':'nginx-proxy-manager',
     'cloudflared':'cloudflare','cloudflare-tunnel':'cloudflare','cloudflare-zero-trust':'cloudflare','cloudflare':'cloudflare',
     'qbittorrent':'qbittorrent','q-bittorrent':'qbittorrent','uptime-kuma':'uptime-kuma','seerr':'seerr','jellyseerr':'jellyseerr','overseerr':'overseerr',
     'flaresolverr':'flaresolverr','tautulli':'tautulli','prowlarr':'prowlarr','radarr':'radarr','sonarr':'sonarr','bazarr':'bazarr','dozzle':'dozzle','plex':'plex',
-    'rogue-dashboard':'dashboard-icons','rogue-dashboard-agent':'dashboard-icons','rogueforge':'dashboard-icons'
+    'pihole':'pi-hole','uptimekuma':'uptime-kuma',
+    'rogue-dashboard':'roguedashboard','rogue-dashboard-agent':'roguedashboard','roguedashboard':'roguedashboard',
+    'rogue-media-validator':'roguemediavalidator','mediavalidator':'roguemediavalidator','roguemediavalidator':'roguemediavalidator',
+    'rogueforge':'rogueforge'
   };
   function cleanIconKey(value){
     let raw=String(value||'generic').toLowerCase().trim();
@@ -25,12 +31,15 @@
     const project=items.find(c=>c.project===raw||c.projectDisplay===raw);
     return project?(project.image||project.service||project.name||raw):raw;
   }
-  function iconSources(value){const key=cleanIconKey(value),local=encodeURIComponent(String(value||key));return[`${CDN}/${encodeURIComponent(key)}.svg`,`${RAW}/${encodeURIComponent(key)}.svg`,`/api/icons/${local}`,`${CDN}/docker.svg`];}
+  // dashboard-icons publishes most icons as SVG and some (e.g. roguedashboard) only as PNG.
+  function iconSources(value){const key=encodeURIComponent(cleanIconKey(value));return[LOCAL_ICONS[key],`${CDN}/svg/${key}.svg`,`${CDN}/png/${key}.png`,`${CDN}/svg/docker.svg`].filter(src=>src&&!failedIcons.has(src));}
   function wireIcon(img){
     if(img.dataset.rfIconReady==='1')return;img.dataset.rfIconReady='1';
-    const sources=iconSources(img.dataset.rfIcon||img.getAttribute('alt')||'docker');let at=0;img.src=sources[0];
+    const sources=iconSources(img.dataset.rfIcon||img.getAttribute('alt')||'docker');let at=0;
+    if(!sources.length){img.style.display='none';return;}
+    img.src=sources[0];
     img.addEventListener('load',()=>{img.style.display='block';img.classList.add('rf-icon-loaded');});
-    img.addEventListener('error',()=>{at++;if(at<sources.length){img.src=sources[at];return;}img.style.display='none';});
+    img.addEventListener('error',()=>{failedIcons.add(sources[at]);at++;if(at<sources.length){img.src=sources[at];return;}img.style.display='none';});
   }
   window.serviceLogo=serviceLogo=function(key){const identity=bestIdentity(key),initial=String(key||'?').charAt(0).toUpperCase();return`<span class="service-logo rf-service-logo"><img data-rf-icon="${attr(identity||key||'service')}" alt="${attr(key||'service')}" loading="lazy"><b>${escapeHtml(initial)}</b></span>`;};
   function scanIcons(root=document){root.querySelectorAll?.('img[data-rf-icon]').forEach(wireIcon);}

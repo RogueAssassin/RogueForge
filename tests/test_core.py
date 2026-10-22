@@ -30,6 +30,18 @@ class RogueForgeTests(unittest.TestCase):
  def test_shared_inventory_cache(self):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('ROGUEFORGE_INVENTORY_CACHE',src);self.assertIn('def _load_containers_uncached():',src);self.assertIn('def load_containers(force=False):',src);self.assertIn('def invalidate_inventory():',src)
   self.assertNotIn('def discover_stacks():\n    reg=_build_registry(force=True)',src)
+ def test_inventory_is_single_flight_and_api_first(self):
+  calls=[];original=self.app._load_containers_uncached
+  def slow():
+   calls.append(1);import time;time.sleep(0.2);return [{"Id":"abc"}]
+  self.app._load_containers_uncached=slow;self.app.invalidate_inventory()
+  try:
+   import threading;threads=[threading.Thread(target=self.app.load_containers) for _ in range(5)]
+   [t.start() for t in threads];[t.join() for t in threads]
+   self.assertEqual(len(calls),1);self.assertEqual(self.app.load_containers(),[{"Id":"abc"}]);self.assertEqual(len(calls),1)
+  finally:self.app._load_containers_uncached=original;self.app.invalidate_inventory()
+  src=(ROOT/'rogueforge.py').read_text();self.assertIn('ROGUEFORGE_INVENTORY_SOURCE","api"',src);self.assertIn('def _dashboard_warmer():',src)
+  self.assertIn('ROGUEFORGE_DASHBOARD_WARM',(ROOT/'compose.yaml').read_text());self.assertIn('ROGUEFORGE_INVENTORY_SOURCE',(ROOT/'.env.example').read_text())
  def test_media_server_stack_lifecycle(self):
   src=(ROOT/'rogueforge.py').read_text()
   self.assertIn('out=run_compose(stack,["stop"]);after=[];_verify_stack_stopped(stack)',src);self.assertIn('out=run_compose(stack,["restart"])',src);self.assertIn('Restart fallback after:',src)
