@@ -30,6 +30,18 @@ class RogueForgeTests(unittest.TestCase):
  def test_shared_inventory_cache(self):
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('ROGUEFORGE_INVENTORY_CACHE',src);self.assertIn('def _load_containers_uncached():',src);self.assertIn('def load_containers(force=False):',src);self.assertIn('def invalidate_inventory():',src)
   self.assertNotIn('def discover_stacks():\n    reg=_build_registry(force=True)',src)
+ def test_inventory_is_single_flight_and_api_first(self):
+  calls=[];original=self.app._load_containers_uncached
+  def slow():
+   calls.append(1);import time;time.sleep(0.2);return [{"Id":"abc"}]
+  self.app._load_containers_uncached=slow;self.app.invalidate_inventory()
+  try:
+   import threading;threads=[threading.Thread(target=self.app.load_containers) for _ in range(5)]
+   [t.start() for t in threads];[t.join() for t in threads]
+   self.assertEqual(len(calls),1);self.assertEqual(self.app.load_containers(),[{"Id":"abc"}]);self.assertEqual(len(calls),1)
+  finally:self.app._load_containers_uncached=original;self.app.invalidate_inventory()
+  src=(ROOT/'rogueforge.py').read_text();self.assertIn('ROGUEFORGE_INVENTORY_SOURCE","api"',src);self.assertIn('def _dashboard_warmer():',src)
+  self.assertIn('ROGUEFORGE_DASHBOARD_WARM',(ROOT/'compose.yaml').read_text());self.assertIn('ROGUEFORGE_INVENTORY_SOURCE',(ROOT/'.env.example').read_text())
  def test_media_server_stack_lifecycle(self):
   src=(ROOT/'rogueforge.py').read_text()
   self.assertIn('out=run_compose(stack,["stop"]);after=[];_verify_stack_stopped(stack)',src);self.assertIn('out=run_compose(stack,["restart"])',src);self.assertIn('Restart fallback after:',src)
@@ -156,7 +168,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('id="liveLogLevel"',html);self.assertIn('option value="error"',html);self.assertIn('option value="warn"',html)
   self.assertIn("const level=$('#liveLogLevel')?.value||'all'",live);self.assertIn('rfLive.reconnects++',live);self.assertIn('reconnect',live)
   self.assertIn('stepElapsed=',ops);self.assertIn('current step',ops)
-  self.assertRegex(readme,r'RELEASE-2.0.1%20(?:TESTING|STABLE)');self.assertIn('## Rogue ecosystem',readme)
+  self.assertRegex(readme,r'RELEASE-2.3.0%20(?:TESTING|STABLE)');self.assertIn('## Rogue ecosystem',readme)
   self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.0.0 (testing)',change)
  def test_v150_update_preview_and_env_revision_policy(self):
   src=(ROOT/'rogueforge.py').read_text();app=(ROOT/'static/app.js').read_text();env=(ROOT/'.env.example').read_text();update=(ROOT/'update.sh').read_text();road=(ROOT/'MILESTONES.md').read_text()
@@ -182,7 +194,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertNotIn('append_env_revision',update)
   self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.1.0 — Post-2.0 development',road)
   self.assertIn('## 2.0.0 (testing)',change);self.assertIn('final 1.x cleanup baseline',change)
-  self.assertRegex(readme,r'RELEASE-2.0.1%20(?:TESTING|STABLE)');self.assertIn('stable operations platform',readme)
+  self.assertRegex(readme,r'RELEASE-2.3.0%20(?:TESTING|STABLE)');self.assertIn('stable operations platform',readme)
  def test_v200_api_and_state_contract(self):
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text();env=(ROOT/'.env.example').read_text();readme=(ROOT/'README.md').read_text()
   self.assertIn('API_VERSION="2"; STATE_SCHEMA_VERSION=1',src)
@@ -192,7 +204,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.1.0 — Post-2.0 development',road)
   self.assertNotIn('ROGUEFORGE_ENV_REV=',env);self.assertIn('stable operations platform',readme)
  def test_current_release_baseline(self):
-  self.assertEqual((ROOT/'VERSION').read_text().strip(),'2.0.1')
+  self.assertEqual((ROOT/'VERSION').read_text().strip(),'2.3.0')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def _load_containers_uncached()',src);self.assertIn('/api/dashboard',src)
   self.assertIn('## 2.0.0 — Stable operations platform',road)

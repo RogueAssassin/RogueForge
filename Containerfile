@@ -1,9 +1,10 @@
-# Static Docker CLI and Compose v2 plugin for Docker hosts. Debian bookworm only packages the
-# legacy Python docker-compose v1, which does not provide the `docker compose` subcommand
-# RogueForge calls, and its docker.io package drags the whole daemon into the image.
-FROM docker:28.3.3-cli AS docker-cli
+# Static Docker CLI and Compose v2 plugin for Docker hosts: only the client is needed, not the
+# daemon that Debian's docker.io package drags into the image.
+FROM docker:29.9.0-cli AS docker-cli
 
-FROM debian:bookworm-slim
+# trixie provides Podman 5.4. The remote client must be 4.6 or newer for podman-compose to
+# wait on `depends_on: condition: service_healthy`; bookworm's 4.3 skipped those waits.
+FROM debian:trixie-slim
 
 LABEL org.opencontainers.image.source="https://github.com/RogueAssassin/RogueForge" \
       org.opencontainers.image.title="RogueForge" \
@@ -13,9 +14,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates podman python3 python3-dotenv python3-yaml tini \
     && rm -rf /var/lib/apt/lists/*
 
-# Debian bookworm packages podman-compose 1.0.3, which rejects any stack whose service
-# networks use the mapping form (for example `aliases:`) with "missing networks", and
-# ignores `x-podman` and the PODMAN_COMPOSE_* settings RogueForge passes. Bundle a current
+# Debian still packages a podman-compose older than RogueForge needs: 1.0.3 rejects any stack whose service
+# networks use the mapping form (for example `aliases:`) with "missing networks", and releases
+# before 1.5 ignore the PODMAN_COMPOSE_* settings RogueForge passes. Bundle a current
 # upstream release instead; it is a single script with the two Python dependencies above.
 ARG PODMAN_COMPOSE_VERSION=1.5.0
 ARG PODMAN_COMPOSE_SHA256=7a39883eda17dbf8473e8ebdfd7d27a893bd518ea9583eeaaafee3cca7e50338

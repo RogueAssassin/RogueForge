@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.3.0
+
+- Promoted the testing line to production on top of the 2.0.1 hardening release.
+- Service icons: RogueDashboard now shows its own dashboard-icons logo instead of the generic one, Pi-hole maps to `pi-hole`, PNG-only icons are tried after SVG, and RogueForge uses its bundled logo. Dropped the dead `/api/icons` and duplicate raw-GitHub fallbacks, and failed icon URLs are no longer re-requested on every re-render.
+- Faster connects: container inventory now reads the engine API socket first (Docker and Podman alike) instead of spawning `podman --remote ps` per scan; set `ROGUEFORGE_INVENTORY_SOURCE=cli` to restore the old order. Each source falls back to the other.
+- Fixed the inventory cache being stamped before the engine query ran, so a slow query expired it immediately and one dashboard build ran the query up to three times (about 4.4 s cold). Concurrent callers now share a single query.
+- Added a background warmer (`ROGUEFORGE_DASHBOARD_WARM`, default 15 s, 0 disables) that keeps the dashboard snapshot inside the stale window, so the first visit after idle no longer waits for a cold scan.
+- Moved the image to Debian trixie for the Podman 5.4 remote client. The previous 4.3 client made podman-compose skip `depends_on: condition: service_healthy` waits during in-app stack actions.
+- Bumped the bundled Docker CLI to 29.9.0.
+
 ## 2.0.1
 
 - Made `tini` PID 1 so `podman stop`/`docker stop` end RogueForge immediately and engine or Compose child processes are reaped.
