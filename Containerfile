@@ -1,6 +1,6 @@
 # Static Docker CLI and Compose v2 plugin for Docker hosts: only the client is needed, not the
 # daemon that Debian's docker.io package drags into the image.
-FROM docker:29.9.0-cli AS docker-cli
+FROM docker:29.9.1-cli AS docker-cli
 
 # trixie provides Podman 5.4. The remote client must be 4.6 or newer for podman-compose to
 # wait on `depends_on: condition: service_healthy`; bookworm's 4.3 skipped those waits.
