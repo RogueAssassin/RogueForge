@@ -1,6 +1,6 @@
 # Static Docker CLI and Compose v2 plugin for Docker hosts: only the client is needed, not the
 # daemon that Debian's docker.io package drags into the image.
-FROM docker:29.9.0-cli AS docker-cli
+FROM docker:29.9.3-cli AS docker-cli
 
 # trixie provides Podman 5.4. The remote client must be 4.6 or newer for podman-compose to
 # wait on `depends_on: condition: service_healthy`; bookworm's 4.3 skipped those waits.
@@ -18,8 +18,8 @@ RUN apt-get update \
 # networks use the mapping form (for example `aliases:`) with "missing networks", and releases
 # before 1.5 ignore the PODMAN_COMPOSE_* settings RogueForge passes. Bundle a current
 # upstream release instead; it is a single script with the two Python dependencies above.
-ARG PODMAN_COMPOSE_VERSION=1.5.0
-ARG PODMAN_COMPOSE_SHA256=7a39883eda17dbf8473e8ebdfd7d27a893bd518ea9583eeaaafee3cca7e50338
+ARG PODMAN_COMPOSE_VERSION=1.6.0
+ARG PODMAN_COMPOSE_SHA256=10df1662477a673dc803c03e89c1bc1fba6c8c091e716fb6c7dd09c0081e1255
 ADD --checksum=sha256:${PODMAN_COMPOSE_SHA256} --chmod=0755 \
     https://raw.githubusercontent.com/containers/podman-compose/v${PODMAN_COMPOSE_VERSION}/podman_compose.py \
     /usr/bin/podman-compose

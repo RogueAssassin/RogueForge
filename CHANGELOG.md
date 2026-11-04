@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.4.0
+
+Clean visual refresh and dependency update, aligned with RogueDashboard 2.4.0 and RogueMediaValidator 1.4.0.
+
+- New look: warm charcoal dark and warm paper light themes with a single clay accent, replacing the purple/cyan neon styling. All colours now come from one token set, so every screen supports both themes.
+- Added Settings > Appearance: System (default, follows the device), Dark or Light, saved per browser and applied before first paint (`theme-init.js`).
+- New monogram icon (`/branding/rogueforge-mark.svg`) is the default; the classic artwork is still selectable. Browsers that stored the old default move to the monogram once.
+- Fixed: the stylesheet referenced a missing `rogueforge-base.svg`, which the server answered with the HTML index page.
+- Bundled podman-compose 1.6.0 (checksum pinned) and Docker CLI 29.9.3.
+
 ## 2.3.0
 
 - Promoted the testing line to production on top of the 2.0.1 hardening release.

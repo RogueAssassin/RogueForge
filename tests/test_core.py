@@ -75,7 +75,9 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('display:grid!important',css);self.assertIn('text-align:center!important',css)
  def test_production_candidate_theme_preserves_branding(self):
   html=(ROOT/'static/index.html').read_text();app=(ROOT/'static/app.js').read_text();css=(ROOT/'static/styles.css').read_text()
-  self.assertIn('/branding/rogueforge.svg',html);self.assertIn('rf-brand-crop',html)
+  self.assertIn('/branding/rogueforge-mark.svg',html);self.assertIn('rf-brand-crop',html);self.assertTrue((ROOT/'static/branding/rogueforge.svg').exists())
+  self.assertIn('href="/theme.css"',html);self.assertLess(html.index('/branding/branding-switch.css'),html.index('/theme.css'))
+  self.assertIn('prefers-color-scheme:light',css);self.assertNotIn('text-shadow:0',css)
   self.assertIn('rf-summary-icon',app);self.assertIn('rf-quick-icon',app);self.assertNotIn('rf-app-footer',html)
   self.assertIn('RogueForge 0.9 production-candidate visual system',css)
  def test_resource_relationships_and_cache(self):
@@ -168,7 +170,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('id="liveLogLevel"',html);self.assertIn('option value="error"',html);self.assertIn('option value="warn"',html)
   self.assertIn("const level=$('#liveLogLevel')?.value||'all'",live);self.assertIn('rfLive.reconnects++',live);self.assertIn('reconnect',live)
   self.assertIn('stepElapsed=',ops);self.assertIn('current step',ops)
-  self.assertRegex(readme,r'RELEASE-2.3.0%20(?:TESTING|STABLE)');self.assertIn('## Rogue ecosystem',readme)
+  self.assertRegex(readme,r'RELEASE-2.4.0%20(?:TESTING|STABLE)');self.assertIn('## Rogue ecosystem',readme)
   self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.0.0 (testing)',change)
  def test_v150_update_preview_and_env_revision_policy(self):
   src=(ROOT/'rogueforge.py').read_text();app=(ROOT/'static/app.js').read_text();env=(ROOT/'.env.example').read_text();update=(ROOT/'update.sh').read_text();road=(ROOT/'MILESTONES.md').read_text()
@@ -194,7 +196,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertNotIn('append_env_revision',update)
   self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.1.0 — Post-2.0 development',road)
   self.assertIn('## 2.0.0 (testing)',change);self.assertIn('final 1.x cleanup baseline',change)
-  self.assertRegex(readme,r'RELEASE-2.3.0%20(?:TESTING|STABLE)');self.assertIn('stable operations platform',readme)
+  self.assertRegex(readme,r'RELEASE-2.4.0%20(?:TESTING|STABLE)');self.assertIn('stable operations platform',readme)
  def test_v200_api_and_state_contract(self):
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text();env=(ROOT/'.env.example').read_text();readme=(ROOT/'README.md').read_text()
   self.assertIn('API_VERSION="2"; STATE_SCHEMA_VERSION=1',src)
@@ -204,7 +206,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.1.0 — Post-2.0 development',road)
   self.assertNotIn('ROGUEFORGE_ENV_REV=',env);self.assertIn('stable operations platform',readme)
  def test_current_release_baseline(self):
-  self.assertEqual((ROOT/'VERSION').read_text().strip(),'2.3.0')
+  self.assertEqual((ROOT/'VERSION').read_text().strip(),'2.4.0')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def _load_containers_uncached()',src);self.assertIn('/api/dashboard',src)
   self.assertIn('## 2.0.0 — Stable operations platform',road)

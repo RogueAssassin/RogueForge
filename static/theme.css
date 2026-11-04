@@ -1,0 +1,69 @@
+/* RogueForge 2.4 clean theme layer.
+   Loaded after every other stylesheet. The colour tokens live at the top of styles.css; this file
+   settles the components where the older layered rules disagreed, without changing layout. */
+
+html,body{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+::selection{background:color-mix(in srgb,var(--accent) 30%,transparent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+*{scrollbar-color:var(--line-strong) transparent}
+
+/* Shell */
+.sidebar{background:var(--bg);border-right:1px solid var(--line);box-shadow:none}
+.topbar{background:color-mix(in srgb,var(--bg) 90%,transparent);border-bottom:1px solid var(--line)}
+.topbar h1{font-weight:650;letter-spacing:-.02em}
+.brand strong{background:none;-webkit-background-clip:border-box;background-clip:border-box;color:var(--text);font-weight:650;letter-spacing:-.01em}
+.brand small{color:var(--muted)}
+.brand-mark.rf-brand-crop{box-shadow:none;border-radius:10px}
+.eyebrow{color:var(--muted);letter-spacing:.08em}
+
+/* Navigation */
+.nav-item{color:var(--muted);border:1px solid transparent;font-weight:550}
+.nav-item:hover{background:var(--surface-2);color:var(--text)}
+.nav-item .nav-icon,.nav-item.active .nav-icon{color:inherit;opacity:.85}
+.nav-item.active{background:var(--surface-3);border-color:transparent;color:var(--text);box-shadow:inset 2px 0 0 var(--accent)}
+.nav-count{background:var(--surface-2);border:1px solid var(--line);color:var(--muted)}
+
+/* Cards and surfaces */
+.section-card,.table-card,.rf-stack-card,.rf-panel,.host-card,.resource-page .resource-grid>*{box-shadow:none}
+.rf-stack-card{background:var(--surface)!important;border-color:var(--line)!important}
+.rf-stack-card:hover{border-color:var(--line-strong)!important}
+
+/* Buttons */
+.button.primary,.primary-action{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);box-shadow:none;font-weight:600}
+.button.primary:hover:not(:disabled),.primary-action:hover:not(:disabled){background:var(--accent-hover);border-color:var(--accent-hover);filter:none}
+.button.secondary,.small-button,.icon-button{background:var(--surface);border-color:var(--line);color:var(--text);box-shadow:none}
+.button.secondary:hover,.small-button:hover,.icon-button:hover{background:var(--surface-2);border-color:var(--line-strong)}
+.small-button.accent{background:color-mix(in srgb,var(--accent) 12%,transparent);border-color:color-mix(in srgb,var(--accent) 38%,transparent);color:var(--accent-text)}
+.small-button.accent:hover{background:color-mix(in srgb,var(--accent) 20%,transparent)}
+.small-button.danger-action{color:var(--red);border-color:color-mix(in srgb,var(--red) 35%,transparent);background:transparent}
+.small-button.danger-action:hover{background:color-mix(in srgb,var(--red) 12%,transparent)}
+.account-button{background:var(--surface);border:1px solid var(--line);color:var(--text)}
+.account-button.authenticated,.avatar,.rf-operations-button span{background:var(--accent);color:var(--accent-ink)}
+.close-button{color:var(--muted)}
+.close-button:hover{color:var(--text)}
+
+/* Forms */
+.filter,input,select{background:var(--field)!important;border-color:var(--line)!important;color:var(--text)!important}
+input::placeholder,textarea::placeholder{color:var(--faint)}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)!important}
+.filter:focus-within{border-color:var(--accent)!important}
+textarea{background:var(--field);color:var(--text)}
+input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}
+
+/* Dialogs and code */
+dialog{background:var(--surface);border-color:var(--line-strong);box-shadow:0 24px 60px -20px rgba(0,0,0,.55)}
+dialog::backdrop{background:rgba(20,20,19,.55);backdrop-filter:blur(3px)}
+pre,.live-console,.rf-operation pre{background:var(--field);color:var(--text-2)}
+code{color:var(--text-2)}
+.settings-list code{color:var(--text-2)}
+
+/* Status colours stay semantic */
+.status-dot{box-shadow:none}
+.update-ready{color:var(--green)!important}
+.toast-region>*{background:var(--surface);border-color:var(--line-strong);color:var(--text);box-shadow:var(--shadow)}
+
+/* Settings > Appearance (branding-switch.js) */
+.rf-theme-options{display:flex;flex-wrap:wrap;gap:8px}
+.rf-theme-options .active,.rf-brand-options .active{border-color:var(--accent);color:var(--text);box-shadow:inset 0 0 0 1px var(--accent)}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
