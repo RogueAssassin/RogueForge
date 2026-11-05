@@ -78,6 +78,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('/branding/rogueforge.svg',html);self.assertIn('rf-brand-crop',html);self.assertTrue((ROOT/'static/branding/rogueforge.svg').exists())
   self.assertIn('href="/theme.css"',html);self.assertLess(html.index('/branding/branding-switch.css'),html.index('/theme.css'))
   self.assertIn('prefers-color-scheme:light',css);self.assertNotIn('text-shadow:0',css)
+  self.assertIn('<script src="/rogue-theme.js"></script>',html);self.assertIn('data-rogue-theme-menu',html);self.assertTrue((ROOT/'static/rogue-theme.js').exists())
   self.assertIn('rf-summary-icon',app);self.assertIn('rf-quick-icon',app);self.assertNotIn('rf-app-footer',html)
   self.assertIn('RogueForge 0.9 production-candidate visual system',css)
  def test_resource_relationships_and_cache(self):

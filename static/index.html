@@ -3,12 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#1f1e1d" media="(prefers-color-scheme: dark)">
-  <meta name="theme-color" content="#faf9f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#181715">
   <title>RogueForge</title>
   <link rel="icon" href="/branding/rogueforge.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/branding/rogueforge.svg">
-  <script src="/theme-init.js"></script>
+  <script src="/rogue-theme.js"></script>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/container-controls.css">
   <link rel="stylesheet" href="/live-ops.css">
@@ -30,7 +29,7 @@
       </nav>
       <div class="sidebar-bottom"><div class="host-card"><div class="host-top"><span class="status-dot"></span><span id="engineName">Connecting</span></div><strong>Local engine</strong><small id="engineDetail">Detecting Docker or Podman…</small></div><button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span><span>Settings</span></button></div>
     </aside>
-    <main class="main"><header class="topbar"><div class="topbar-left"><button class="icon-button menu-button" id="menuButton">☰</button><div><p class="eyebrow" id="pageEyebrow">Command centre</p><h1 id="pageTitle">Overview</h1></div></div><div class="top-actions"><div class="connection"><span class="status-dot"></span><span>Connected</span></div><button class="icon-button" id="refreshButton">↻</button><button class="account-button" id="accountButton">Sign in</button></div></header>
+    <main class="main"><header class="topbar"><div class="topbar-left"><button class="icon-button menu-button" id="menuButton">☰</button><div><p class="eyebrow" id="pageEyebrow">Command centre</p><h1 id="pageTitle">Overview</h1></div></div><div class="top-actions"><div class="connection"><span class="status-dot"></span><span>Connected</span></div><button class="icon-button" id="refreshButton">↻</button><div data-rogue-theme-menu></div><button class="account-button" id="accountButton">Sign in</button></div></header>
       <section class="content">
         <div class="view active" id="view-overview"></div>
         <div class="view" id="view-stacks"><section class="page-intro"><div><p>Primary Compose management: stacks, services, updates, logs, terminal, Compose and environment files.</p></div><div class="filter"><span>⌕</span><input id="stackSearch" type="search" placeholder="Search stacks, paths or Compose files…"></div></section><div class="rf-stack-list" id="stackGrid"></div></div>

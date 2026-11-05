@@ -1,6 +1,6 @@
 /* Rogue clean palette 2.4 (shared with RogueDashboard and RogueMediaValidator).
-   Warm charcoal dark / warm paper light with one clay accent. Theme follows the OS unless
-   Settings > Appearance pins it (html[data-theme]). Legacy names alias the new tokens. */
+   Warm charcoal dark / warm paper light with one clay accent. rogue-theme.js sets html[data-theme]
+   from the System/Light/Dark choice (top-bar menu or Settings > Appearance). Legacy names alias the new tokens. */
 :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
 --bg:#1f1e1d;--surface:#262624;--surface-2:#2c2c2a;--surface-3:#343432;--field:#1b1a19;
 --line:rgba(222,220,209,.12);--line-strong:rgba(222,220,209,.22);

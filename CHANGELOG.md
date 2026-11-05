@@ -5,7 +5,8 @@
 Clean visual refresh and dependency update, aligned with RogueDashboard 2.4.0 and RogueMediaValidator 1.4.0.
 
 - New look: warm charcoal dark and warm paper light themes with a single clay accent, replacing the purple/cyan neon styling. All colours now come from one token set, so every screen supports both themes.
-- Added Settings > Appearance: System (default, follows the device), Dark or Light, saved per browser and applied before first paint (`theme-init.js`).
+- New theme menu at the top right (and in Settings > Appearance): **System** (default, follows the device), **Light** or **Dark**, saved per browser and applied before first paint. It is the same menu in RogueDashboard and RogueMediaValidator (shared `rogue-theme.js`, which replaces `theme-init.js`; a theme picked in 2.4 testing carries over). The sidebar and top bar stay dark in both modes.
+- Overview tiles carry a soft tint of their status colour.
 - Kept the original RogueForge icons.
 - Fixed: the stylesheet referenced a missing `rogueforge-base.svg`, which the server answered with the HTML index page.
 - Fixed: the operations count badge showed as an empty dot when nothing was running.
