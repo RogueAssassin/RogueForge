@@ -22,7 +22,7 @@ RogueForge deliberately stays separate from **RogueDashboard**, which owns monit
 - verified Start, Stop, Restart, Recreate and Update workflows
 - per-stack lifecycle serialization to prevent competing actions
 - in-place updates with immutable image verification and rollback
-- bounded operation history with timeout, cancellation, progress and export
+- bounded Activity history with timeout, cancellation, progress, export, Clear all and Trim
 - on-demand live logs with search, severity filtering, pause/resume and download
 - authenticated per-container terminal access
 - Images, Volumes and Networks inventory
@@ -32,18 +32,17 @@ RogueForge deliberately stays separate from **RogueDashboard**, which owns monit
 - canonical deployment under `/opt/media-server/rogueforge`
 - no permanent log indexer and no high-frequency background engine polling
 
-## 2.0.0 stable operations platform
+## What's new in 2.4
 
-RogueForge 2.0.0 is the stable production baseline for the first 2.x operations contract.
+RogueForge 2.4 builds on the 2.x stable operations platform (API v2, unchanged persistent state).
 
-- preserves the host-tested 1.9 lifecycle, update-preview, rollback, logging and terminal systems
-- introduces explicit `API_VERSION=2` and `STATE_SCHEMA_VERSION=1`
-- adds stable read-only `/api/v2/status` and `/api/v2/contract` endpoints
-- keeps the RogueDashboard integration payload aligned with the v2 contract
-- defines persistent-state compatibility metadata without forcing a migration for the existing 1.9 data
-- keeps the default `.env` unchanged because 2.0 adds no new runtime setting
-- keeps Docker and rootless Podman first-class and retains the lightweight single-host architecture
-- 2.0.0 is the validated `main` / `latest` production baseline; active development continues on `testing`
+- clean Rogue navy look with Default, Light, Dark and System themes, shared with RogueDashboard and RogueMediaValidator
+- tidier Activity drawer: finished operations fold their output, and **Clear all** or **Trim** (keep the last 5, 10 or 25) tidy the history; running operations are never removed
+- history is capped at 50 finished operations by default (`ROGUEFORGE_OPERATIONS_KEEP`, 5-500)
+- Podman `update.sh` no longer refuses updates after the first run
+- bundled podman-compose 1.6.0 and Docker CLI 29.9.3
+
+See the [changelog](CHANGELOG.md) for the full list.
 
 ## Rogue ecosystem
 
@@ -162,6 +161,10 @@ ROGUEFORGE_LOG_TAIL=200
 
 The supplied `.env.example` documents every deployment, lifecycle, performance, logging and terminal setting.
 
+## Themes
+
+The theme button at the top right switches between **Default** (Rogue navy), **Light**, **Dark** and **System** (follows the device's light or dark setting). The choice is saved per browser. RogueDashboard, RogueForge and RogueMediaValidator share the same menu and palette, with one warm clay accent.
+
 ## Persistent files
 
 Keep these between upgrades:
@@ -208,13 +211,6 @@ Testing:
 
 ```text
 ghcr.io/rogueassassin/rogueforge:testing
-```
-
-Production tags:
-
-```text
-ghcr.io/rogueassassin/rogueforge:latest
-ghcr.io/rogueassassin/rogueforge:2.4.1
 ```
 
 `main` is the stable production branch. The permanent `testing` branch is the proving ground for the next release.
