@@ -71,18 +71,20 @@ code{color:var(--text-2)}
 /* Operations count badge: only show it while something is running */
 .rf-operations-button span[hidden],.rf-operations-button span:empty{display:none}
 
-/* Chrome: sidebar and top bar keep the dark palette in both themes (shared Rogue theme kit) */
+/* Chrome: sidebar and top bar use the shared chrome palette from rogue-theme.js
+   (navy in Default and Light, near-black in Dark) */
 .sidebar,.topbar{color-scheme:dark;color:var(--text);
-  --bg:#181715;--surface:#232220;--surface-2:#2c2c2a;--surface-3:#343432;--field:#1b1a19;
-  --line:rgba(222,220,209,.1);--line-strong:rgba(222,220,209,.2);
-  --text:#faf9f5;--text-2:#dedcd3;--muted:#b0aea5;--faint:#8a8880;
+  --bg:var(--rogue-chrome,#181715);--surface:var(--rogue-chrome-2,#232220);--surface-2:var(--rogue-chrome-3,#2c2c2a);--surface-3:var(--rogue-chrome-3,#343432);--field:var(--rogue-chrome-field,#1b1a19);
+  --line:var(--rogue-chrome-line,rgba(222,220,209,.1));--line-strong:var(--rogue-chrome-line-strong,rgba(222,220,209,.2));
+  --text:var(--rogue-chrome-text,#faf9f5);--text-2:var(--rogue-chrome-text-2,#dedcd3);--muted:var(--rogue-chrome-muted,#b0aea5);--faint:var(--rogue-chrome-faint,#8a8880);
   --accent:#d97757;--accent-hover:#e08a6d;--accent-text:#e8a084;--accent-ink:#1f1e1d;
   --info:#8fb3dc;--green:#7cc293;--amber:#e3ae5f;--red:#e8786d;
   --sidebar:var(--bg);--border:var(--line);--border-hi:var(--line-strong);--muted-2:var(--faint);
   --purple:var(--accent);--purple-2:var(--accent-hover);--cyan:var(--info);--panel:var(--surface);
   --rf-bg:var(--bg);--rf-panel:var(--surface);--rf-panel2:var(--surface-2);--rf-line:var(--line);--rf-purple:var(--accent);
   --rf-cyan:var(--info);--rf-green:var(--green);--rf-red:var(--red);--rf-muted:var(--muted);--rf-text:var(--text)}
-.topbar{background:#181715;backdrop-filter:none}
+.topbar{background:var(--rogue-chrome,#181715);backdrop-filter:none}
+.sidebar{background:var(--rogue-chrome,#181715)}
 .top-actions{align-items:center}
 
 /* Overview tiles: a soft tint of their status colour, like the other Rogue apps */

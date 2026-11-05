@@ -4,8 +4,8 @@
 
 Clean visual refresh and dependency update, aligned with RogueDashboard 2.4.0 and RogueMediaValidator 1.4.0.
 
-- New look: warm charcoal dark and warm paper light themes with a single clay accent, replacing the purple/cyan neon styling. All colours now come from one token set, so every screen supports both themes.
-- New theme menu at the top right (and in Settings > Appearance): **System** (default, follows the device), **Light** or **Dark**, saved per browser and applied before first paint. It is the same menu in RogueDashboard and RogueMediaValidator (shared `rogue-theme.js`, which replaces `theme-init.js`; a theme picked in 2.4 testing carries over). The sidebar and top bar stay dark in both modes.
+- New look: a Rogue navy **Default** theme, a warm paper **Light** theme and a warm charcoal **Dark** theme, all with one clay accent, replacing the purple/cyan neon styling. All colours now come from one token set, so every screen supports every theme.
+- New theme button at the top right with **Default**, **Light**, **Dark** and **System** (follows the device), saved per browser and applied before first paint. It is the same menu in RogueDashboard and RogueMediaValidator (shared `rogue-theme.js`, which replaces `theme-init.js`; a theme picked in 2.4 testing carries over). The sidebar and top bar stay navy in Default and Light and near-black in Dark. The theme buttons in Settings were removed; Settings keeps the icon variant choice.
 - Overview tiles carry a soft tint of their status colour.
 - Kept the original RogueForge icons.
 - Fixed: on Podman, `update.sh` refused every update after the first ("Another update is already running") because the container's conmon process inherited the update lock. One-time fix on existing installs: remove `.update.lock` in the install folder, then update.
