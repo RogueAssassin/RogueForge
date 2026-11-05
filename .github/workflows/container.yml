@@ -63,6 +63,11 @@ jobs:
           test "$(grep -o 'href="/operations.css"' static/index.html | wc -l)" -eq 1
           ! grep -R -E 'v0\.[0-9]|container-(row|head|actions)-v0' static/*.js static/*.css static/branding/*.js
 
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          for file in static/*.js static/branding/*.js; do node --check "$file"; done
+
       - name: Run unit tests
         run: python3 -m unittest discover -s tests -v
       - name: Validate Compose

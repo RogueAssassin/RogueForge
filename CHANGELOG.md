@@ -6,6 +6,10 @@ Light theme readability update, aligned with RogueDashboard 2.4.1 and RogueMedia
 
 - Softer Light theme: the near-white surfaces are replaced by a cool blue-grey that matches the navy (page #cfd8e4, cards #e6ebf2, tiles #d9e0ea) with navy text, stronger borders and darker secondary text and status colours. All dashboard text now meets WCAG AA contrast in Light.
 - Theme menu heading is easier to read on the navy chrome.
+- Tidier Activity drawer: finished operations fold their output (it was always expanded because of an `open=""` attribute), only running ones show the live step and output, long lines wrap instead of scrolling sideways, and a summary line shows how many are running and finished.
+- Activity can be cleaned up: **Clear all** removes every finished operation and **Trim** keeps the last 5, 10 or 25. Running operations are never removed. Backed by `DELETE /api/operations?keep=N` (administrator only).
+- History is now capped at 50 finished operations by default (was 120), set with `ROGUEFORGE_OPERATIONS_KEEP` (5-500); older ones are dropped automatically.
+- CI now syntax-checks the front-end JavaScript.
 
 ## 2.4.0
 

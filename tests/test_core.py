@@ -249,5 +249,25 @@ class RogueForgeTests(unittest.TestCase):
    self.assertIn(key,src);self.assertIn(key,env);self.assertIn(key,compose)
   self.assertIn('with _engine_detail_slots:',src);self.assertIn('Terminal session limit reached',src);self.assertIn('_log_stream_slots.acquire(blocking=False)',src)
   self.assertIn('"degraded":bool(errors)',src);self.assertIn('"errors":errors',src);self.assertIn('errors["inventory"]',src);self.assertIn('errors["stacks"]',src)
+ def test_activity_clear_and_trim_keep_running(self):
+  app=self.app;saved_file,saved_ops=app.OPERATIONS_FILE,dict(app._operations)
+  try:
+   app.OPERATIONS_FILE=self.root/'operations-test.json'
+   app._operations.clear()
+   for i in range(8):app._operations[f'done{i}']={'id':f'done{i}','status':'success','started':100+i,'output':'x'}
+   app._operations['live']={'id':'live','status':'running','started':50,'output':''}
+   result=app.clear_operations(3)
+   self.assertEqual(result['removed'],5);self.assertEqual(result['kept'],3)
+   ids={o['id'] for o in result['operations']}
+   self.assertEqual(ids,{'live','done7','done6','done5'})
+   result=app.clear_operations(0)
+   self.assertEqual([o['id'] for o in result['operations']],['live'])
+   self.assertEqual(json.loads(app.OPERATIONS_FILE.read_text())[0]['id'],'live')
+  finally:
+   app.OPERATIONS_FILE=saved_file;app._operations.clear();app._operations.update(saved_ops)
+  src=(ROOT/'rogueforge.py').read_text();ops=(ROOT/'static/operations.js').read_text()
+  self.assertIn('ROGUEFORGE_OPERATIONS_KEEP',src);self.assertIn('if path=="/api/operations":',src)
+  self.assertIn('/api/operations?keep=',ops);self.assertIn('id="rfOperationsClear"',ops);self.assertNotIn('<details open="${',ops)
+
 
 if __name__=='__main__':unittest.main()

@@ -60,7 +60,9 @@ def invalidate_dashboard_cache():
         _dashboard_lock.notify_all()
 
 OPERATIONS_FILE=Path(os.environ.get("ROGUEFORGE_OPERATIONS_FILE",Path(__file__).with_name("data")/"operations.json")).resolve()
-_operation_lock=threading.Lock(); _operations={}; MAX_OPERATIONS=120
+_operation_lock=threading.Lock(); _operations={}
+# Finished operations kept in the Activity history (running ones are never removed).
+MAX_OPERATIONS=max(5,min(500,int(os.environ.get("ROGUEFORGE_OPERATIONS_KEEP","50"))))
 OPERATION_PERSIST_INTERVAL=1.0; OPERATION_PERSIST_OUTPUT=32000; _operation_last_persist=0.0
 # RogueForge owns lifecycle serialization internally. It deliberately does not depend on,
 # remove, or wait on external media-server lock files: those belong to host scripts and
@@ -85,7 +87,15 @@ def _load_operations():
         rows=json.loads(OPERATIONS_FILE.read_text(encoding="utf-8"));_operations={str(x["id"]):x for x in rows if isinstance(x,dict) and x.get("id")}
         for x in _operations.values():
             if x.get("status")=="running":x["status"]="interrupted";x["ended"]=time.time()
+        _prune_operations_locked(MAX_OPERATIONS)
     except Exception:_operations={}
+def _prune_operations_locked(keep):
+    """Drop finished operations beyond the newest `keep`; caller holds _operation_lock (or is loading)."""
+    finished=sorted((x for x in _operations.values() if x.get("status")!="running"),key=lambda x:x.get("started",0),reverse=True)
+    removed=0
+    for x in finished[max(0,int(keep)):]:
+        _operations.pop(str(x.get("id")),None);removed+=1
+    return removed
 def _save_operations(force=False):
     global _operation_last_persist
     now=time.monotonic()
@@ -235,8 +245,14 @@ def start_operation(scope,target,action):
     if scope!="stack" or action not in ("start","stop","restart","pull","recreate","update"):raise ValueError("unsupported operation")
     rec=resolve_stack(target);safe_stack(target);d=rec["directory"].resolve();cf=rec["compose"].resolve()
     oid=secrets.token_urlsafe(12);x={"id":oid,"scope":scope,"target":target,"action":action,"directory":str(d),"composePath":str(cf),"status":"running","started":time.time(),"ended":None,"output":"","cancelRequested":False,"timedOut":False,"timeoutSeconds":OPERATION_TIMEOUT,"stepIndex":0,"stepCount":0,"currentStep":None,"stepStarted":None,"failureReason":None}
-    with _operation_lock:_operations[oid]=x;_save_operations(force=True)
+    with _operation_lock:_operations[oid]=x;_prune_operations_locked(MAX_OPERATIONS);_save_operations(force=True)
     threading.Thread(target=_operation_worker,args=(oid,),daemon=True).start();return _op_public(x)
+def clear_operations(keep=0):
+    """Clear finished operations from the Activity history, keeping the newest `keep`."""
+    keep=max(0,min(MAX_OPERATIONS,int(keep)))
+    with _operation_lock:
+        removed=_prune_operations_locked(keep);_save_operations(force=True)
+    return {"removed":removed,"kept":keep,"operations":operation_list()}
 def cancel_operation(oid):
     with _operation_lock:
         x=_operations.get(oid)
@@ -1253,7 +1269,12 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:self.send_json({"error":str(e)},500)
     def do_DELETE(self):
         try:
-            path=urlparse(self.path).path
+            parsed=urlparse(self.path);path=parsed.path
+            if path=="/api/operations":
+                if not self.require_auth(csrf=True):return
+                raw=(parse_qs(parsed.query).get("keep") or ["0"])[0]
+                if not raw.isdigit():self.send_json({"error":"keep must be a whole number"},400);return
+                self.send_json(clear_operations(int(raw)));return
             m=re.fullmatch(r"/api/operations/([A-Za-z0-9_-]+)",path)
             if m:
                 if not self.require_auth(csrf=True):return
