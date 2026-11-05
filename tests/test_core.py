@@ -75,7 +75,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('display:grid!important',css);self.assertIn('text-align:center!important',css)
  def test_production_candidate_theme_preserves_branding(self):
   html=(ROOT/'static/index.html').read_text();app=(ROOT/'static/app.js').read_text();css=(ROOT/'static/styles.css').read_text()
-  self.assertIn('/branding/rogueforge-mark.svg',html);self.assertIn('rf-brand-crop',html);self.assertTrue((ROOT/'static/branding/rogueforge.svg').exists())
+  self.assertIn('/branding/rogueforge.svg',html);self.assertIn('rf-brand-crop',html);self.assertTrue((ROOT/'static/branding/rogueforge.svg').exists())
   self.assertIn('href="/theme.css"',html);self.assertLess(html.index('/branding/branding-switch.css'),html.index('/theme.css'))
   self.assertIn('prefers-color-scheme:light',css);self.assertNotIn('text-shadow:0',css)
   self.assertIn('rf-summary-icon',app);self.assertIn('rf-quick-icon',app);self.assertNotIn('rf-app-footer',html)

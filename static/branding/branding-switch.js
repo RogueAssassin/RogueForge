@@ -1,15 +1,13 @@
 (()=>{
-  // Settings > Branding & appearance. "mark" is the 2.4 clean monogram; "base", "dark" and "light"
-  // keep the original artwork available for anyone who prefers it.
-  const variants={mark:'/branding/rogueforge-mark.svg',base:'/branding/rogueforge.svg',dark:'/branding/rogueforge-dark.svg',light:'/branding/rogueforge-light.svg'};
-  const labels={mark:'Monogram',base:'Classic',dark:'Classic dark',light:'Classic light'};
+  // Settings > Appearance: theme (System/Dark/Light) plus the original RogueForge icon variants.
+  const variants={base:'/branding/rogueforge.svg',dark:'/branding/rogueforge-dark.svg',light:'/branding/rogueforge-light.svg'};
+  const labels={base:'Base',dark:'Dark',light:'Light'};
   const key='rogueforge-brand-variant',themeKey='rogueforge-theme',themes={system:'System',dark:'Dark',light:'Light'};
   const read=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
   const write=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
-  // Before 2.4 the default was stored as "base"; move those users onto the new default once.
-  function current(){let v=read(key);if(!v||(v==='base'&&!read(key+'-v24'))){v='mark';write(key+'-v24','1')}return variants[v]?v:'mark'}
+  function current(){const v=read(key);return variants[v]?v:'base'}
   function apply(name){
-    if(!variants[name])name='mark';write(key,name);document.documentElement.dataset.rfBrand=name;
+    if(!variants[name])name='base';write(key,name);document.documentElement.dataset.rfBrand=name;
     document.querySelectorAll('[data-rf-brand-image]').forEach(img=>img.src=variants[name]);
     document.querySelectorAll('.rf-brand-crop').forEach(el=>{el.style.backgroundImage=`url("${variants[name]}")`;el.style.backgroundSize='cover';el.style.backgroundPosition='center'});
     const icon=document.querySelector('link[rel="icon"]');if(icon)icon.href=variants[name];

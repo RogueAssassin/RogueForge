@@ -67,3 +67,6 @@ code{color:var(--text-2)}
 .rf-theme-options .active,.rf-brand-options .active{border-color:var(--accent);color:var(--text);box-shadow:inset 0 0 0 1px var(--accent)}
 
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+
+/* Operations count badge: only show it while something is running */
+.rf-operations-button span[hidden],.rf-operations-button span:empty{display:none}

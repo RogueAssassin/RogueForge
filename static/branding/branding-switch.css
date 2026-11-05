@@ -2,5 +2,5 @@
 .rf-brand-preview{width:112px;height:112px;border:1px solid var(--line);border-radius:20px;background:var(--surface-2);display:grid;place-items:center;padding:10px;margin-bottom:14px}
 .rf-brand-preview img{width:100%;height:100%;object-fit:contain;border-radius:14px}
 .rf-brand-options{display:flex;flex-wrap:wrap;gap:8px}
-.brand-mark.rf-brand-crop{background-image:url('/branding/rogueforge-mark.svg');background-size:cover!important;background-position:center!important;border-radius:10px}
-.rf-mini-mark{background-image:url('/branding/rogueforge-mark.svg')!important;background-size:cover!important;background-position:center!important}
+.brand-mark.rf-brand-crop{background-image:url('/branding/rogueforge.svg');background-size:cover!important;background-position:center!important;border-radius:10px}
+.rf-mini-mark{background-image:url('/branding/rogueforge.svg')!important;background-size:cover!important;background-position:center!important}
