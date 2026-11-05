@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.4.1
+
+Light theme readability update, aligned with RogueDashboard 2.4.1 and RogueMediaValidator 1.4.1.
+
+- Softer Light theme: the near-white surfaces are replaced by a cool blue-grey that matches the navy (page #cfd8e4, cards #e6ebf2, tiles #d9e0ea) with navy text, stronger borders and darker secondary text and status colours. All dashboard text now meets WCAG AA contrast in Light.
+- Theme menu heading is easier to read on the navy chrome.
+
 ## 2.4.0
 
 Clean visual refresh and dependency update, aligned with RogueDashboard 2.4.0 and RogueMediaValidator 1.4.0.

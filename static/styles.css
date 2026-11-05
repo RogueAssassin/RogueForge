@@ -12,17 +12,17 @@
 --purple:var(--accent);--purple-2:var(--accent-hover);--cyan:var(--info);--panel:var(--surface);
 --rf-bg:var(--bg);--rf-panel:var(--surface);--rf-panel2:var(--surface-2);--rf-line:var(--line);--rf-purple:var(--accent);--rf-cyan:var(--info);--rf-green:var(--green);--rf-red:var(--red);--rf-muted:var(--muted);--rf-text:var(--text)}
 @media (prefers-color-scheme:light){:root:not([data-theme]){color-scheme:light;
---bg:#faf9f5;--surface:#ffffff;--surface-2:#f5f4ef;--surface-3:#eceae2;--field:#ffffff;
---line:rgba(31,30,29,.12);--line-strong:rgba(31,30,29,.22);
---text:#1f1e1d;--text-2:#3d3c39;--muted:#5e5d59;--faint:#87867f;
---accent:#b5532f;--accent-hover:#9e4626;--accent-text:#a14a2a;--accent-ink:#ffffff;
---info:#2f63a3;--green:#2f7a4c;--amber:#8f5d0e;--red:#b23a30;--shadow:0 1px 2px rgba(31,30,29,.06),0 8px 24px -14px rgba(31,30,29,.18)}}
+--bg:#cfd8e4;--surface:#e6ebf2;--surface-2:#d9e0ea;--surface-3:#cbd4e0;--field:#eef2f7;
+--line:rgba(15,26,46,.17);--line-strong:rgba(15,26,46,.3);
+--text:#0f1a2e;--text-2:#24324a;--muted:#46536a;--faint:#535f72;
+--accent:#a94c2a;--accent-hover:#92401f;--accent-text:#974322;--accent-ink:#ffffff;
+--info:#275a9a;--green:#22693f;--amber:#7a5009;--red:#a3322a;--shadow:0 1px 2px rgba(15,26,46,.06),0 8px 24px -14px rgba(15,26,46,.18)}}
 :root[data-theme="light"]{color-scheme:light;
---bg:#faf9f5;--surface:#ffffff;--surface-2:#f5f4ef;--surface-3:#eceae2;--field:#ffffff;
---line:rgba(31,30,29,.12);--line-strong:rgba(31,30,29,.22);
---text:#1f1e1d;--text-2:#3d3c39;--muted:#5e5d59;--faint:#87867f;
---accent:#b5532f;--accent-hover:#9e4626;--accent-text:#a14a2a;--accent-ink:#ffffff;
---info:#2f63a3;--green:#2f7a4c;--amber:#8f5d0e;--red:#b23a30;--shadow:0 1px 2px rgba(31,30,29,.06),0 8px 24px -14px rgba(31,30,29,.18)}
+--bg:#cfd8e4;--surface:#e6ebf2;--surface-2:#d9e0ea;--surface-3:#cbd4e0;--field:#eef2f7;
+--line:rgba(15,26,46,.17);--line-strong:rgba(15,26,46,.3);
+--text:#0f1a2e;--text-2:#24324a;--muted:#46536a;--faint:#535f72;
+--accent:#a94c2a;--accent-hover:#92401f;--accent-text:#974322;--accent-ink:#ffffff;
+--info:#275a9a;--green:#22693f;--amber:#7a5009;--red:#a3322a;--shadow:0 1px 2px rgba(15,26,46,.06),0 8px 24px -14px rgba(15,26,46,.18)}
 /* Default: Rogue navy base (the starting theme) */
 :root[data-theme="default"]{color-scheme:dark;
 --bg:#13203a;--surface:#1a2a48;--surface-2:#213356;--surface-3:#283c63;--field:#101b31;
