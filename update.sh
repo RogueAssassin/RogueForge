@@ -26,8 +26,10 @@ cd "$INSTALL_DIR"
 
 # Only one update at a time.
 if command -v flock >/dev/null; then
+  # Containers started below must not inherit fd 9 (compose up runs with 9>&-), or podman's
+  # long-lived conmon process would keep holding this lock after the update finishes.
   exec 9>"$INSTALL_DIR/.update.lock"
-  flock -n 9 || { echo "Another RogueForge update is already running." >&2; exit 1; }
+  flock -n 9 || { echo "Another RogueForge update is already running." >&2; echo "If no update is running, remove $INSTALL_DIR/.update.lock and try again." >&2; exit 1; }
 fi
 
 REF=main; IMAGE_TAG=latest; CHANNEL=production
@@ -163,7 +165,7 @@ rollback(){
   # When the image itself changed, the restored tag may now resolve to the new image.
   [[ -n $ROLLBACK_REF ]] && set_env ROGUEFORGE_IMAGE "$ROLLBACK_REF"
   "$deploy_engine" rm -f rogueforge >/dev/null 2>&1 || true
-  if "${compose_cmd[@]}" up -d --remove-orphans && wait_for_health; then
+  if "${compose_cmd[@]}" up -d --remove-orphans 9>&- && wait_for_health; then
     echo "Rollback succeeded. Deployment backup remains at $BACKUP" >&2
     if [[ -n $ROLLBACK_REF ]]; then
       echo "ROGUEFORGE_IMAGE in .env now points at $ROLLBACK_REF (the version you were running)." >&2
@@ -182,7 +184,7 @@ if [[ -n "$EXPECTED_IMAGE" && -n "$RUNNING_IMAGE" && "$EXPECTED_IMAGE" != "$RUNN
   "$deploy_engine" rm -f rogueforge >/dev/null
 fi
 
-if ! "${compose_cmd[@]}" up -d --remove-orphans; then
+if ! "${compose_cmd[@]}" up -d --remove-orphans 9>&-; then
   rollback "Compose recreate failed." || true
   exit 5
 fi
