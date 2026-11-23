@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Built-in **Updates** page: shows which containers have a newer image, with an alert count in the sidebar and a **Check now** button. Versioned tags are compared with the registry tag list (major/minor/patch); moving tags such as `latest` are compared by digest. Works with Docker and rootless Podman.
+- Runs inside RogueForge with anonymous registry reads only: no extra container, no extra socket mount, nothing is pulled or changed. Background scan every 6 hours by default.
+- New endpoints `GET /api/updates` and `POST /api/updates/check` (administrator only). New settings `ROGUEFORGE_UPDATES`, `ROGUEFORGE_UPDATE_INTERVAL`, `ROGUEFORGE_UPDATE_TIMEOUT`, `ROGUEFORGE_UPDATE_CONCURRENCY`.
+
 ## 2.4.1
 
 Light theme readability update, aligned with RogueDashboard 2.4.1 and RogueMediaValidator 1.4.1.

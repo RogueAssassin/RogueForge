@@ -175,6 +175,21 @@ data/auth.json
 data/operations.json
 ```
 
+## Update checker
+
+The **Updates** page shows which containers have a newer image available. RogueForge checks each
+image against its registry in the background (every 6 hours by default, or on **Check now**):
+
+- versioned tags (`2.4.1`, `1.27-alpine`) are compared with the registry tag list and reported as
+  major, minor or patch updates, so a new RogueForge release appears here too;
+- moving tags (`latest`, `testing`) are compared by digest and reported as a new build.
+
+It uses anonymous HTTPS reads only and never pulls or changes anything; apply updates from Stacks or
+Runtime as usual. It works the same on Docker and rootless Podman because it needs only the engine
+access RogueForge already has. Private images are shown as "not checked". Tune or disable it with the
+`ROGUEFORGE_UPDATE*` settings in `.env.example`. See
+[docs/CONTAINER_DEPLOYMENT.md](docs/CONTAINER_DEPLOYMENT.md#update-checker).
+
 ## Security model
 
 RogueForge:

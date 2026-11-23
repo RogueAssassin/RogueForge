@@ -53,6 +53,11 @@ services:
       ROGUEFORGE_SESSION_TTL: ${ROGUEFORGE_SESSION_TTL:-43200}
       ROGUEFORGE_SELF_STACK: ${ROGUEFORGE_SELF_STACK:-rogueforge}
       ROGUEFORGE_PUBLIC_URL: ${ROGUEFORGE_PUBLIC_URL:-https://manage.roguegaming.com.au}
+      # Built-in update checker (Updates page). Outbound HTTPS to image registries only.
+      ROGUEFORGE_UPDATES: "${ROGUEFORGE_UPDATES:-true}"
+      ROGUEFORGE_UPDATE_INTERVAL: ${ROGUEFORGE_UPDATE_INTERVAL:-6}
+      ROGUEFORGE_UPDATE_TIMEOUT: ${ROGUEFORGE_UPDATE_TIMEOUT:-10}
+      ROGUEFORGE_UPDATE_CONCURRENCY: ${ROGUEFORGE_UPDATE_CONCURRENCY:-4}
       CONTAINER_HOST: ${ROGUEFORGE_CONTAINER_HOST:-unix:///run/podman/podman.sock}
       DOCKER_HOST: ${ROGUEFORGE_CONTAINER_HOST:-unix:///run/podman/podman.sock}
     volumes:
@@ -71,6 +76,7 @@ services:
         max-file: "3"
     networks:
       - media-net
+
 networks:
   media-net:
     external: true

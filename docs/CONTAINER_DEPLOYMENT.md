@@ -118,6 +118,18 @@ container; `rogueforge:7810` stays reachable on the shared network.
 tag leaves the installation untouched. If the recreated container fails verification or its
 health check, the previous `compose.yaml`, `.env` and image are restored automatically.
 
+## Update checker
+
+RogueForge checks image freshness itself; there is no extra container or socket mount.
+
+- **Versioned tags** (`2.4.1`, `v1.2`, `1.27-alpine`): the registry tag list is searched for a higher version with the same prefix, suffix (variant) and number of version parts. Release candidates are not suggested for stable tags.
+- **Moving tags** (`latest`, `testing`): the registry manifest digest is compared with the image's local `RepoDigests`. Images with no recorded digest are reported as not comparable.
+- **Not checked:** digest-pinned references, `localhost/` images (typical of local Podman builds) and registries that require a login.
+- **Traffic:** anonymous HTTPS only (token fetch, manifest `HEAD`, tag list). Redirects are never followed, so tokens cannot leak.
+- **Schedule:** a background scan 45 s after start and then every `ROGUEFORGE_UPDATE_INTERVAL` hours; viewing the page never triggers registry calls. `ROGUEFORGE_UPDATE_INTERVAL=0` leaves only **Check now**; `ROGUEFORGE_UPDATES=false` disables everything.
+- **Egress:** the container needs outbound HTTPS to the registries your images use (for example `registry-1.docker.io`, `ghcr.io`). Behind a restrictive firewall the page shows per-image errors.
+- **API:** `GET /api/updates` returns the cached result and `POST /api/updates/check` starts a scan; both are administrator only.
+
 ## Manual diagnostics
 
 ```bash
