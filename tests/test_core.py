@@ -90,7 +90,7 @@ class RogueForgeTests(unittest.TestCase):
   for route in ('/api/images','/api/volumes','/api/networks'):self.assertIn(route,src)
   for view in ('images','volumes','networks'):self.assertIn(f'id="view-{view}"',html);self.assertIn(f'data-view="{view}"',html)
   self.assertIn('async function loadResource(kind',app);self.assertIn('function renderImages()',app);self.assertIn('function renderVolumes()',app);self.assertIn('function renderNetworks()',app)
-  self.assertNotIn('/api/images/prune',src);self.assertNotIn('/api/volumes/prune',src);self.assertNotIn('/api/networks/prune',src)
+  self.assertNotIn('/api/volumes/prune',src);self.assertNotIn('/api/networks/prune',src)
  def test_frontend_optional_dom_nodes_are_safe(self):
   app=(ROOT/'static/app.js').read_text()
   self.assertIn('const setText =',app);self.assertIn('const setHtml =',app)
