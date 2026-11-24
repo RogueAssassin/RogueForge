@@ -14,3 +14,18 @@
 @media(max-width:720px){.rf-upd-row{grid-template-columns:1fr}}
 .rf-upd-badge.skip{color:var(--muted);background:color-mix(in srgb,var(--muted) 14%,transparent)}
 .rf-upd-ver small{margin-top:3px;color:var(--muted);font-size:.7rem;white-space:normal}
+.rf-upd-tools{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.rf-upd-tools[hidden]{display:none}
+.rf-upd-chips{display:flex;flex-wrap:wrap;gap:6px}
+.rf-upd-chip{padding:5px 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--muted);font-size:.74rem;font-weight:600;cursor:pointer}
+.rf-upd-chip b{margin-left:3px;color:var(--text)}
+.rf-upd-chip:hover{border-color:var(--line-strong)}
+.rf-upd-chip.active{border-color:var(--accent);color:var(--text);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+#updatesSearch{min-width:220px;padding:7px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font:inherit;font-size:.8rem}
+.rf-upd-summary.has-update{border-color:color-mix(in srgb,var(--amber) 45%,var(--border))}
+.rf-upd-fail{color:var(--red,#d9534f);font-size:.78rem;font-weight:600}
+.rf-upd-row.has-update{border-left:3px solid var(--amber)}
+.rf-upd-side{display:flex;align-items:center;gap:10px;justify-content:flex-end}
+.rf-upd-side .small-button{white-space:nowrap}
+.rf-upd-side .rf-upd-hint{margin:0;font-size:.68rem;max-width:200px;white-space:normal;text-align:right}
+.rf-upd-row{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto}

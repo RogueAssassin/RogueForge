@@ -134,6 +134,16 @@ RogueForge checks image freshness itself; there is no extra container or socket 
 - **Troubleshooting:** if every row shows "Check failed", test outbound HTTPS from the host (for example `curl -I https://registry-1.docker.io/v2/`, which should answer `401`). If moving-tag images show "Not checked", the engine has not recorded a registry digest for them; pulling the image again records one.
 - **API:** `GET /api/updates` returns the cached result and `POST /api/updates/check` starts a scan; both are administrator only.
 
+## Cleaning up images and volumes
+
+The **Images** and **Volumes** pages can remove items that no container (running or stopped) uses. For each request RogueForge re-reads the engine inventory, skips anything in use, and runs `rmi` / `volume rm` without `--force`, so the engine refuses anything still referenced.
+
+- `POST /api/images/remove` with `{"id": "<image id>", "tag": "<tag>"}` removes one unused image.
+- `POST /api/images/prune` with `{"mode": "dangling"}` (untagged leftovers) or `{"mode": "unused"}` removes every unused image, up to 200 per call.
+- `POST /api/volumes/remove` with `{"names": ["volume"]}` removes the listed volumes if no container mounts them, up to 200 per call.
+
+All three are administrator only and need the CSRF token. Volume removal is permanent: a stack that was taken down (`compose down`) leaves its volumes unmounted, so they look unused even though they hold data. The page asks for a typed confirmation for that reason. Each response lists what was `removed`, `failed` (with the engine's message) and `skipped` (with the reason).
+
 ## Manual diagnostics
 
 ```bash

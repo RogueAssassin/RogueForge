@@ -119,6 +119,10 @@ Open **Updates** in the sidebar to see which containers have a newer image. The 
 
 The checker needs outbound HTTPS to the registries your images come from. Its optional settings (`ROGUEFORGE_UPDATES`, `ROGUEFORGE_UPDATE_INTERVAL`, `ROGUEFORGE_UPDATE_TIMEOUT`, `ROGUEFORGE_UPDATE_CONCURRENCY`) are documented in `.env.example`; installs that predate them need no `.env` change. See [Container deployment](CONTAINER_DEPLOYMENT.md#update-checker).
 
+## Cleaning up
+
+Use **Images** and **Volumes** in the sidebar to remove items that no container uses (**Remove**, **Remove dangling**, **Remove unused…**). Removing images is safe because they can be pulled again; deleting a volume is permanent, so it asks you to type a confirmation. See [Container deployment](CONTAINER_DEPLOYMENT.md#cleaning-up-images-and-volumes).
+
 ## Verification
 
 ```bash

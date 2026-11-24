@@ -33,6 +33,10 @@ The overview, stack summary, and container inventory remain read-only without au
 
 The Updates page is administrator only; `GET /api/updates` needs a session and `POST /api/updates/check` also needs the CSRF token. The checker makes anonymous HTTPS requests to image registries (token, manifest `HEAD` and tag list). It sends no credentials or host information, never follows redirects, only accepts HTTPS token endpoints, and never pulls, changes or restarts anything. Set `ROGUEFORGE_UPDATES=false` to disable it, which also removes all outbound registry traffic.
 
+## Cleanup of images and volumes
+
+`POST /api/images/remove`, `POST /api/images/prune` and `POST /api/volumes/remove` need an administrator session and the CSRF token. The server validates every identifier, re-checks usage against the live inventory and never passes `--force` to the engine. Volume deletion is permanent, so the interface requires a typed confirmation.
+
 ## Reverse proxy requirements
 
 - Use HTTPS.
