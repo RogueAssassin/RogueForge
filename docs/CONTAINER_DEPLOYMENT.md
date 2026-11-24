@@ -122,12 +122,16 @@ health check, the previous `compose.yaml`, `.env` and image are restored automat
 
 RogueForge checks image freshness itself; there is no extra container or socket mount.
 
+![Updates page](assets/updates.png)
+
 - **Versioned tags** (`2.4.1`, `v1.2`, `1.27-alpine`): the registry tag list is searched for a higher version with the same prefix, suffix (variant) and number of version parts. Release candidates are not suggested for stable tags.
 - **Moving tags** (`latest`, `testing`): the registry manifest digest is compared with the image's local `RepoDigests`. Images with no recorded digest are reported as not comparable.
 - **Not checked:** digest-pinned references, `localhost/` images (typical of local Podman builds) and registries that require a login.
 - **Traffic:** anonymous HTTPS only (token fetch, manifest `HEAD`, tag list). Redirects are never followed, so tokens cannot leak.
 - **Schedule:** a background scan 45 s after start and then every `ROGUEFORGE_UPDATE_INTERVAL` hours; viewing the page never triggers registry calls. `ROGUEFORGE_UPDATE_INTERVAL=0` leaves only **Check now**; `ROGUEFORGE_UPDATES=false` disables everything.
 - **Egress:** the container needs outbound HTTPS to the registries your images use (for example `registry-1.docker.io`, `ghcr.io`). Behind a restrictive firewall the page shows per-image errors.
+- **Settings:** `ROGUEFORGE_UPDATES` (default `true`), `ROGUEFORGE_UPDATE_INTERVAL` (hours, default `6`, maximum `168`), `ROGUEFORGE_UPDATE_TIMEOUT` (seconds per registry request, default `10`) and `ROGUEFORGE_UPDATE_CONCURRENCY` (parallel checks, default `4`).
+- **Troubleshooting:** if every row shows "Check failed", test outbound HTTPS from the host (for example `curl -I https://registry-1.docker.io/v2/`, which should answer `401`). If moving-tag images show "Not checked", the engine has not recorded a registry digest for them; pulling the image again records one.
 - **API:** `GET /api/updates` returns the cached result and `POST /api/updates/check` starts a scan; both are administrator only.
 
 ## Manual diagnostics

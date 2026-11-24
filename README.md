@@ -6,7 +6,7 @@
 
 **Local-first Docker and Podman stack management, verified updates and live troubleshooting.**
 
-[![Release](https://img.shields.io/badge/RELEASE-2.4.1%20STABLE-d97757?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/main)
+[![Release](https://img.shields.io/badge/RELEASE-2.4.2%20STABLE-d97757?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/main)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueForge/container.yml?branch=main&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/actions/workflows/container.yml?query=branch%3Amain)
 ![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
 ![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
@@ -26,11 +26,21 @@ RogueForge deliberately stays separate from **RogueDashboard**, which owns monit
 - on-demand live logs with search, severity filtering, pause/resume and download
 - authenticated per-container terminal access
 - Images, Volumes and Networks inventory
+- built-in **Updates** page that shows which containers have a newer image available
 - transactional Compose and `.env` editing with validation and backup
 - Docker and rootless Podman support
 - short-lived inventory/dashboard caches and bounded engine concurrency
 - canonical deployment under `/opt/media-server/rogueforge`
 - no permanent log indexer and no high-frequency background engine polling
+
+## What's new in 2.4.2
+
+- new **Updates** page: see which of your containers have a newer image in their registry, without leaving RogueForge
+- versioned tags are reported as major, minor or patch updates; moving tags such as `latest` and `testing` are compared by digest
+- an alert count in the sidebar, a background check every 6 hours and a **Check now** button
+- built in: no extra container, no extra socket mount, anonymous reads only, and it never pulls or changes anything
+- the same on Docker and rootless Podman
+- four optional settings (`ROGUEFORGE_UPDATES`, `ROGUEFORGE_UPDATE_INTERVAL`, `ROGUEFORGE_UPDATE_TIMEOUT`, `ROGUEFORGE_UPDATE_CONCURRENCY`); existing `.env` files keep working without them
 
 ## What's new in 2.4
 
@@ -43,6 +53,18 @@ RogueForge 2.4 builds on the 2.x stable operations platform (API v2, unchanged p
 - bundled podman-compose 1.6.0 and Docker CLI 29.9.3
 
 See the [changelog](CHANGELOG.md) for the full list.
+
+## Screenshots
+
+The screenshots use sample data.
+
+**Overview**
+
+![RogueForge overview with stacks, status tiles and quick actions](docs/assets/overview.png)
+
+**Updates**
+
+![RogueForge Updates page listing containers with minor and new-build updates, a failed check and a local image](docs/assets/updates.png)
 
 ## Rogue ecosystem
 
@@ -135,7 +157,7 @@ cd /opt/media-server/rogueforge
 Pinned version:
 
 ```bash
-./update.sh 2.4.1
+./update.sh 2.4.2
 ```
 
 Testing channel:
@@ -177,6 +199,8 @@ data/operations.json
 
 ## Update checker
 
+![Updates page](docs/assets/updates.png)
+
 The **Updates** page shows which containers have a newer image available. RogueForge checks each
 image against its registry in the background (every 6 hours by default, or on **Check now**):
 
@@ -187,7 +211,17 @@ image against its registry in the background (every 6 hours by default, or on **
 It uses anonymous HTTPS reads only and never pulls or changes anything; apply updates from Stacks or
 Runtime as usual. It works the same on Docker and rootless Podman because it needs only the engine
 access RogueForge already has. Private images are shown as "not checked". Tune or disable it with the
-`ROGUEFORGE_UPDATE*` settings in `.env.example`. See
+`ROGUEFORGE_UPDATE*` settings in `.env.example`.
+
+| Badge | Meaning |
+| --- | --- |
+| Up to date | The registry has nothing newer than what the container runs. |
+| Major / Minor / Patch | A newer version tag exists (for example `2.4.1` → `2.5.0`). |
+| New build | A moving tag such as `latest` now points at a newer image. |
+| Check failed | The registry could not be reached or answered with an error; hover for the reason. |
+| Not checked | Local images (`localhost/…`), digest-pinned references and registries that need a login. |
+
+The container needs outbound HTTPS to the registries your images use (for example `docker.io` and `ghcr.io`). The sidebar count shows how many containers have an update. See
 [docs/CONTAINER_DEPLOYMENT.md](docs/CONTAINER_DEPLOYMENT.md#update-checker).
 
 ## Security model
@@ -219,7 +253,7 @@ Production:
 
 ```text
 ghcr.io/rogueassassin/rogueforge:latest
-ghcr.io/rogueassassin/rogueforge:2.4.1
+ghcr.io/rogueassassin/rogueforge:2.4.2
 ```
 
 Testing:

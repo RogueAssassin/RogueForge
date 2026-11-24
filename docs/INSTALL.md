@@ -113,6 +113,12 @@ Testing:
 
 The updater backs up deployment files under `/tmp/rogueforge/update-backups/`, pulls the requested image, recreates RogueForge when the immutable image ID changed, verifies the new running image ID, and then verifies `/health`. It does not overwrite `.env` or `data/auth.json`. Environment additions are appended only when a release introduces actual new settings; version-only releases do not modify `.env`.
 
+## Checking for updates
+
+Open **Updates** in the sidebar to see which containers have a newer image. The first background check runs about 45 seconds after RogueForge starts and then every 6 hours; **Check now** starts one immediately. The page only reports; apply updates from **Stacks** or **Runtime**, or run `./update.sh` for RogueForge itself.
+
+The checker needs outbound HTTPS to the registries your images come from. Its optional settings (`ROGUEFORGE_UPDATES`, `ROGUEFORGE_UPDATE_INTERVAL`, `ROGUEFORGE_UPDATE_TIMEOUT`, `ROGUEFORGE_UPDATE_CONCURRENCY`) are documented in `.env.example`; installs that predate them need no `.env` change. See [Container deployment](CONTAINER_DEPLOYMENT.md#update-checker).
+
 ## Verification
 
 ```bash
