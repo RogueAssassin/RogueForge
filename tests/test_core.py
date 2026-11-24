@@ -171,7 +171,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('id="liveLogLevel"',html);self.assertIn('option value="error"',html);self.assertIn('option value="warn"',html)
   self.assertIn("const level=$('#liveLogLevel')?.value||'all'",live);self.assertIn('rfLive.reconnects++',live);self.assertIn('reconnect',live)
   self.assertIn('stepElapsed=',ops);self.assertIn('current step',ops)
-  self.assertRegex(readme,r'RELEASE-2.4.1%20(?:TESTING|STABLE)');self.assertIn('## Rogue ecosystem',readme)
+  self.assertRegex(readme,r'RELEASE-2.4.2%20(?:TESTING|STABLE)');self.assertIn('## Rogue ecosystem',readme)
   self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.0.0 (testing)',change)
  def test_v150_update_preview_and_env_revision_policy(self):
   src=(ROOT/'rogueforge.py').read_text();app=(ROOT/'static/app.js').read_text();env=(ROOT/'.env.example').read_text();update=(ROOT/'update.sh').read_text();road=(ROOT/'MILESTONES.md').read_text()
@@ -197,7 +197,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertNotIn('append_env_revision',update)
   self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.1.0 — Post-2.0 development',road)
   self.assertIn('## 2.0.0 (testing)',change);self.assertIn('final 1.x cleanup baseline',change)
-  self.assertRegex(readme,r'RELEASE-2.4.1%20(?:TESTING|STABLE)');self.assertIn('stable operations platform',readme)
+  self.assertRegex(readme,r'RELEASE-2.4.2%20(?:TESTING|STABLE)');self.assertIn('stable operations platform',readme)
  def test_v200_api_and_state_contract(self):
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text();env=(ROOT/'.env.example').read_text();readme=(ROOT/'README.md').read_text()
   self.assertIn('API_VERSION="2"; STATE_SCHEMA_VERSION=1',src)
@@ -207,7 +207,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.1.0 — Post-2.0 development',road)
   self.assertNotIn('ROGUEFORGE_ENV_REV=',env);self.assertIn('stable operations platform',readme)
  def test_current_release_baseline(self):
-  self.assertEqual((ROOT/'VERSION').read_text().strip(),'2.4.1')
+  self.assertEqual((ROOT/'VERSION').read_text().strip(),'2.4.2')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def _load_containers_uncached()',src);self.assertIn('/api/dashboard',src)
   self.assertIn('## 2.0.0 — Stable operations platform',road)
@@ -268,6 +268,39 @@ class RogueForgeTests(unittest.TestCase):
   src=(ROOT/'rogueforge.py').read_text();ops=(ROOT/'static/operations.js').read_text()
   self.assertIn('ROGUEFORGE_OPERATIONS_KEEP',src);self.assertIn('if path=="/api/operations":',src)
   self.assertIn('/api/operations?keep=',ops);self.assertIn('id="rfOperationsClear"',ops);self.assertNotIn('<details open="${',ops)
+ def test_image_ref_parsing(self):
+  p=self.app.parse_image_ref
+  self.assertEqual(p("nginx:1.27"),("docker.io","library/nginx","1.27"));self.assertEqual(p("nginx"),("docker.io","library/nginx","latest"))
+  self.assertEqual(p("linuxserver/radarr:latest"),("docker.io","linuxserver/radarr","latest"));self.assertEqual(p("docker.io/library/redis:7"),("docker.io","library/redis","7"))
+  self.assertEqual(p("ghcr.io/rogueassassin/rogueforge:2.4.1"),("ghcr.io","rogueassassin/rogueforge","2.4.1"));self.assertEqual(p("reg.local:5000/a/b:1"),("reg.local:5000","a/b","1"))
+  for bad in ("","localhost/app:1","nginx@sha256:"+"a"*64,"sha256:"+"a"*64,"UPPER/Case:1","ghcr.io/x/y:bad tag"):self.assertIsNone(p(bad),bad)
+ def test_newest_version_tag(self):
+  n=self.app.newest_version_tag
+  self.assertEqual(n("2.4.1",["2.4.1","2.4.2","2.5.0","3.0.0","latest","2.4.3-rc1","2.4"]),("3.0.0","major"))
+  self.assertEqual(n("2.4.1",["2.4.2","2.4.10","2.4.9"]),("2.4.10","patch"));self.assertEqual(n("2.4.1",["2.5.0","2.4.1"]),("2.5.0","minor"))
+  self.assertEqual(n("1.27-alpine",["1.27","1.28","1.28-alpine","1.29-perl"]),("1.28-alpine","minor"));self.assertEqual(n("v1.2.0",["1.3.0","v1.2.1"]),("v1.2.1","patch"))
+  self.assertEqual(n("2.4.1",["2.4.1","2.4.0"]),("",""));self.assertEqual(n("latest",["2.0"]),("",""))
+ def test_check_image_tag_digest_and_errors(self):
+  a=self.app;saved=(a._remote_tags,a._remote_digest,a._local_digests)
+  try:
+   a._remote_tags=lambda reg,repo:["2.4.1","2.4.2"];r=a.check_image("ghcr.io/x/y:2.4.1");self.assertTrue(r["updateAvailable"]);self.assertEqual((r["kind"],r["latestTag"],r["semverDiff"]),("tag","2.4.2","patch"))
+   a._remote_digest=lambda *x:"sha256:new";a._local_digests=lambda ref:{"sha256:old"};r=a.check_image("ghcr.io/x/y:latest");self.assertEqual((r["updateAvailable"],r["kind"]),(True,"digest"))
+   a._local_digests=lambda ref:{"sha256:new"};self.assertFalse(a.check_image("ghcr.io/x/y:latest")["updateAvailable"])
+   a._local_digests=lambda ref:set();r=a.check_image("ghcr.io/x/y:latest");self.assertFalse(r["updateAvailable"]);self.assertTrue(r["note"])
+   def boom(*x):raise RuntimeError("Registry returned HTTP 500")
+   a._remote_digest=boom;self.assertIn("500",a.check_image("ghcr.io/x/y:latest")["error"]);self.assertTrue(a.check_image("localhost/app:1")["note"])
+  finally:a._remote_tags,a._remote_digest,a._local_digests=saved
+ def test_updates_scan_and_snapshot(self):
+  a=self.app;saved=(a.containers,a.check_image)
+  try:
+   a.containers=lambda:[{"name":"db","image":"postgres:16","project":"standalone","service":None,"state":"running","selfProtected":False},{"name":"app","image":"ghcr.io/x/y:1.0.0","project":"media","service":"app","state":"running","selfProtected":False}]
+   a.check_image=lambda ref:{"image":ref,"updateAvailable":ref.startswith("ghcr"),"error":"","note":""}
+   d=a._updates_scan();self.assertEqual((d["total"],d["updates"],d["items"][0]["name"],d["items"][1]["stack"]),(2,1,"app",""))
+   a._updates["data"]=d;s=a.updates_snapshot();self.assertEqual(s["updates"],1);self.assertFalse(s["checking"])
+  finally:a.containers,a.check_image=saved;a._updates["data"]=None
+ def test_update_checker_is_builtin_not_a_sidecar(self):
+  c=(ROOT/'compose.yaml').read_text();self.assertNotIn('wud',c.lower());self.assertIn('ROGUEFORGE_UPDATES',c)
+  src=(ROOT/'rogueforge.py').read_text();self.assertIn('if path=="/api/updates":',src);self.assertIn('if path=="/api/updates/check":',src)
 
 
 if __name__=='__main__':unittest.main()

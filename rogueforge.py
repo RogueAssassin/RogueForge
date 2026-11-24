@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""RogueForge 2.4.1 — single-file Docker/Podman Compose operations runtime."""
+"""RogueForge 2.4.2 — single-file Docker/Podman Compose operations runtime."""
 from __future__ import annotations
 
-import base64, hashlib, hmac, json, mimetypes, os, re, secrets, socket, subprocess, sys, threading, time
+import base64, hashlib, hmac, json, mimetypes, os, re, secrets, socket, subprocess, sys, threading, time, urllib.error, urllib.request
 from http.client import HTTPConnection
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
-VERSION="2.4.1"
+VERSION="2.4.2"
 API_VERSION="2"; STATE_SCHEMA_VERSION=1
 PORT=int(os.environ.get("ROGUEFORGE_PORT","7810")); BIND=os.environ.get("ROGUEFORGE_BIND","127.0.0.1")
 MEDIA_ROOT=Path(os.environ.get("ROGUEFORGE_MEDIA_ROOT","/opt/media-server")).resolve()
@@ -1093,6 +1094,159 @@ def _dashboard_warmer():
 
 def diagnostics():
     rt=runtime();age=max(0,time.monotonic()-float(_dashboard_cache.get("time") or 0));return {"timings":timing_snapshot(),"dashboardCache":{"ageMs":round(age*1000,1),"hasSnapshot":_dashboard_cache.get("snapshot") is not None,"refreshing":bool(_dashboard_cache.get("refreshing"))},"limits":{"engineDetailConcurrency":ENGINE_DETAIL_CONCURRENCY,"maxTerminals":MAX_TERMINAL_SESSIONS,"terminalIdleSeconds":TERMINAL_TTL,"terminalMaxLifetimeSeconds":TERMINAL_MAX_LIFETIME,"maxLogStreams":MAX_LOG_STREAMS,"logTail":LOG_TAIL_DEFAULT,"lifecycleVerifySeconds":LIFECYCLE_VERIFY_TIMEOUT,"lifecycleVerifyInterval":LIFECYCLE_VERIFY_INTERVAL,"lifecycleStableSamples":LIFECYCLE_STABLE_SAMPLES},"auth":auth_diagnostics(),"runtime":{"engine":rt["engine"],"socket":rt["socket"],"socketExists":Path(rt["socket"]).exists(),"context":rt.get("context")},"paths":{"mediaRoot":str(MEDIA_ROOT),"composeRoot":str(COMPOSE_ROOT),"envRoot":str(ENV_ROOT)},"stacks":{"path":str(COMPOSE_ROOT),"exists":COMPOSE_ROOT.is_dir(),"readable":os.access(COMPOSE_ROOT,os.R_OK),"selfStack":SELF_STACK},"discovery":discovery_diagnostics()}
+# --- Built-in update checker --------------------------------------------------------------------
+# Compares each container's image with its registry: a newer version tag for versioned images
+# (1.2.3 -> 1.2.4) and a changed digest for moving tags (latest, testing). It only makes anonymous
+# registry reads (manifest HEAD and tag list) and the local image inspect; nothing is pulled,
+# recreated or changed. Results are cached and refreshed in the background, never per page view.
+UPDATES_ENABLED=os.environ.get("ROGUEFORGE_UPDATES","true").strip().lower() not in ("0","false","no","off")
+UPDATE_INTERVAL=max(0.0,min(168.0,float(os.environ.get("ROGUEFORGE_UPDATE_INTERVAL","6"))))*3600
+UPDATE_TIMEOUT=max(3,min(60,int(os.environ.get("ROGUEFORGE_UPDATE_TIMEOUT","10"))))
+UPDATE_CONCURRENCY=max(1,min(8,int(os.environ.get("ROGUEFORGE_UPDATE_CONCURRENCY","4"))))
+UPDATE_MAX_TAG_PAGES=5
+_updates={"data":None,"running":False,"error":None}; _updates_lock=threading.Lock(); _registry_tokens={}
+_MANIFEST_ACCEPT=", ".join(("application/vnd.oci.image.index.v1+json","application/vnd.oci.image.manifest.v1+json","application/vnd.docker.distribution.manifest.list.v2+json","application/vnd.docker.distribution.manifest.v2+json"))
+# prefix ("v" or ""), dotted numbers, optional variant suffix such as -alpine or -rc1.
+_VERSION_TAG=re.compile(r"^(v?)(\d+(?:\.\d+){0,3})((?:[-_.][A-Za-z][A-Za-z0-9._-]*)?)$")
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self,*a,**k):return None
+def parse_image_ref(ref):
+    """Return (registry, repository, tag), or None for images that cannot be checked."""
+    ref=str(ref or "").strip()
+    if not ref or ref.startswith("sha256:") or "@" in ref:return None
+    first,_,rest=ref.partition("/")
+    if rest and ("." in first or ":" in first or first=="localhost"):registry,path=first,rest
+    else:registry,path="docker.io",ref
+    if registry in ("index.docker.io","registry-1.docker.io"):registry="docker.io"
+    if registry=="localhost" or registry.startswith("localhost:"):return None
+    tag="latest"
+    if ":" in path.rsplit("/",1)[-1]:path,tag=path.rsplit(":",1)
+    if registry=="docker.io" and "/" not in path:path="library/"+path
+    part=r"[a-z0-9]+(?:[._-][a-z0-9]+)*"
+    if not re.fullmatch(part+"(?:/"+part+")*",path) or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}",tag):return None
+    if not re.fullmatch(r"[A-Za-z0-9.-]+(?::\d+)?",registry):return None
+    return registry,path,tag
+def _parse_version_tag(tag):
+    m=_VERSION_TAG.match(str(tag))
+    return (m.group(1),tuple(int(x) for x in m.group(2).split(".")),m.group(3)) if m else None
+def newest_version_tag(current,tags):
+    """Newest tag with the same prefix, suffix and number of version parts as `current`.
+    Returns (tag, "major"|"minor"|"patch") or ("", "")."""
+    cur=_parse_version_tag(current)
+    if not cur:return "",""
+    best=None
+    for t in tags:
+        p=_parse_version_tag(t)
+        if p and p[0]==cur[0] and p[2]==cur[2] and len(p[1])==len(cur[1]) and p[1]>cur[1] and (best is None or p[1]>best[1][1]):best=(t,p)
+    if not best:return "",""
+    idx=next(i for i,(x,y) in enumerate(zip(cur[1],best[1][1])) if x!=y)
+    return best[0],("major" if idx==0 else "minor" if idx==1 else "patch")
+def _registry_http(method,url,headers):
+    # No redirects (a token must never follow one) and a bounded body.
+    req=urllib.request.Request(url,method=method,headers=headers)
+    try:
+        with urllib.request.build_opener(_NoRedirect).open(req,timeout=UPDATE_TIMEOUT) as r:return r.status,r.headers,r.read(5_000_000)
+    except urllib.error.HTTPError as e:
+        try:body=e.read(1_000_000)
+        except Exception:body=b""
+        return e.code,e.headers,body
+def _registry_token(challenge,repo):
+    m=re.match(r"\s*Bearer\s+(.*)",challenge or "",re.I)
+    if not m:return None
+    p=dict(re.findall(r'(\w+)="([^"]*)"',m.group(1))); realm=p.get("realm","")
+    if urlparse(realm).scheme!="https":return None
+    q={"scope":p.get("scope") or f"repository:{repo}:pull"}
+    if p.get("service"):q["service"]=p["service"]
+    status,_,body=_registry_http("GET",realm+("&" if "?" in realm else "?")+urlencode(q),{"Accept":"application/json","User-Agent":"RogueForge/"+VERSION})
+    if status!=200:return None
+    d=json.loads(body or b"{}");return d.get("token") or d.get("access_token")
+def _registry_get(registry,repo,method,path,accept="application/json"):
+    base="https://registry-1.docker.io" if registry=="docker.io" else "https://"+registry
+    key=(registry,repo);cached=_registry_tokens.get(key);token=cached[0] if cached and cached[1]>time.monotonic() else None
+    for attempt in (0,1):
+        headers={"Accept":accept,"User-Agent":"RogueForge/"+VERSION}
+        if token:headers["Authorization"]="Bearer "+token
+        status,rh,body=_registry_http(method,base+path,headers)
+        if status!=401 or attempt:return status,rh,body
+        token=_registry_token(rh.get("www-authenticate",""),repo)
+        if not token:return status,rh,body
+        _registry_tokens[key]=(token,time.monotonic()+240)
+    return status,rh,body
+def _registry_error(status):
+    if status in (401,403):return "Registry requires authentication (private image); not checked"
+    if status==404:return "Image or tag not found in the registry"
+    if status==429:return "Registry rate limit reached; try again later"
+    return f"Registry returned HTTP {status}"
+def _remote_digest(registry,repo,tag):
+    path=f"/v2/{repo}/manifests/{tag}"
+    status,rh,_=_registry_get(registry,repo,"HEAD",path,_MANIFEST_ACCEPT);d=rh.get("docker-content-digest","") if status==200 else ""
+    if d.startswith("sha256:"):return d
+    status,rh,body=_registry_get(registry,repo,"GET",path,_MANIFEST_ACCEPT)
+    if status!=200:raise RuntimeError(_registry_error(status))
+    return rh.get("docker-content-digest") or "sha256:"+hashlib.sha256(body).hexdigest()
+def _remote_tags(registry,repo):
+    tags=[];path=f"/v2/{repo}/tags/list?n=1000"
+    for _ in range(UPDATE_MAX_TAG_PAGES):
+        status,rh,body=_registry_get(registry,repo,"GET",path)
+        if status!=200:raise RuntimeError(_registry_error(status))
+        tags+=[t for t in (json.loads(body or b"{}").get("tags") or []) if isinstance(t,str)]
+        m=re.search(r'<([^>]+)>\s*;\s*rel="?next"?',rh.get("link","") or "")
+        if not m or not m.group(1).startswith("/v2/"):break
+        path=m.group(1)
+    return tags
+def _local_digests(ref):
+    try:raw=json.loads(engine_cli(["image","inspect",ref],60) or "[]")
+    except Exception:return set()
+    x=raw[0] if isinstance(raw,list) and raw else raw
+    if not isinstance(x,dict):return set()
+    out={str(d).partition("@")[2] for d in (x.get("RepoDigests") or []) if "@" in str(d)}
+    if str(x.get("Digest") or "").startswith("sha256:"):out.add(str(x["Digest"]))
+    return out
+def check_image(ref):
+    r={"image":ref,"registry":"","repository":"","currentTag":"","latestTag":"","kind":"","semverDiff":"","updateAvailable":False,"error":"","note":""}
+    parsed=parse_image_ref(ref)
+    if not parsed:r["note"]="Local or digest-pinned image; not checked";return r
+    registry,repo,tag=parsed;r.update(registry=registry,repository=repo,currentTag=tag)
+    try:
+        if _parse_version_tag(tag):
+            latest,diff=newest_version_tag(tag,_remote_tags(registry,repo))
+            if latest:r.update(updateAvailable=True,kind="tag",latestTag=latest,semverDiff=diff)
+        else:
+            local=_local_digests(ref);remote=_remote_digest(registry,repo,tag);r["latestTag"]=tag
+            if not local:r["note"]="No registry digest recorded for this image; cannot compare"
+            elif remote not in local:r.update(updateAvailable=True,kind="digest")
+    except Exception as e:r["error"]=(str(e) or e.__class__.__name__)[:300]
+    return r
+def _updates_scan():
+    rows=containers();refs=sorted({c["image"] for c in rows if c.get("image") and c["image"]!="unknown"})
+    with ThreadPoolExecutor(max_workers=UPDATE_CONCURRENCY) as pool:results=dict(zip(refs,pool.map(check_image,refs)))
+    items=[{**results[c["image"]],"name":c["name"],"stack":"" if c["project"]=="standalone" else c["project"],"service":c.get("service") or "","state":c["state"],"self":bool(c["selfProtected"])} for c in rows if c.get("image") in results]
+    items.sort(key=lambda i:(not i["updateAvailable"],bool(i["error"]),i["stack"].lower(),i["name"].lower()))
+    return {"checkedAt":int(time.time()),"total":len(items),"updates":sum(1 for i in items if i["updateAvailable"]),"items":items}
+def _updates_worker():
+    try:data=_updates_scan();err=None
+    except Exception as e:data=None;err=(str(e) or e.__class__.__name__)[:300]
+    with _updates_lock:
+        if data is not None:_updates["data"]=data
+        _updates["error"]=err;_updates["running"]=False
+def updates_start():
+    """Begin a background scan unless one is running. Returns True when a scan was started."""
+    if not UPDATES_ENABLED or DEMO_MODE:return False
+    with _updates_lock:
+        if _updates["running"]:return False
+        _updates["running"]=True
+    threading.Thread(target=_updates_worker,name="update-check",daemon=True).start();return True
+def updates_snapshot(start_if_empty=False):
+    if start_if_empty and _updates["data"] is None:updates_start()
+    with _updates_lock:
+        d=dict(_updates["data"] or {"checkedAt":0,"total":0,"updates":0,"items":[]})
+        d.update(enabled=UPDATES_ENABLED,checking=_updates["running"],error=_updates["error"] or "",intervalHours=UPDATE_INTERVAL/3600)
+        if not UPDATES_ENABLED:d["message"]="Update checking is disabled (ROGUEFORGE_UPDATES=false)."
+        return d
+def _updates_scheduler():
+    time.sleep(45)
+    while True:
+        updates_start();time.sleep(max(300.0,UPDATE_INTERVAL))
 def rogue_dashboard_status():
     # Read-only integration payload. Reuse RogueForge's existing cached dashboard
     # snapshot and in-memory operation history so RogueDashboard does not create a
@@ -1166,6 +1320,9 @@ class Handler(BaseHTTPRequestHandler):
             if path=="/api/v2/contract":self.send_json(state_contract());return
             if path=="/api/stacks":self.send_json(discover_stacks());return
             if path=="/api/containers":self.send_json(containers());return
+            if path=="/api/updates":
+                if not self.require_auth():return
+                self.send_json(updates_snapshot(start_if_empty=True));return
             if path=="/api/images":
                 if not self.require_auth():return
                 self.send_json(resource_images(force=parse_qs(u.query).get("refresh")==["1"]));return
@@ -1235,6 +1392,9 @@ class Handler(BaseHTTPRequestHandler):
             if m:
                 if not self.require_auth(csrf=True):return
                 n,a=m.groups();self.send_json(update_stack(n) if a=="update" else run_stack_action(n,a));return
+            if path=="/api/updates/check":
+                if not self.require_auth(csrf=True):return
+                updates_start();self.send_json(updates_snapshot());return
             if path=="/api/containers/update-all":
                 if not self.require_auth(csrf=True):return
                 ids=[x["id"] for x in containers() if not x.get("selfProtected")];self.send_json(bulk_container_action(ids,"update") if ids else {"ok":True,"action":"update","results":[]});return
@@ -1290,6 +1450,7 @@ def main():
     rt=runtime();a=auth_diagnostics()
     if not a["valid"]:sys.stderr.write(f"WARNING: authentication is not ready: {a}\n")
     srv=ThreadingHTTPServer((BIND,PORT),Handler)
+    if UPDATES_ENABLED and UPDATE_INTERVAL and not DEMO_MODE:threading.Thread(target=_updates_scheduler,name="update-scheduler",daemon=True).start()
     if DASHBOARD_WARM_SECONDS and not DEMO_MODE:threading.Thread(target=_dashboard_warmer,name="dashboard-warmer",daemon=True).start()
     print(f"RogueForge {VERSION} listening on http://{BIND}:{PORT} ({rt['engine']}, {rt.get('context')})")
     try:srv.serve_forever()
