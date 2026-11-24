@@ -6,7 +6,7 @@
 
 **Local-first Docker and Podman stack management, verified updates and live troubleshooting.**
 
-[![Release](https://img.shields.io/badge/RELEASE-2.4.2%20STABLE-d97757?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/main)
+[![Release](https://img.shields.io/badge/RELEASE-2.5.0%20STABLE-d97757?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/main)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueForge/container.yml?branch=main&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/actions/workflows/container.yml?query=branch%3Amain)
 ![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
 ![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
@@ -26,12 +26,20 @@ RogueForge deliberately stays separate from **RogueDashboard**, which owns monit
 - on-demand live logs with search, severity filtering, pause/resume and download
 - authenticated per-container terminal access
 - Images, Volumes and Networks inventory
-- built-in **Updates** page that shows which containers have a newer image available
+- built-in **Updates** page that shows which containers have a newer image available, with an Update button
+- remove unused images and volumes from their pages, with server-side safety checks
 - transactional Compose and `.env` editing with validation and backup
 - Docker and rootless Podman support
 - short-lived inventory/dashboard caches and bounded engine concurrency
 - canonical deployment under `/opt/media-server/rogueforge`
 - no permanent log indexer and no high-frequency background engine polling
+
+## What's new in 2.5.0
+
+- **Clean up unused images and volumes** from the Images and Volumes pages: per-item **Remove**, **Remove dangling** and **Remove unused…**, with a confirmation that lists what will be removed (volumes need a typed confirmation)
+- a better Updates page: filter chips, search, next-check time and an **Update** button
+
+See [Cleaning up images and volumes](#cleaning-up-images-and-volumes).
 
 ## What's new in 2.4.2
 
@@ -157,7 +165,7 @@ cd /opt/media-server/rogueforge
 Pinned version:
 
 ```bash
-./update.sh 2.4.2
+./update.sh 2.5.0
 ```
 
 Testing channel:
@@ -224,6 +232,19 @@ access RogueForge already has. Private images are shown as "not checked". Tune o
 The container needs outbound HTTPS to the registries your images use (for example `docker.io` and `ghcr.io`). The sidebar count shows how many containers have an update. See
 [docs/CONTAINER_DEPLOYMENT.md](docs/CONTAINER_DEPLOYMENT.md#update-checker).
 
+## Cleaning up images and volumes
+
+![Images page with unused images and cleanup buttons](docs/assets/images-cleanup.png)
+
+Old images and volumes pile up as stacks are updated. The **Images** and **Volumes** pages show which ones no container uses and let you remove them:
+
+- **Remove** on an unused image or volume removes just that item.
+- **Remove dangling** (Images) removes untagged leftovers that no container uses; this is the safe everyday cleanup.
+- **Remove unused…** removes every image, or every volume, that no container uses. A confirmation lists exactly what will go.
+- Volumes hold data, so deleting them is permanent and asks you to type `DELETE` (or the volume's name). A volume can look unused when its stack was taken down but you still want the data; check the list before confirming.
+
+Safety: RogueForge re-reads the inventory for every request and skips anything that a container (running or stopped) uses. The engine is never forced, so it refuses anything still referenced. All cleanup endpoints are administrator only and CSRF protected.
+
 ## Security model
 
 RogueForge:
@@ -253,7 +274,7 @@ Production:
 
 ```text
 ghcr.io/rogueassassin/rogueforge:latest
-ghcr.io/rogueassassin/rogueforge:2.4.2
+ghcr.io/rogueassassin/rogueforge:2.5.0
 ```
 
 Testing:

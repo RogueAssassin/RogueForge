@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.5.0
+
+- **Clean up from the Images and Volumes pages.** Unused images and volumes get a **Remove** button, **Remove dangling** and **Remove unused…** clean up in bulk, and a confirmation lists exactly what will go. Volumes hold data, so deleting one (or several) needs a typed confirmation.
+- Safe by design: usage is re-checked on the server for every request, anything with a container (running or stopped) is skipped, and the engine runs without `--force`, so it refuses anything still referenced. New endpoints `POST /api/images/remove`, `POST /api/images/prune` and `POST /api/volumes/remove` (administrator only, CSRF protected). Image sizes now show in MB/GB with the reclaimable total.
+- **Updates page improvements:** updates are sorted first; filter chips (All, Updates, Failed, Not checked) and a search box; relative times with the next scheduled check; an **Update** button for moving tags (the normal verified pull, recreate and rollback, then an automatic re-check) and **Edit Compose** for pinned version tags; a clearer summary when everything is current or some checks failed.
+- Invalid request bodies now answer `400` instead of `500`.
+
 ## 2.4.2
 
 Adds the built-in Updates page.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RogueForge 2.4.2 — single-file Docker/Podman Compose operations runtime."""
+"""RogueForge 2.5.0 — single-file Docker/Podman Compose operations runtime."""
 from __future__ import annotations
 
 import base64, hashlib, hmac, json, mimetypes, os, re, secrets, socket, subprocess, sys, threading, time, urllib.error, urllib.request
@@ -10,7 +10,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
-VERSION="2.4.2"
+VERSION="2.5.0"
 API_VERSION="2"; STATE_SCHEMA_VERSION=1
 PORT=int(os.environ.get("ROGUEFORGE_PORT","7810")); BIND=os.environ.get("ROGUEFORGE_BIND","127.0.0.1")
 MEDIA_ROOT=Path(os.environ.get("ROGUEFORGE_MEDIA_ROOT","/opt/media-server")).resolve()
@@ -950,6 +950,56 @@ def resource_networks(force=False):
         return sorted(out,key=lambda x:(not x["inUse"],x["name"].lower()))
     return _resource_cached("networks",force,build)
 
+# Cleanup of unused images and volumes. The inventory is re-read for every request and only items
+# with no container (running or stopped) are touched; engine "rmi"/"volume rm" run without --force,
+# so the engine itself refuses anything still referenced.
+CLEANUP_MAX_ITEMS=200
+_IMAGE_ID_RE=re.compile(r"^[A-Fa-f0-9]{12,64}$")
+_VOLUME_NAME_RE=re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$")
+def _image_ref(row):
+    repo,tag=str(row.get("repository") or "<none>"),str(row.get("tag") or "<none>")
+    return f"{repo}:{tag}" if repo!="<none>" and tag!="<none>" else str(row.get("id") or "").replace("sha256:","")
+def _cleanup_report(kind,removed,failed,skipped,reclaimed=0):
+    invalidate_inventory()
+    return {"ok":not failed,"kind":kind,"removed":removed,"failed":failed,"skipped":skipped,"reclaimedBytes":reclaimed}
+def cleanup_images(mode,image_id="",tag=""):
+    if mode not in ("one","dangling","unused"):raise ValueError("mode must be one, dangling or unused")
+    rows=resource_images(force=True);skipped=[]
+    if mode=="one":
+        image_id=str(image_id or "").replace("sha256:","")
+        if not _IMAGE_ID_RE.fullmatch(image_id):raise ValueError("invalid image id")
+        picked=[x for x in rows if str(x.get("id") or "").replace("sha256:","").startswith(image_id) and (not tag or str(x.get("tag"))==tag)]
+        if not picked:raise ValueError("image not found")
+    elif mode=="dangling":picked=[x for x in rows if x.get("repository")=="<none>" or x.get("tag")=="<none>"]
+    else:picked=list(rows)
+    targets=[]
+    for x in picked:
+        if x.get("inUse"):skipped.append({"ref":_image_ref(x),"reason":"in use by a container"})
+        else:targets.append(x)
+    removed,failed,reclaimed=[],[],0
+    for x in targets[:CLEANUP_MAX_ITEMS]:
+        ref=_image_ref(x)
+        if not ref:continue
+        try:
+            engine_cli(["rmi",ref],120);removed.append(ref)
+            if isinstance(x.get("size"),int):reclaimed+=x["size"]
+        except Exception as e:failed.append({"ref":ref,"error":str(e).strip()[-300:]})
+    if len(targets)>CLEANUP_MAX_ITEMS:skipped.append({"ref":"","reason":f"{len(targets)-CLEANUP_MAX_ITEMS} more not processed; run again"})
+    return _cleanup_report("images",removed,failed,skipped,reclaimed)
+def cleanup_volumes(names):
+    if not isinstance(names,list) or not names:raise ValueError("names must be a non-empty list")
+    if len(names)>CLEANUP_MAX_ITEMS:raise ValueError(f"at most {CLEANUP_MAX_ITEMS} volumes per request")
+    by_name={x["name"]:x for x in resource_volumes(force=True)};removed,failed,skipped=[],[],[]
+    for raw in names:
+        name=str(raw or "")
+        if not _VOLUME_NAME_RE.fullmatch(name):skipped.append({"ref":name[:80],"reason":"invalid volume name"});continue
+        row=by_name.get(name)
+        if not row:skipped.append({"ref":name,"reason":"volume not found"});continue
+        if row.get("inUse"):skipped.append({"ref":name,"reason":"mounted by a container"});continue
+        try:engine_cli(["volume","rm",name],120);removed.append(name)
+        except Exception as e:failed.append({"ref":name,"error":str(e).strip()[-300:]})
+    return _cleanup_report("volumes",removed,failed,skipped)
+
 def container_logs(cid,tail=None):
     tail=LOG_TAIL_DEFAULT if tail is None else max(25,min(1000,int(tail)))
     return engine_cli(["logs","--tail",str(tail),"--timestamps",_container_meta(cid)["id"]],30)
@@ -1240,13 +1290,13 @@ def updates_snapshot(start_if_empty=False):
     if start_if_empty and _updates["data"] is None:updates_start()
     with _updates_lock:
         d=dict(_updates["data"] or {"checkedAt":0,"total":0,"updates":0,"items":[]})
-        d.update(enabled=UPDATES_ENABLED,checking=_updates["running"],error=_updates["error"] or "",intervalHours=UPDATE_INTERVAL/3600)
+        d.update(enabled=UPDATES_ENABLED,checking=_updates["running"],error=_updates["error"] or "",intervalHours=UPDATE_INTERVAL/3600,nextCheckAt=_updates.get("next") or 0)
         if not UPDATES_ENABLED:d["message"]="Update checking is disabled (ROGUEFORGE_UPDATES=false)."
         return d
 def _updates_scheduler():
-    time.sleep(45)
+    _updates["next"]=time.time()+45;time.sleep(45)
     while True:
-        updates_start();time.sleep(max(300.0,UPDATE_INTERVAL))
+        updates_start();wait=max(300.0,UPDATE_INTERVAL);_updates["next"]=time.time()+wait;time.sleep(wait)
 def rogue_dashboard_status():
     # Read-only integration payload. Reuse RogueForge's existing cached dashboard
     # snapshot and in-memory operation history so RogueDashboard does not create a
@@ -1392,6 +1442,15 @@ class Handler(BaseHTTPRequestHandler):
             if m:
                 if not self.require_auth(csrf=True):return
                 n,a=m.groups();self.send_json(update_stack(n) if a=="update" else run_stack_action(n,a));return
+            if path=="/api/images/remove":
+                if not self.require_auth(csrf=True):return
+                p=self.read_json();self.send_json(cleanup_images("one",p.get("id"),str(p.get("tag") or "")));return
+            if path=="/api/images/prune":
+                if not self.require_auth(csrf=True):return
+                self.send_json(cleanup_images(str(self.read_json().get("mode") or "dangling")));return
+            if path=="/api/volumes/remove":
+                if not self.require_auth(csrf=True):return
+                self.send_json(cleanup_volumes(self.read_json().get("names")));return
             if path=="/api/updates/check":
                 if not self.require_auth(csrf=True):return
                 updates_start();self.send_json(updates_snapshot());return
@@ -1415,6 +1474,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(terminal_input(m.group(1),self.read_json().get("input","")));return
             self.send_json({"error":"not found"},404)
         except PermissionError as e:self.send_json({"error":str(e)},409)
+        except ValueError as e:self.send_json({"error":str(e)},400)
         except (BrokenPipeError,ConnectionResetError):return
         except Exception as e:self.send_json({"error":str(e)},500)
     def do_PUT(self):

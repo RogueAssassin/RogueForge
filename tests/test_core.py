@@ -90,7 +90,7 @@ class RogueForgeTests(unittest.TestCase):
   for route in ('/api/images','/api/volumes','/api/networks'):self.assertIn(route,src)
   for view in ('images','volumes','networks'):self.assertIn(f'id="view-{view}"',html);self.assertIn(f'data-view="{view}"',html)
   self.assertIn('async function loadResource(kind',app);self.assertIn('function renderImages()',app);self.assertIn('function renderVolumes()',app);self.assertIn('function renderNetworks()',app)
-  self.assertNotIn('/api/images/prune',src);self.assertNotIn('/api/volumes/prune',src);self.assertNotIn('/api/networks/prune',src)
+  self.assertNotIn('/api/volumes/prune',src);self.assertNotIn('/api/networks/prune',src)
  def test_frontend_optional_dom_nodes_are_safe(self):
   app=(ROOT/'static/app.js').read_text()
   self.assertIn('const setText =',app);self.assertIn('const setHtml =',app)
@@ -171,7 +171,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('id="liveLogLevel"',html);self.assertIn('option value="error"',html);self.assertIn('option value="warn"',html)
   self.assertIn("const level=$('#liveLogLevel')?.value||'all'",live);self.assertIn('rfLive.reconnects++',live);self.assertIn('reconnect',live)
   self.assertIn('stepElapsed=',ops);self.assertIn('current step',ops)
-  self.assertRegex(readme,r'RELEASE-2.4.2%20(?:TESTING|STABLE)');self.assertIn('## Rogue ecosystem',readme)
+  self.assertRegex(readme,r'RELEASE-2.5.0%20(?:TESTING|STABLE)');self.assertIn('## Rogue ecosystem',readme)
   self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.0.0 (testing)',change)
  def test_v150_update_preview_and_env_revision_policy(self):
   src=(ROOT/'rogueforge.py').read_text();app=(ROOT/'static/app.js').read_text();env=(ROOT/'.env.example').read_text();update=(ROOT/'update.sh').read_text();road=(ROOT/'MILESTONES.md').read_text()
@@ -197,7 +197,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertNotIn('append_env_revision',update)
   self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.1.0 — Post-2.0 development',road)
   self.assertIn('## 2.0.0 (testing)',change);self.assertIn('final 1.x cleanup baseline',change)
-  self.assertRegex(readme,r'RELEASE-2.4.2%20(?:TESTING|STABLE)');self.assertIn('stable operations platform',readme)
+  self.assertRegex(readme,r'RELEASE-2.5.0%20(?:TESTING|STABLE)');self.assertIn('stable operations platform',readme)
  def test_v200_api_and_state_contract(self):
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text();env=(ROOT/'.env.example').read_text();readme=(ROOT/'README.md').read_text()
   self.assertIn('API_VERSION="2"; STATE_SCHEMA_VERSION=1',src)
@@ -207,7 +207,7 @@ class RogueForgeTests(unittest.TestCase):
   self.assertIn('## 2.0.0 — Stable operations platform',road);self.assertIn('## 2.1.0 — Post-2.0 development',road)
   self.assertNotIn('ROGUEFORGE_ENV_REV=',env);self.assertIn('stable operations platform',readme)
  def test_current_release_baseline(self):
-  self.assertEqual((ROOT/'VERSION').read_text().strip(),'2.4.2')
+  self.assertEqual((ROOT/'VERSION').read_text().strip(),'2.5.0')
   src=(ROOT/'rogueforge.py').read_text();road=(ROOT/'MILESTONES.md').read_text()
   self.assertIn('ROGUEFORGE_OPERATIONS_FILE',src);self.assertIn('def _load_containers_uncached()',src);self.assertIn('/api/dashboard',src)
   self.assertIn('## 2.0.0 — Stable operations platform',road)
@@ -301,6 +301,41 @@ class RogueForgeTests(unittest.TestCase):
  def test_update_checker_is_builtin_not_a_sidecar(self):
   c=(ROOT/'compose.yaml').read_text();self.assertNotIn('wud',c.lower());self.assertIn('ROGUEFORGE_UPDATES',c)
   src=(ROOT/'rogueforge.py').read_text();self.assertIn('if path=="/api/updates":',src);self.assertIn('if path=="/api/updates/check":',src)
+
+ def test_image_cleanup_only_removes_unused(self):
+  a=self.app;saved=(a.resource_images,a.engine_cli,a.invalidate_inventory);calls=[]
+  rows=[{"id":"sha256:"+"1"*64,"repository":"ghcr.io/x/app","tag":"1.0","inUse":True,"size":10},{"id":"sha256:"+"2"*64,"repository":"ghcr.io/x/app","tag":"0.9","inUse":False,"size":5},{"id":"sha256:"+"3"*64,"repository":"<none>","tag":"<none>","inUse":False,"size":7}]
+  def cli(args,timeout=0):
+   calls.append(args)
+   if args[1].startswith("bad"):raise RuntimeError("image is in use")
+   return ""
+  try:
+   a.resource_images=lambda force=False:[dict(r) for r in rows];a.engine_cli=cli;a.invalidate_inventory=lambda:None
+   r=a.cleanup_images("unused");self.assertEqual(r["removed"],["ghcr.io/x/app:0.9","3"*64]);self.assertEqual(calls,[["rmi","ghcr.io/x/app:0.9"],["rmi","3"*64]])
+   self.assertEqual(r["reclaimedBytes"],12);self.assertTrue(r["ok"])
+   calls.clear();r=a.cleanup_images("dangling");self.assertEqual(len(r["removed"]),1);self.assertEqual(calls,[["rmi","3"*64]])
+   calls.clear();r=a.cleanup_images("one","1"*12);self.assertEqual((r["removed"],calls),([],[]));self.assertEqual(r["skipped"][0]["reason"],"in use by a container")
+   calls.clear();r=a.cleanup_images("one","2"*12,"0.9");self.assertEqual(calls,[["rmi","ghcr.io/x/app:0.9"]])
+   with self.assertRaises(ValueError):a.cleanup_images("everything")
+   with self.assertRaises(ValueError):a.cleanup_images("one","not-an-id")
+   with self.assertRaises(ValueError):a.cleanup_images("one","f"*12)
+   rows.append({"id":"sha256:"+"4"*64,"repository":"bad","tag":"1","inUse":False});calls.clear()
+   r=a.cleanup_images("one","4"*12);self.assertFalse(r["ok"]);self.assertIn("in use",r["failed"][0]["error"])
+  finally:a.resource_images,a.engine_cli,a.invalidate_inventory=saved
+ def test_volume_cleanup_never_touches_mounted_or_invalid_names(self):
+  a=self.app;saved=(a.resource_volumes,a.engine_cli,a.invalidate_inventory);calls=[]
+  try:
+   a.resource_volumes=lambda force=False:[{"name":"data","inUse":True},{"name":"scratch","inUse":False}];a.engine_cli=lambda args,timeout=0:calls.append(args) or "";a.invalidate_inventory=lambda:None
+   r=a.cleanup_volumes(["data","scratch","../etc","missing"]);self.assertEqual(r["removed"],["scratch"]);self.assertEqual(calls,[["volume","rm","scratch"]])
+   self.assertEqual([s["reason"] for s in r["skipped"]],["mounted by a container","invalid volume name","volume not found"])
+   with self.assertRaises(ValueError):a.cleanup_volumes([])
+   with self.assertRaises(ValueError):a.cleanup_volumes("scratch")
+  finally:a.resource_volumes,a.engine_cli,a.invalidate_inventory=saved
+ def test_cleanup_routes_require_csrf_and_ui_is_wired(self):
+  src=(ROOT/'rogueforge.py').read_text()
+  for route in ('/api/images/remove','/api/images/prune','/api/volumes/remove'):
+   i=src.index(f'if path=="{route}":');self.assertIn('require_auth(csrf=True)',src[i:i+120])
+  html=(ROOT/'static/index.html').read_text();self.assertIn('/cleanup.js',html);self.assertIn('imagesPruneUnused',html);self.assertIn('volumesPruneUnused',html)
 
 
 if __name__=='__main__':unittest.main()
