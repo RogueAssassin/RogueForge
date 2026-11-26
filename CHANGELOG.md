@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.6.0
 
 - **New interface.** One SVG icon set replaces the text-symbol icons; the sidebar is grouped (Workloads, Resources, Maintenance); each page names itself once; the Overview opens with a status banner; cards, buttons, chips, dialogs and hover states are restyled with a brighter accent gradient in all themes.
 - Runtime actions are compact icon buttons (labels stay as tooltips and for screen readers), and the runtime table becomes stacked cards on phones.
