@@ -6,7 +6,7 @@
 
 **Local-first Docker and Podman stack management, verified updates and live troubleshooting.**
 
-[![Release](https://img.shields.io/badge/RELEASE-2.5.0%20STABLE-d97757?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/main)
+[![Release](https://img.shields.io/badge/RELEASE-2.6.0%20STABLE-d97757?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/tree/main)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueForge/container.yml?branch=main&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueForge/actions/workflows/container.yml?query=branch%3Amain)
 ![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
 ![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
@@ -33,6 +33,12 @@ RogueForge deliberately stays separate from **RogueDashboard**, which owns monit
 - short-lived inventory/dashboard caches and bounded engine concurrency
 - canonical deployment under `/opt/media-server/rogueforge`
 - no permanent log indexer and no high-frequency background engine polling
+
+## What's new in 2.6.0
+
+- a new interface: one SVG icon set, a grouped sidebar, a status banner on the Overview and restyled cards, buttons and dialogs
+- compact icon actions on the Runtime page, which becomes stacked cards on phones
+- fixed the Runtime **Ports** column showing `undefined/tcp`
 
 ## What's new in 2.5.0
 
@@ -165,7 +171,7 @@ cd /opt/media-server/rogueforge
 Pinned version:
 
 ```bash
-./update.sh 2.5.0
+./update.sh 2.6.0
 ```
 
 Testing channel:
@@ -274,7 +280,7 @@ Production:
 
 ```text
 ghcr.io/rogueassassin/rogueforge:latest
-ghcr.io/rogueassassin/rogueforge:2.5.0
+ghcr.io/rogueassassin/rogueforge:2.6.0
 ```
 
 Testing:
