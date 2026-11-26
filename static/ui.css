@@ -133,7 +133,6 @@ dialog[open]{animation:rf-rise .2s ease-out}
 /* Runtime table: compact icon actions instead of a wall of labelled buttons. */
 .container-table .small-button{width:34px;min-height:34px;padding:0;font-size:0;gap:0}
 .container-table .small-button .rf-i{width:15px;height:15px}
-@media (min-width:1000px){.container-table .container-runtime-row,.container-table .container-runtime-head{grid-template-columns:36px minmax(150px,1fr) minmax(190px,1.2fr) minmax(130px,.7fr) minmax(90px,.5fr) 232px}}
 .container-table .rf-runtime-actions{display:flex!important;flex-direction:column;align-items:flex-start;gap:5px;padding:8px 0}
 .container-table .rf-runtime-actions .rf-action-primary,.container-table .rf-runtime-actions .rf-action-secondary{display:flex!important;flex-wrap:wrap;gap:5px;justify-content:flex-start;width:auto}
 
@@ -141,12 +140,22 @@ dialog[open]{animation:rf-rise .2s ease-out}
 :root[data-theme="light"] .topbar{background:#14213a;border-bottom-color:rgba(196,214,255,.14)}
 @media (prefers-color-scheme:light){:root:not([data-theme]) .topbar{background:#14213a}}
 
-/* Runtime table becomes stacked cards on phones. */
-@media (max-width:760px){
+/* Runtime table: columns when there is room, cards below that. Never scrolls sideways. */
+.container-table{min-width:0!important}
+.container-table .container-runtime-row,.container-table .container-runtime-head{min-width:0!important}
+@media (min-width:1241px){.container-table .container-runtime-row,.container-table .container-runtime-head{grid-template-columns:36px minmax(0,1fr) minmax(0,1.2fr) minmax(0,.7fr) minmax(0,.55fr) 232px}
+  .container-table .container-runtime-row>*{min-width:0;overflow-wrap:anywhere}}
+@media (max-width:1240px){
   .container-table .container-runtime-head{display:none!important}
-  .container-table .container-runtime-row{display:grid!important;grid-template-columns:30px minmax(0,1fr)!important;min-width:0!important;row-gap:8px;padding:14px 12px}
-  .container-table .container-runtime-row>*{grid-column:2;min-width:0}
+  .container-table .container-runtime-row{display:grid!important;grid-template-columns:30px minmax(0,1fr) minmax(0,1fr)!important;gap:8px 14px;padding:14px 16px}
+  .container-table .container-runtime-row>*{min-width:0;overflow-wrap:anywhere}
   .container-table .container-runtime-row>.container-select{grid-column:1;grid-row:1}
-  .container-table{overflow-x:hidden}
+  .container-table .container-runtime-row>:not(.container-select):nth-child(even){grid-column:2}
+  .container-table .container-runtime-row>:not(.container-select):nth-child(odd){grid-column:3}
+  .container-table .container-runtime-row>.rf-runtime-actions{grid-column:2 / -1}
+  .container-table .rf-runtime-actions{flex-direction:row!important;flex-wrap:wrap;justify-content:flex-start!important;justify-self:start!important;padding:0}
 }
-@media (max-width:760px){.container-table{min-width:0!important;width:100%!important}}
+@media (max-width:760px){
+  .container-table .container-runtime-row{grid-template-columns:30px minmax(0,1fr)!important}
+  .container-table .container-runtime-row>:not(.container-select){grid-column:2!important}
+}
