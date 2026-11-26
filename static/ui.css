@@ -1,0 +1,152 @@
+/* RogueForge 2.6 interface layer. Loaded last: layout and component styling on top of the shared
+   colour tokens in styles.css. */
+:root,:root[data-theme="default"],:root[data-theme="dark"]{--accent:#ff7a59;--accent-hover:#ff9478;--accent-text:#ffa78f;
+  --grad:linear-gradient(135deg,#d6451f,#c2276b 55%,#6d3fd9);--grad-soft:linear-gradient(135deg,rgba(255,122,89,.18),rgba(139,92,246,.14));
+  --violet:#a78bfa;--elev:0 1px 2px rgba(0,0,0,.25),0 14px 34px -20px rgba(0,0,0,.65);--r-lg:18px;--r-md:12px}
+:root[data-theme="light"]{--accent:#b8431c;--accent-hover:#9c3715;--accent-text:#a33b17;--violet:#5b34c4;
+  --grad-soft:linear-gradient(135deg,rgba(214,69,31,.12),rgba(109,63,217,.1));--elev:0 1px 2px rgba(15,26,46,.07),0 14px 30px -22px rgba(15,26,46,.35)}
+@media (prefers-color-scheme:light){:root:not([data-theme]){--accent:#b8431c;--accent-hover:#9c3715;--accent-text:#a33b17;--violet:#5b34c4;
+  --grad-soft:linear-gradient(135deg,rgba(214,69,31,.12),rgba(109,63,217,.1))}}
+
+body{font-size:14px;background:radial-gradient(900px 420px at 85% -10%,color-mix(in srgb,#8b5cf6 14%,transparent),transparent 70%),radial-gradient(700px 380px at 15% -15%,color-mix(in srgb,#ff7a59 10%,transparent),transparent 70%),var(--bg);background-attachment:fixed}
+.rf-i{flex:none;display:block}
+.rf-has-icon{display:inline-flex!important;align-items:center;justify-content:center;gap:7px}
+
+/* ---- Shell ---- */
+.sidebar{width:236px;padding:16px 12px;gap:2px;background:color-mix(in srgb,var(--surface) 55%,var(--bg));overflow-y:auto}
+.brand{height:auto;margin:0 0 14px;padding:4px 8px}
+.brand strong{font-size:1.05rem}.brand small{font-size:.72rem}
+.primary-nav{display:flex;flex-direction:column;gap:2px}
+.nav-label{margin:14px 10px 4px;color:var(--faint);font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.sidebar .nav-item{position:relative;display:flex;align-items:center;gap:11px;min-height:40px;padding:0 11px;border-radius:var(--r-md);font-size:.86rem;transition:background .15s,color .15s,transform .15s}
+.sidebar .nav-item:hover{transform:translateX(2px)}
+.sidebar .nav-item.active{background:var(--grad-soft);color:var(--text);box-shadow:none;border-color:color-mix(in srgb,var(--accent) 28%,transparent)}
+.sidebar .nav-item.active .nav-icon{color:var(--accent-text);opacity:1}
+.nav-icon{display:grid;place-items:center;width:20px}
+.nav-count{margin-left:auto;min-width:22px;padding:1px 7px;border-radius:999px;font-size:.68rem;font-weight:700;text-align:center}
+.nav-count.rf-upd-alert{background:var(--grad);border-color:transparent;color:#fff}
+.rf-version-card{margin-top:auto;padding:0 10px 8px!important;border:0!important;background:none!important}
+.rf-version-card .rf-mini-mark{display:none}
+.rf-version-card strong{font-size:.72rem;color:var(--muted);font-weight:600}.rf-version-card small{display:none}
+.rf-version-card ~ .sidebar-bottom{margin-top:0}
+.sidebar-bottom .host-card{border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line)}
+
+.main{background:transparent}
+.topbar{height:66px;padding:0 clamp(16px,3vw,32px);background:color-mix(in srgb,var(--bg) 72%,transparent);backdrop-filter:blur(16px)}
+.topbar .eyebrow{display:none}
+.topbar h1{margin:0;font-size:1.32rem;font-weight:700}
+.content{width:100%;max-width:1440px;margin:0 auto;padding:22px clamp(16px,3vw,32px) 48px}
+.view.active{animation:rf-rise .28s cubic-bezier(.2,.7,.2,1)}
+@keyframes rf-rise{from{transform:translateY(8px)}to{transform:none}}
+
+/* ---- Controls ---- */
+.button,.small-button,.icon-button,.account-button,.primary-action{border-radius:10px;font-weight:600;transition:background .15s,border-color .15s,transform .12s,box-shadow .15s,filter .15s}
+.button{min-height:38px;padding:0 15px;font-size:.82rem}
+.small-button{min-height:32px;padding:0 11px;font-size:.76rem}
+.button:hover:not(:disabled),.small-button:hover:not(:disabled),.icon-button:hover{transform:translateY(-1px)}
+.button:active,.small-button:active,.icon-button:active{transform:translateY(0)}
+.button:disabled,.small-button:disabled{opacity:.5;cursor:not-allowed}
+.icon-button{width:38px;height:38px;display:grid;place-items:center;position:relative}
+.account-button{height:38px;font-size:.8rem}
+.button.primary,.primary-action,#updatesCheck{background:var(--grad);border-color:transparent;color:#fff;box-shadow:0 8px 20px -10px rgba(194,39,107,.8)}
+.button.primary:hover:not(:disabled),.primary-action:hover:not(:disabled),#updatesCheck:hover:not(:disabled){background:var(--grad);border-color:transparent;filter:brightness(1.1)}
+.account-button.authenticated{background:var(--grad);border-color:transparent;color:#fff}
+.filter,#updatesSearch,select.filter{height:38px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.filter:focus-within,#updatesSearch:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent);outline:0}
+.filter input{font-size:.82rem}
+.connection{border-radius:999px;font-size:.75rem}
+
+/* ---- Page headers: the top bar already names the page ---- */
+.resource-page-head .eyebrow,.resource-page-head h2{display:none}
+.resource-page-head p:not(.eyebrow),.page-intro p{font-size:.86rem}
+.page-intro{margin-bottom:16px;flex-wrap:wrap}
+
+/* ---- Overview ---- */
+.rf-overview-head{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;padding:24px 26px;margin-bottom:16px;border-radius:var(--r-lg);background:var(--grad);color:#fff;box-shadow:var(--elev)}
+.rf-overview-head::after{content:"";position:absolute;right:-60px;top:-110px;width:300px;height:300px;border-radius:50%;background:rgba(255,255,255,.12);pointer-events:none}
+.rf-overview-head h2{margin:0 0 4px;font-size:1.55rem;color:#fff}.rf-overview-head p{margin:0;color:rgba(255,255,255,.92);font-size:.9rem}
+.rf-overview-head .top-actions{position:relative;z-index:1}
+.rf-overview-head .button.primary{background:#fff;color:#8f1f52;box-shadow:none}
+.rf-overview-head .button.primary:hover:not(:disabled){background:#fff}
+.rf-overview-head .button.secondary{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.35);color:#fff}
+.rf-summary{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:12px;margin-bottom:16px}
+.rf-summary-card{display:flex!important;flex-direction:column;align-items:flex-start!important;text-align:left!important;gap:12px;min-height:0!important;padding:16px!important;border-radius:var(--r-lg)!important;background:var(--surface)!important;border:1px solid var(--line)!important;box-shadow:var(--elev);--tone:var(--accent);transition:transform .15s,border-color .15s}
+.rf-summary-card:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--tone) 50%,transparent)!important}
+.rf-summary-card.cyan{--tone:var(--info)}.rf-summary-card.green{--tone:var(--green)}.rf-summary-card.red{--tone:var(--red)}.rf-summary-card.teal{--tone:var(--violet)}
+.rf-summary-card .rf-summary-icon{width:38px!important;height:38px!important;display:grid!important;place-items:center;border:0!important;border-radius:11px!important;color:var(--tone)!important;background:color-mix(in srgb,var(--tone) 16%,transparent)!important}
+.rf-summary-card div>span{font-size:.78rem!important;color:var(--muted)}
+.rf-summary-card strong{display:block;margin:2px 0;font-size:1.9rem!important;line-height:1.1;font-variant-numeric:tabular-nums}
+.rf-summary-card small{font-size:.72rem!important;color:var(--muted)}
+.rf-dashboard{gap:16px;grid-template-columns:minmax(0,1fr) 320px}
+.rf-panel,.section-card,.table-card{border-radius:var(--r-lg);border:1px solid var(--line);background:var(--surface);box-shadow:var(--elev)!important}
+.rf-panel-head{padding:14px 18px}.rf-panel-head h3{font-size:.98rem;margin:0}
+.rf-stack-row{padding:12px 18px;transition:background .15s}
+.rf-stack-row:hover{background:var(--surface-2)}
+.rf-system-list{font-size:.82rem}
+.rf-quick{border-radius:var(--r-md)!important;transition:transform .15s,border-color .15s,background .15s}
+.rf-quick:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--accent) 45%,transparent)!important}
+.rf-quick-icon{display:grid!important;place-items:center;border-radius:10px;color:var(--accent-text)!important;background:var(--grad-soft)!important}
+.service-logo{border-radius:11px;background:var(--grad-soft);color:var(--accent-text)}
+
+/* ---- Stacks, resources, updates ---- */
+.rf-stack-card{border-radius:var(--r-lg)!important;box-shadow:var(--elev)!important;transition:border-color .15s,transform .15s}
+.rf-stack-card:hover{border-color:color-mix(in srgb,var(--accent) 40%,transparent)!important}
+.state-badge,.rf-upd-badge,.resource-use{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 10px;font-weight:700}
+.state-badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.state-badge.running::before{box-shadow:0 0 0 3px color-mix(in srgb,currentColor 22%,transparent)}
+.resource-summary{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px}
+.resource-summary article{text-align:left!important;align-items:flex-start!important;justify-items:start!important;border-radius:var(--r-lg)!important;background:var(--surface)!important;border:1px solid var(--line)!important;box-shadow:var(--elev);padding:14px 18px!important}
+.resource-summary article strong{font-size:1.7rem!important}
+.resource-card,.rf-upd-row,.rf-upd-summary{border-radius:var(--r-lg)!important;box-shadow:var(--elev);transition:border-color .15s,transform .15s}
+.resource-card:hover,.rf-upd-row:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+.resource-icon{display:grid;place-items:center;border-radius:12px!important;background:var(--grad-soft)!important;color:var(--accent-text)!important}
+.rf-upd-chip{min-height:32px}.rf-upd-chip.active{background:var(--grad);border-color:transparent;color:#fff}.rf-upd-chip.active b{color:#fff}
+.empty-state{border-radius:var(--r-lg);font-size:.86rem}
+
+/* ---- Dialogs and toasts ---- */
+dialog .modal,dialog.modal{border-radius:var(--r-lg);box-shadow:0 30px 70px -20px rgba(0,0,0,.65)}
+dialog[open]{animation:rf-rise .2s ease-out}
+.toast{border-radius:var(--r-md);box-shadow:var(--elev)}
+
+/* ---- Responsive ---- */
+@media (max-width:1200px){.rf-summary{grid-template-columns:repeat(3,minmax(0,1fr))!important}.rf-dashboard{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:720px){.rf-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}.resource-summary{grid-template-columns:1fr!important}
+  .content{padding:14px 12px 40px}.topbar{padding:0 12px}.topbar h1{font-size:1.1rem}.connection{display:none}.rf-overview-head{padding:18px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* Fixes: menu button is for narrow screens only; quick actions need room for their labels. */
+@media (min-width:901px){.topbar .menu-button{display:none}}
+.rf-quick-actions{grid-template-columns:1fr!important;gap:8px!important;padding:12px!important}
+.rf-quick-actions .rf-quick{display:grid!important;grid-template-columns:36px minmax(0,1fr)!important;grid-template-rows:auto auto;column-gap:12px;align-items:center;text-align:left!important;justify-items:start!important;min-height:0!important;padding:10px 12px!important}
+.rf-quick-actions .rf-quick-icon{grid-row:1 / span 2;width:36px;height:36px;margin:0!important}
+.rf-quick-actions .rf-quick b,.rf-quick-actions .rf-quick small{text-align:left!important;white-space:normal;margin:0}
+.rf-quick-actions .rf-quick b{color:var(--text);font-size:.84rem}.rf-quick-actions .rf-quick small{color:var(--muted);font-size:.72rem}
+.service-logo img{filter:drop-shadow(0 0 1px rgba(255,255,255,.55))}
+@media (min-width:901px){.app{grid-template-columns:236px minmax(0,1fr)}}
+
+.button,.small-button{white-space:nowrap}
+.rf-dashboard .rf-side-stack .rf-panel .rf-quick-actions{grid-template-columns:minmax(0,1fr)!important}
+.rf-brand-switch .rf-brand-help,.rf-brand-switch .rf-brand-preview,.rf-brand-switch .rf-brand-options{margin-left:20px;margin-right:20px}
+.rf-brand-switch .rf-brand-help{margin-top:16px}.rf-brand-switch .rf-brand-options{padding-bottom:18px}
+#view-images .resource-grid,#view-volumes .resource-grid,#view-networks .resource-grid{grid-template-columns:repeat(auto-fill,minmax(min(440px,100%),1fr))!important}
+
+/* Runtime table: compact icon actions instead of a wall of labelled buttons. */
+.container-table .small-button{width:34px;min-height:34px;padding:0;font-size:0;gap:0}
+.container-table .small-button .rf-i{width:15px;height:15px}
+@media (min-width:1000px){.container-table .container-runtime-row,.container-table .container-runtime-head{grid-template-columns:36px minmax(150px,1fr) minmax(190px,1.2fr) minmax(130px,.7fr) minmax(90px,.5fr) 232px}}
+.container-table .rf-runtime-actions{display:flex!important;flex-direction:column;align-items:flex-start;gap:5px;padding:8px 0}
+.container-table .rf-runtime-actions .rf-action-primary,.container-table .rf-runtime-actions .rf-action-secondary{display:flex!important;flex-wrap:wrap;gap:5px;justify-content:flex-start;width:auto}
+
+/* Light keeps the navy chrome, as before. */
+:root[data-theme="light"] .topbar{background:#14213a;border-bottom-color:rgba(196,214,255,.14)}
+@media (prefers-color-scheme:light){:root:not([data-theme]) .topbar{background:#14213a}}
+
+/* Runtime table becomes stacked cards on phones. */
+@media (max-width:760px){
+  .container-table .container-runtime-head{display:none!important}
+  .container-table .container-runtime-row{display:grid!important;grid-template-columns:30px minmax(0,1fr)!important;min-width:0!important;row-gap:8px;padding:14px 12px}
+  .container-table .container-runtime-row>*{grid-column:2;min-width:0}
+  .container-table .container-runtime-row>.container-select{grid-column:1;grid-row:1}
+  .container-table{overflow-x:hidden}
+}
+@media (max-width:760px){.container-table{min-width:0!important;width:100%!important}}

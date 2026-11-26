@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **New interface.** One SVG icon set replaces the text-symbol icons; the sidebar is grouped (Workloads, Resources, Maintenance); each page names itself once; the Overview opens with a status banner; cards, buttons, chips, dialogs and hover states are restyled with a brighter accent gradient in all themes.
+- Runtime actions are compact icon buttons (labels stay as tooltips and for screen readers), and the runtime table becomes stacked cards on phones.
+- Fixed: the Runtime **Ports** column showed `undefined/tcp`; it now shows the published and container ports.
+- No new dependencies or external requests.
+
 ## 2.5.0
 
 - **Clean up from the Images and Volumes pages.** Unused images and volumes get a **Remove** button, **Remove dangling** and **Remove unused…** clean up in bulk, and a confirmation lists exactly what will go. Volumes hold data, so deleting one (or several) needs a typed confirmation.

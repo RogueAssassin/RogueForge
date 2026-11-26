@@ -119,7 +119,10 @@ async function loadResource(kind,{force=false}={}){
 
 function formatPorts(ports) {
   if (!ports?.length) return "—";
-  return ports.slice(0, 3).map(port => port.PublicPort ? `${port.PublicPort}:${port.PrivatePort}` : `${port.PrivatePort}/${port.Type || "tcp"}`).join(", ");
+  return ports.slice(0, 3).map(port => {
+    const host = port.host_port ?? port.PublicPort, inner = port.container_port ?? port.PrivatePort;
+    return host ? `${host}:${inner}` : `${inner}/${port.protocol || port.Type || "tcp"}`;
+  }).join(", ");
 }
 
 function stateBadge(value) {
@@ -428,7 +431,7 @@ renderOverview=function renderOverviewCanonical(){
   const running=state.containers.filter(c=>c.state==='running').length,stopped=Math.max(0,state.containers.length-running),healthy=state.stacks.filter(s=>s.state==='running').length;
   const root=$('#view-overview');if(!root)return;
   root.innerHTML=`
-  <div class="rf-overview-head"><div><h2>Overview</h2><p>System overview and quick actions</p></div><div class="top-actions"><button class="button primary" data-go="stacks">Manage Stacks</button><button class="button secondary" id="rfRefreshOverview">↻ Refresh</button></div></div>
+  <div class="rf-overview-head"><div><h2>${!state.containers.length?"Welcome to RogueForge":stopped?`${stopped} service${stopped===1?"":"s"} need${stopped===1?"s":""} attention`:"All systems running"}</h2><p>${running} of ${state.containers.length} services up across ${state.stacks.length} stack${state.stacks.length===1?"":"s"} on ${escapeHtml(state.status.engine)}</p></div><div class="top-actions"><button class="button primary" data-go="stacks">Manage Stacks</button><button class="button secondary" id="rfRefreshOverview">↻ Refresh</button></div></div>
   <section class="rf-summary">
     <article class="rf-summary-card purple"><span class="rf-summary-icon">◇</span><div><span>Total Stacks</span><strong>${state.stacks.length}</strong><small>${healthy} fully running</small></div></article>
     <article class="rf-summary-card cyan"><span class="rf-summary-icon">▣</span><div><span>Total Services</span><strong>${state.containers.length}</strong><small>Across all stacks/runtime</small></div></article>
