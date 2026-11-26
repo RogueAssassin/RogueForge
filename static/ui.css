@@ -159,3 +159,7 @@ dialog[open]{animation:rf-rise .2s ease-out}
   .container-table .container-runtime-row{grid-template-columns:30px minmax(0,1fr)!important}
   .container-table .container-runtime-row>:not(.container-select){grid-column:2!important}
 }
+
+/* Small dialogs: size the dialog itself, not only the form inside it. */
+#loginDialog{width:min(430px,calc(100% - 40px))}
+#confirmDialog{width:min(410px,calc(100% - 40px))}

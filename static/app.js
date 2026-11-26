@@ -95,9 +95,11 @@ function setView(name) {
 
 function resourceValue(value){return value==null||value===""?"—":String(value);}
 function formatBytes(n){if(typeof n!=="number"||!isFinite(n)||n<0)return resourceValue(n);const u=["B","KB","MB","GB","TB"];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++;}return (i?n.toFixed(n>=100?0:1):n)+" "+u[i];}
+// Engines report creation time as text or as a Unix timestamp in seconds (Podman).
+function formatCreated(v){return /^\d+$/.test(String(v))?new Date(Number(v)*1000).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}):resourceValue(v);}
 function renderImages(){
   const rows=state.images||[];setText("#imageNavCount",rows.length);setHtml("#imageSummary",`<article><span>Total images</span><strong>${rows.length}</strong><small>Local engine inventory</small></article><article><span>In use</span><strong>${rows.filter(x=>x.inUse).length}</strong><small>Referenced by containers</small></article><article><span>Unused</span><strong>${rows.filter(x=>!x.inUse).length}</strong><small>${(()=>{const s=rows.filter(x=>!x.inUse&&typeof x.size==="number").reduce((a,x)=>a+x.size,0);return s?formatBytes(s)+" reclaimable":"Potentially reclaimable";})()}</small></article>`);
-  setHtml("#imageGrid",rows.map(x=>`<article class="resource-card"><div class="resource-icon">⇩</div><div class="resource-main"><strong>${escapeHtml(x.repository)}<span class="resource-tag">:${escapeHtml(x.tag)}</span></strong><small>${escapeHtml(x.shortId||"unknown")}</small><div class="resource-users">${x.inUse?`<span class="resource-use in-use">In use · ${x.containerCount}</span>${(x.containers||[]).slice(0,4).map(c=>`<span>${escapeHtml(c.name)}</span>`).join("")}`:'<span class="resource-use unused">Unused</span>'}</div></div><div class="resource-meta"><span>Size <b>${escapeHtml(formatBytes(x.size))}</b></span><span>Created <b>${escapeHtml(resourceValue(x.created))}</b></span>${x.inUse?"":`<button class="small-button danger-action" data-image-remove="${attr(x.id)}" data-image-tag="${attr(x.tag)}" data-image-ref="${attr(x.repository+":"+x.tag)}">Remove</button>`}</div></article>`).join("")||'<div class="empty-state">No local images found.</div>');
+  setHtml("#imageGrid",rows.map(x=>`<article class="resource-card"><div class="resource-icon">⇩</div><div class="resource-main"><strong>${escapeHtml(x.repository)}<span class="resource-tag">:${escapeHtml(x.tag)}</span></strong><small>${escapeHtml(x.shortId||"unknown")}</small><div class="resource-users">${x.inUse?`<span class="resource-use in-use">In use · ${x.containerCount}</span>${(x.containers||[]).slice(0,4).map(c=>`<span>${escapeHtml(c.name)}</span>`).join("")}`:'<span class="resource-use unused">Unused</span>'}</div></div><div class="resource-meta"><span>Size <b>${escapeHtml(formatBytes(x.size))}</b></span><span>Created <b>${escapeHtml(formatCreated(x.created))}</b></span>${x.inUse?"":`<button class="small-button danger-action" data-image-remove="${attr(x.id)}" data-image-tag="${attr(x.tag)}" data-image-ref="${attr(x.repository+":"+x.tag)}">Remove</button>`}</div></article>`).join("")||'<div class="empty-state">No local images found.</div>');
 }
 function renderVolumes(){
   const rows=state.volumes||[];setText("#volumeNavCount",rows.length);setHtml("#volumeSummary",`<article><span>Total volumes</span><strong>${rows.length}</strong><small>Persistent storage objects</small></article><article><span>Attached</span><strong>${rows.filter(x=>x.inUse).length}</strong><small>Mounted by containers</small></article><article><span>Unused</span><strong>${rows.filter(x=>!x.inUse).length}</strong><small>No detected container mount</small></article>`);
@@ -326,6 +328,9 @@ async function login(event) {
     $("#loginDialog").close();
     renderAuth();
     await load({ quiet: true });
+    // Reload the open page, which may still show "authentication required".
+    const view = $(".view.active");
+    if (view) setView(view.id.slice(5));
     toast(`Signed in as ${result.user}`);
   } catch (error) { $("#loginError").textContent = error.message; }
   finally { button.disabled = false; }
