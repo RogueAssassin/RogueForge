@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.2
+
+- Fixed: the Images page showed image creation time as a raw number (Podman reports a Unix timestamp); it now shows a date.
+- Fixed: the sign-in and confirmation dialogs were much wider than their contents.
+- Fixed: after signing in, the open page stayed on "authentication required" until refreshed.
+
 ## 2.6.1
 
 - Fixed: on windows narrower than about 1240px the Runtime table hid its Ports and Actions columns off to the right. It now shows each container as a card there, and never scrolls sideways.
